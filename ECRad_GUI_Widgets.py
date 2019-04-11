@@ -4,7 +4,8 @@ Created on Mar 21, 2019
 @author: sdenk
 '''
 import wx
-from ECFM_GUI_regex import test_float, test_integer, integer_pattern
+from ECRad_GUI_regex import test_float, test_integer, integer_pattern
+import wx.lib.agw.toasterbox as TB
 import re
 import os
 import numpy as np
@@ -27,20 +28,36 @@ class simple_label_cb(wx.Panel):
         self.label.Wrap(160)
         self.cb = wx.CheckBox(self, wx.ID_ANY, "")
         self.cb.SetValue(state)
+        self.cb.Bind(wx.EVT_CHECKBOX, self.OnNewValByUser)
         self.sizer.Add(self.label, 0, \
             wx.ALIGN_CENTER | wx.ALL, 5)
         self.sizer.Add(self.cb, 0, \
             wx.ALIGN_CENTER | wx.ALL, 5)
         self.SetClientSize(self.GetEffectiveMinSize())
+        self.NewvalueAvailable = False
+        self.state = state
 
     def GetValue(self):
-        return self.cb.GetValue()
+        self.state = self.cb.GetValue()
+        self.NewvalueAvailable = False
+        return self.state
 
     def SetValue(self, state):
+        self.state = state
+        self.NewvalueAvailable = False
         return self.cb.SetValue(state)
 
+    def OnNewValByUser(self, evt):
+        if(self.state != self.cb.GetValue()):
+            self.NewvalueAvailable = True
+        else:
+            self.NewvalueAvailable = False
+
+    def CheckForNewValue(self):
+        return self.NewvalueAvailable
+
 class simple_label_tc(wx.Panel):
-    def __init__(self, parent, label, value, value_type, border=0, tooltip=None):
+    def __init__(self, parent, label, value, value_type, border=0, tooltip=None, scale=None):
         if(border):
             wx.Panel.__init__(self, parent, wx.ID_ANY, style=wx.SUNKEN_BORDER)
         else:
@@ -48,7 +65,12 @@ class simple_label_tc(wx.Panel):
         self.SetAutoLayout(True)
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self.sizer)
-        self.value = value
+        if(scale is not None and value_type in ["real"]):  # Scaling only sensible for reals at this point
+            self.scale = scale
+            self.value = value * self.scale
+        else:
+            self.scale = None
+            self.value = value
         self.value_type = value_type
         label_text = label
         if(use_newlines and len(label_text) > 20):
@@ -60,13 +82,14 @@ class simple_label_tc(wx.Panel):
         self.label = wx.StaticText(self, wx.ID_ANY, label_text, \
                     style=wx.ALIGN_CENTER)
         self.label.Wrap(160)
-        self.tc = wx.TextCtrl(self, wx.ID_ANY, str(value))
+        self.tc = wx.TextCtrl(self, wx.ID_ANY, str(self.value))
         if(tooltip is not None):
             self.tc.SetToolTip(wx.ToolTip(tooltip))
         self.lastValue = str(value)
         self.SetValue(value)
         self.tc.Bind(wx.EVT_SET_FOCUS, self.OnFocus)
         self.tc.Bind(wx.EVT_KILL_FOCUS, self.OnKillFocus)
+        self.tc.Bind(wx.EVT_TEXT, self.OnNewValByUser)
         self.sizer.Add(self.label, 0, \
             wx.ALIGN_CENTER_VERTICAL | wx.ALL | wx.EXPAND, 5)
         self.sizer.Add(self.tc, 0, \
@@ -78,33 +101,41 @@ class simple_label_tc(wx.Panel):
         else:
             self.grsize = (2, 3)
         self.grpos = (-1, -1)
-        self.SetClientSize(self.GetEffectiveMinSize())
+        self.NewvalueAvailable = False
+        self.old_val = self.tc.GetValue()
 
     def GetValue(self):
+        self.old_val = self.tc.GetValue()
+        self.NewvalueAvailable = False
         if(self.value_type == 'string'):
             self.value = self.tc.GetValue()
-            return self.value
-
         elif(self.value_type == 'real'):
             temp_str = self.tc.GetValue().replace('d', 'e').replace(',', '')
             self.value = float(temp_str)
-            return self.value
-
+            if(self.scale is not None):
+                self.value /= self.scale
         elif(self.value_type == 'integer'):
             self.value = int(float(self.tc.GetValue().replace(',', '')))
-            return self.value
+        return self.value
 
     def SetValue(self, Value):
-        if(self.test_str(str(self.GetValue()))):
-            self.lastValue = str(self.GetValue())
-        if(self.value_type == 'string' or type(Value) == str):
-            self.tc.SetValue(Value)
+        if(not self.test_str(str(Value))):
+            raise ValueError("Tried to set text control of type {0:d} with this unsuitable value {1:s}".format(self.value_type, Value))
+        self.value = Value
+        if(self.test_str(self.tc.GetValue())):
+            self.lastValue = self.tc.GetValue()
+        if(self.value_type == 'string' or type(self.value) == str):
+            self.tc.SetValue(self.value)
         elif(type(Value) == np.unicode_):
-            self.tc.SetValue(str(Value))
+            self.tc.SetValue(str(self.value))
         elif(self.value_type == 'real'):
-            self.tc.SetValue("{0:f}".format(Value).replace(',', ''))
+            if(self.scale is not None):
+                self.value *= self.scale
+            self.tc.SetValue("{0:f}".format(self.value).replace(',', ''))
         elif(self.value_type == 'integer'):
-            self.tc.SetValue("{0:d}".format(int(Value)).replace(',', ''))
+            self.tc.SetValue("{0:d}".format(int(self.value)).replace(',', ''))
+        self.old_val = self.tc.GetValue()
+        self.NewvalueAvailable = False
 
     def OnFocus(self, Event):
         self.lastValue = self.tc.GetValue()
@@ -129,104 +160,21 @@ class simple_label_tc(wx.Panel):
                 self.tc.SetValue(text_str + '.0')
             Event.Skip()
 
-    def test_str(self, test_str):
+    def test_str(self, tobechecked):
         if(self.value_type == 'string'):
             return True
-        if(self.value_type == 'real' and test_float(test_str)):
+        if(self.value_type == 'real' and test_float(tobechecked)):
             return True
         elif(self.value_type == 'integer' and re.search(\
-                                                integer_pattern, test_str)):
+                                                integer_pattern, tobechecked)):
             return True
         else:
             return False
 
 
-class Variable_CheckBox(wx.Panel):
-    def __init__(self, parent, Var, border=0):
-        if(border):
-            wx.Panel.__init__(self, parent, wx.ID_ANY, style=wx.SUNKEN_BORDER)
-        else:
-            wx.Panel.__init__(self, parent, wx.ID_ANY)
-        self.Var = Var
-        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.SetSizer(self.sizer)
-        label_text = Var.desc.replace('_', label_seperator)
-        if(use_newlines and len(label_text) > 8):
-            for i in range(7, int(len(label_text))):
-                if(label_text[i] == ' '):
-                    label_text = label_text[0:i] + EOLCHART + \
-                                        label_text[i + 1:len(label_text)]
-                    break
-        self.cb = wx.CheckBox(self, wx.ID_ANY, label_text)
-        self.cb.SetValue(Var.value)
-        self.sizer.Add(self.cb, 0, \
-            wx.ALIGN_CENTER_VERTICAL | wx.ALL | wx.EXPAND, 5)
-        self.grsize = (1, 1)
-        self.grpos = (-1, -1)
-        self.SetClientSize(self.GetEffectiveMinSize())
+    def OnNewValByUser(self, evt):
+        if(self.old_val != self.tc.GetValue()):
+            self.NewvalueAvailable = True
 
-    def ReturnVar(self):
-        self.Var.value = self.cb.GetValue()
-        return self.Var
-
-
-
-class Add_Tuple_Dialog(wx.Dialog):
-    def __init__(self, parent, TupleList, Var):
-        wx.Dialog.__init__(self, parent, wx.ID_ANY)
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.grid = wx.GridSizer(6, Var.n, 5, 5)
-        self.TextCtrlList = []
-        self.Var = Var
-        self.TupleList = TupleList
-        self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.FinishButton = wx.Button(self, wx.ID_ANY, 'Accept')
-        self.Bind(wx.EVT_BUTTON, self.EvtAccept, self.FinishButton)
-        self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
-        self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
-        self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.ButtonSizer.Add(self.FinishButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.label = wx.StaticText(self, wx.ID_ANY, 'Adding tuples to: {0}'\
-            .format(Var.desc) + '.' + EOLCHART + \
-            'Click Accept when you are done', style=wx.ALIGN_CENTER)
-        for i in range(6 * Var.n):
-            self.TextCtrlList.append(wx.TextCtrl(self, wx.ID_ANY))
-            self.grid.Add(self.TextCtrlList[i], 0, wx.ALL, 5)
-        self.SetSizer(self.sizer)
-        self.sizer.Add(self.label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.sizer.Add(self.grid, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
-                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.SetClientSize(self.GetEffectiveMinSize())
-
-
-    def EvtClose(self, Event):
-        self.EndModal(False)
-
-    def EvtAccept(self, Event):
-        for i in range(6):
-            cur_str = ''
-            for j in range(self.Var.n):
-                if(test_float(self.TextCtrlList[i + j].\
-                                        GetValue())):
-                    if(len(cur_str) > 0):
-                        cur_str += ',' + \
-                            self.TextCtrlList[i * self.Var.n + j]\
-                                                                .GetValue()
-                    else:
-                        cur_str = self.TextCtrlList[i * self.Var.n + j]\
-                                                                .GetValue()
-                else:
-                    cur_str = ''
-                    break
-            if('real' in self.Var.var_type and test_float(cur_str, 1)):
-                    if(test_integer(cur_str, 1)):
-                        temp_arr = cur_str.split(',')
-                        cur_str = temp_arr[0] + '.0'
-                        for j in range(1, len(temp_arr)):
-                            cur_str += ',' + temp_arr[j] + '.0'
-                    self.TupleList.append(cur_str)
-            elif('integer' in self.Var.var_type and \
-                            test_integer(cur_str, 1)):
-                    self.TupleList.append(cur_str)
-        self.EndModal(True)
+    def CheckForNewValue(self):
+        return self.NewvalueAvailable

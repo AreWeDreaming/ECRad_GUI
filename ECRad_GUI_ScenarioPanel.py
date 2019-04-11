@@ -7,12 +7,12 @@ from GlobalSettings import AUG, TCV, Phoenix
 import wx
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
 from wxEvents import *
-from plotting_configuration import *
-from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from plotting_core import plotting_core
 import getpass
 import numpy as np
-from ECFM_Interface import load_plasma_from_mat
+from ECRad_Interface import load_plasma_from_mat
+from plotting_configuration import *
+from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 if(Phoenix):
     from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 else:
@@ -56,7 +56,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.control_sizer = wx.BoxSizer(wx.VERTICAL)
         self.load_data_line = wx.StaticLine(self, wx.ID_ANY)
         self.control_sizer.Add(self.load_data_line, 0, \
-                         wx.EXPAND | wx.ALL, 5)
+                               wx.EXPAND | wx.ALL, 5)
         if(AUG):
             self.load_AUG_data_sizer = wx.BoxSizer(wx.VERTICAL)
             self.AUG_data_grid_sizer = wx.GridSizer(0, 4, 0, 0)
@@ -78,7 +78,7 @@ class ScenarioSelectPanel(wx.Panel):
             self.EQ_ed_tc = simple_label_tc(self, "EQ ed", Scenario.EQ_ed, "integer")
             self.AUG_data_grid_sizer.Add(self.EQ_ed_tc, 0, \
                              wx.ALIGN_CENTER | wx.ALL, 5)
-            self.diag_tc = simple_label_tc(self, "Comapre diag", Scenario.default_diag, "string")
+            self.diag_tc = simple_label_tc(self, "Comapare diag", Scenario.default_diag, "string")
             self.AUG_data_grid_sizer.Add(self.diag_tc, 0, \
                              wx.ALIGN_CENTER | wx.ALL, 5)
             self.load_AUG_data_sizer.Add(self.AUG_data_grid_sizer, 0, \
@@ -215,7 +215,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.used_text = wx.StaticText(self, wx.ID_ANY, "Used time points")
         self.used_list = wx.ListBox(self, wx.ID_ANY, style=wx.LB_MULTIPLE)
         self.shotlist = []
-        self.ECFM_result_list = []
+        self.ECRad_result_list = []
         self.used_sizer.Add(self.used_text, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
         self.used_sizer.Add(self.used_list, 1, wx.ALL | wx.EXPAND, 5)
         self.UnlockButton = wx.Button(self, wx.ID_ANY, 'Unlock')
@@ -247,7 +247,8 @@ class ScenarioSelectPanel(wx.Panel):
                 wx.EXPAND, 0)
         self.sizer.Add(self.canvas_sizer, 0, wx.ALL | \
                 wx.ALIGN_TOP, 5)
-        if(len(self.Scenario.plasma_dict) > 0):
+        self.last_used_bt_vac_correction = Config.bt_vac_correction
+        if(len(self.Scenario.plasma_dict["time"]) > 0):
             self.plasma_dict = dict(self.Scenario.plasma_dict)
             self.plasma_dict["eq_exp"] = Scenario.EQ_exp
             self.plasma_dict["eq_diag"] = Scenario.EQ_diag
@@ -258,19 +259,19 @@ class ScenarioSelectPanel(wx.Panel):
             self.used.sort()
             if(len(self.used) > 0):
                 self.used_list.AppendItems(self.used)
-            self.data_source = "file"
+            self.data_source = "self"
             self.loaded = True
         else:
             self.plasma_dict = None
             self.loaded = False
             self.data_source = None
+        self.new_data_available = False
 
     def OnUpdate(self, evt):
-        self.Config = evt.Config
-        self.Scenario = evt.Scenario
+        self.Results = evt.Results
         diag_id_list = []
         for key in self.Scenario.used_diags_dict.keys():
-            diag_id_list.append(self.Scenario.used_diags_dict[key].diag)
+            diag_id_list.append(self.Scenario.used_diags_dict[key].name)
         if(self.diag_tc.GetValue() not in diag_id_list):
             i = 0
             while(diag_id_list[i] == "RMD" or diag_id_list[i] == "CEC"):
@@ -287,13 +288,14 @@ class ScenarioSelectPanel(wx.Panel):
         self.AddButton.Disable()
         self.RemoveButton.Disable()
         self.UnlockButton.Enable()
+        self.new_data_available = False
 
     def OnLoadAUG(self, evt):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Loading AUG data - please wait!')
         self.GetEventHandler().ProcessEvent(evt)
         try:
-            self.Config = self.Parent.Parent.ConfigPage.UpdateConfig(self.Config)
+            self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
         except ValueError as e:
             print("Failed to parse Configuration")
             print("Reason: " + e)
@@ -304,7 +306,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.used_list.Clear()
         self.unused_list.Clear()
         try:
-            self.Scenario = self.Parent.Parent.LaunchPanel.UpdateScenario(self.Scenario)
+            self.Scenario = self.Parent.Parent.launch_panel.UpdateScenario(self.Scenario)
         except ValueError as e:
             print("Failed to parse Configuration")
             print("Reason: " + e)
@@ -358,7 +360,7 @@ class ScenarioSelectPanel(wx.Panel):
         if(len(self.plasma_dict["time"]) == 0):
             return
         if(len(self.plasma_dict["time"]) > 1):
-            self.delta_t = 0.5 * np.mean(self.time[1:len(self.time)] - self.time[0:len(self.time) - 1])
+            self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - self.plasma_dict["time"][0:len(self.plasma_dict["time"]) - 1])
         else:
             self.delta_t = 1.e-3
         for t in self.plasma_dict["time"]:
@@ -379,13 +381,13 @@ class ScenarioSelectPanel(wx.Panel):
         if(len(self.plasma_dict["ECE_rhop"]) > 0):
             ECE_indices = np.zeros((len(self.plasma_dict["ECE_rhop"]), len(self.plasma_dict["ECE_rhop"][0])), dtype=np.bool)
             ECE_labels = []
-            ECFM_labels = []
+            ECRad_labels = []
             for index in range(len(self.plasma_dict["time"])):
                 for rhop in rhop_range:
                     ECE_indices[index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))] = True
                     if(index == 0):
                         ECE_labels.append("ECE $T_\mathrm{rad}$" + "({0:1.2f})".format(self.plasma_dict["ECE_rhop"][index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))]))
-                        ECFM_labels.append("ECFM $T_\mathrm{rad}$" + "({0:1.2f})".format(self.plasma_dict["ECE_rhop"][index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))]))
+                        ECRad_labels.append("ECRad $T_\mathrm{rad}$" + "({0:1.2f})".format(self.plasma_dict["ECE_rhop"][index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))]))
                 if(np.count_nonzero(ECE_indices[index]) != len(rhop_range)):
                     print("Could not find ECE measurements for t = {0:1.4f}".format(self.plasma_dict["time"][index]))
                     print("Choosing first and last channel")
@@ -465,7 +467,7 @@ class ScenarioSelectPanel(wx.Panel):
         if(len(self.plasma_dict["ECE_rhop"]) > 0):
             self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, np.reshape(self.plasma_dict["Te"][Te_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, \
                                                     IDA_labels, np.reshape(np.average(self.plasma_dict["ECE_dat"], axis=1)[ECE_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, ECE_labels, \
-                                                    np.reshape(self.plasma_dict["ECE_mod"][ECE_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, ECFM_labels, \
+                                                    np.reshape(self.plasma_dict["ECE_mod"][ECE_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, ECRad_labels, \
                                                     diag_data, diag_labels, div_cur)
         else:
             self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, np.reshape(self.plasma_dict["Te"][Te_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, \
@@ -474,14 +476,15 @@ class ScenarioSelectPanel(wx.Panel):
         self.elm_filter_cb.Enable()
         self.ECRH_filter_cb.Enable()
         self.loaded = True
-        self.data_source = "AUG"
+        self.new_data_available = True
+        self.data_source = "aug_database"
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('IDA data loaded successfully!')
         self.GetEventHandler().ProcessEvent(evt)
 
     def OnLoadfromMat(self, evt):
         try:
-            self.Config = self.Parent.Parent.ConfigPage.UpdateConfig(self.Config)
+            self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
         except ValueError as e:
             print("Failed to parse Configuration")
             print("Reason: " + e)
@@ -492,7 +495,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.used_list.Clear()
         self.unused_list.Clear()
         try:
-            self.Scenario = self.Parent.Parent.LaunchPanel.UpdateScenario(self.Scenario)
+            self.Scenario = self.Parent.Parent.launch_panel.UpdateScenario(self.Scenario)
         except ValueError as e:
             print("Failed to parse Configuration")
             print("Reason: " + e)
@@ -502,61 +505,66 @@ class ScenarioSelectPanel(wx.Panel):
             defaultDir=self.Config.working_dir, \
             wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
             style=wx.FD_OPEN)
-        if(dlg.ShowModal() == wx.ID_OK):
-            path = dlg.GetPath()
-            dlg.Destroy()
-            self.plasma_dict = load_plasma_from_mat(path)
-            if(self.plasma_dict is None):
-                return
-            self.Scenario.shot = self.plasma_dict["shot"]
-            self.shot_tc.SetValue(self.plasma_dict["shot"])
-            self.Scenario.EQ_exp = self.plasma_dict["eq_exp"]
-            self.Scenario.EQ_diag = self.plasma_dict["eq_diag"]
-            self.Scenario.EQ_ed = self.plasma_dict["eq_ed"]
-            print("Updated equilibrium settings with values from IDA shotfile")
-            self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
-            self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
-            self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
-            self.delta_t = 0.5 * np.mean(self.time[1:len(self.time)] - self.time[0:len(self.time) - 1])
-            for t in self.time:
-                self.unused.append("{0:2.5f}".format(t))
-            self.unused = list(set(self.unused))
-            self.unused.sort()
-            if(len(self.unused) > 0):
-                self.unused_list.AppendItems(self.unused)
-            self.pc_obj.reset(True)
-            Te_indices = np.zeros((len(self.Scenario.plasma_dict["Te"]), len(self.Scenario.plasma_dict["Te"][0])), dtype=np.bool)
-            IDA_labels = []
-            rhop_range = [0.2, 0.95]
-            for index in range(len(self.time)):
-                for rhop in rhop_range:
-                    Te_indices[index][np.argmin(np.abs(self.Scenario.plasma_dict["rhop_prof"][index] - rhop))] = True
-                    if(index == 0):
-                        IDA_labels.append("$T_\mathrm{e}$" + "({0:1.2f})".format(self.Scenario.plasma_dict["rhop_prof"][index][np.argmin(np.abs(self.Scenario.plasma_dict["rhop_prof"][index] - rhop))]))
-            diag_time = None
-            diag_data = None
-            diag_labels = None
-            self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.time, diag_time, np.reshape(self.Scenario.plasma_dict["Te"][Te_indices], (len(self.time), len(rhop_range))).T, \
-                                                        IDA_labels, [], [], \
-                                                        [], [], \
-                                                        diag_data, diag_labels, None)
-            self.canvas.draw()
-            self.loaded = True
-            self.data_source = "file"
-            evt2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.Parent.Parent.NotebookPanel.GetId())
-            evt2.SetConfig(self.Scenario)
-            wx.PostEvent(self.Parent.Parent.NotebookPanel, evt2)
-            evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
-            self.GetEventHandler().ProcessEvent(evt)
+        if(dlg.ShowModal() != wx.ID_OK):
+            return
+        path = dlg.GetPath()
+        dlg.Destroy()
+        self.plasma_dict = load_plasma_from_mat(path)
+        if(self.plasma_dict is None):
+            return
+        self.Scenario.shot = self.plasma_dict["shot"]
+        self.shot_tc.SetValue(self.plasma_dict["shot"])
+        self.Scenario.EQ_exp = self.plasma_dict["eq_exp"]
+        self.Scenario.EQ_diag = self.plasma_dict["eq_diag"]
+        self.Scenario.EQ_ed = self.plasma_dict["eq_ed"]
+        print("Updated equilibrium settings with values from IDA shotfile")
+        self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
+        self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
+        self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
+        self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - self.plasma_dict["time"][0:len(self.plasma_dict["time"]) - 1])
+        for t in self.plasma_dict["time"]:
+            self.unused.append("{0:2.5f}".format(t))
+        self.unused = list(set(self.unused))
+        self.unused.sort()
+        if(len(self.unused) > 0):
+            self.unused_list.AppendItems(self.unused)
+        self.pc_obj.reset(True)
+        Te_indices = np.zeros((len(self.Scenario.plasma_dict["Te"]), len(self.Scenario.plasma_dict["Te"][0])), dtype=np.bool)
+        IDA_labels = []
+        rhop_range = [0.2, 0.95]
+        for index in range(len(self.plasma_dict["time"])):
+            for rhop in rhop_range:
+                Te_indices[index][np.argmin(np.abs(self.Scenario.plasma_dict["rhop_prof"][index] - rhop))] = True
+                if(index == 0):
+                    IDA_labels.append("$T_\mathrm{e}$" + "({0:1.2f})".format(self.Scenario.plasma_dict["rhop_prof"][index][np.argmin(np.abs(self.Scenario.plasma_dict["rhop_prof"][index] - rhop))]))
+        diag_time = None
+        diag_data = None
+        diag_labels = None
+        self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, np.reshape(self.Scenario.plasma_dict["Te"][Te_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, \
+                                                    IDA_labels, [], [], \
+                                                    [], [], \
+                                                    diag_data, diag_labels, None)
+        self.canvas.draw()
+        self.loaded = True
+        self.new_data_available = True
+        self.data_source = "file:" + path
+        evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+        evt.SetStatus('Data loaded successfully!')
+        self.GetEventHandler().ProcessEvent(evt)
+
+    def UpdateNeeded(self):
+        return self.new_data_available
 
     def LoadScenario(self, Scenario, Config, callee):
         if(self.loaded == False):
-            print("Load data first!")
-            raise ValueError
+            print("No plasma data loaded yet!")
+            return Scenario
         elif(len(self.used) == 0):
             print("No time points selected!")
-            raise ValueError
+            return Scenario
         # Get rid of the old stuff it will be updated now
+        old_time_list = Scenario.plasma_dict["time"]
+        old_eq_list = Scenario.plasma_dict["eq_data"]
         Scenario.reset()
         Scenario.shot = self.shot_tc.GetValue()
         Scenario.IDA_exp = self.IDA_exp_tc.GetValue()
@@ -565,19 +573,14 @@ class ScenarioSelectPanel(wx.Panel):
         Scenario.EQ_exp = self.plasma_dict["eq_exp"]
         Scenario.EQ_diag = self.plasma_dict["eq_diag"]
         Scenario.EQ_ed = self.plasma_dict["eq_ed"]
-        Scenario.plasma_dict["eq_data"] = []
         Scenario.plasma_dict["vessel_bd"] = self.plasma_dict["vessel_bd"]
-        if(self.data_source == "AUG"):
-            EQObj = EQData(Scenario.shot, EQ_exp=Scenario.EQ_exp, EQ_diag=Scenario.EQ_diag, EQ_ed=Scenario.EQ_ed, bt_vac_correction=Config.bt_vac_correction)
-        else:
-            if(Config.bt_vac_correction != 1.0):
-                print("Warning ", Config.bt_vac_correction, " differs from 1")
-                print("Since vacuum component of Bt cannot be determined for external data the entire Bt will be scaled")
+        EQObj = None
+        if(not self.data_source == "aug_database" and  Config.bt_vac_correction != 1.0):
+            print("Warning ", Config.bt_vac_correction, " differs from 1")
+            print("Since vacuum component of Bt cannot be determined for external data the entire Bt will be scaled")
         profile_dimension = len(self.plasma_dict["Te"][0].shape)
         if(profile_dimension == 1):
             Scenario.plasma_dict["rhop_prof"] = []
-        Scenario.plasma_dict["Te"] = []
-        Scenario.plasma_dict["ne"] = []
         for time in self.used:
             Scenario.plasma_dict["time"].append(float(time))
             itime = np.argmin(np.abs(self.plasma_dict["time"] - Scenario.plasma_dict["time"][-1]))
@@ -585,17 +588,24 @@ class ScenarioSelectPanel(wx.Panel):
                 Scenario.plasma_dict["rhop_prof"].append(self.plasma_dict["rhop_prof"][itime])
             Scenario.plasma_dict["Te"].append(self.plasma_dict["Te"][itime] * Config.Te_scale)
             Scenario.plasma_dict["ne"].append(self.plasma_dict["ne"][itime] * Config.ne_scale)
-            if(self.data_source == "AUG"):
-                Scenario.plasma_dict["eq_data"].append(EQObj.read_EQ_from_shotfile(Scenario.plasma_dict["time"][-1]))
+            if(float(time) in old_time_list and self.last_used_bt_vac_correction == Config.bt_vac_correction):
+                Scenario.plasma_dict["eq_data"].append(old_eq_list[np.argmin(np.abs(old_time_list - float(time)))])
+            elif(self.data_source == "aug_database"):
+                if(EQObj is None):
+                    EQObj = EQData(Scenario.shot, EQ_exp=Scenario.EQ_exp, EQ_diag=Scenario.EQ_diag, EQ_ed=Scenario.EQ_ed, bt_vac_correction=Config.bt_vac_correction)
+                Scenario.plasma_dict["eq_data"].append(EQObj.GetSlice(Scenario.plasma_dict["time"][-1]))
             else:
                 Scenario.plasma_dict["eq_data"].append(self.plasma_dict["eq_data"][itime])
                 Scenario.plasma_dict["eq_data"][-1].Bt *= Config.bt_vac_correction
+        Scenario.data_source = self.data_source
         Scenario.plasma_set = True
+        self.new_data_available = False
         self.Scenario = Scenario
+        self.last_used_bt_vac_correction = Config.bt_vac_correction
         return Scenario
 
     def OnFilterElms(self, evt):
-        if(self.data_source != "AUG"):
+        if(self.data_source != "aug_database"):
             print("Elm sync not available for non-AUG data")
         filter_elms = self.elm_filter_cb.GetValue()
         if(filter_elms):
@@ -758,12 +768,12 @@ class ScenarioSelectPanel(wx.Panel):
 
     def GetUsedIDAIndices(self):
         used_timepoints = np.array(self.used, dtype=np.double)
-        IDA_timepoint_used = np.zeros(len(self.time), dtype=np.bool)
+        IDA_timepoint_used = np.zeros(len(self.plasma_dict["time"]), dtype=np.bool)
         for t in used_timepoints:
-            if(np.min(np.abs(t - self.time)) > self.delta_t):
+            if(np.min(np.abs(t - self.plasma_dict["time"])) > self.delta_t):
                 print("Error: Somehow a time point got into the used pile, without having a corresponding IDA time point")
             else:
-                IDA_timepoint_used[np.argmin(np.abs(t - self.time))] = True
+                IDA_timepoint_used[np.argmin(np.abs(t - self.plasma_dict["time"]))] = True
         return IDA_timepoint_used
 
     def OnFill(self, evt):
@@ -799,6 +809,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.unused_list.Clear()
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
+        self.new_data_available = True
 
     def OnAdd(self, evt):
         time = np.linspace(self.t_start_tc.GetValue(), self.t_end_tc.GetValue(), self.steps_tc.GetValue())
@@ -827,6 +838,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.unused_list.Clear()
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
+        self.new_data_available = True
 
     def OnPlotClick(self, evt):
         if(evt.dblclick):
@@ -853,6 +865,7 @@ class ScenarioSelectPanel(wx.Panel):
             self.unused_list.Clear()
             if(len(self.unused) > 0):
                 self.unused_list.AppendItems(self.unused)
+            self.new_data_available = True
 
     def OnAddSelection(self, evt):
         sel = self.unused_list.GetSelections()
@@ -869,6 +882,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.unused_list.Clear()
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
+        self.new_data_available = True
 
     def OnUnlockSelection(self, evt):
         self.used_list.Enable()
@@ -893,6 +907,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.unused_list.Clear()
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
+        self.new_data_available = True
 
 #    def OnMakeLUKEdata(self, evt):
 #        if(len(self.used) == 0):

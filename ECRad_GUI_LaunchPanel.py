@@ -9,14 +9,14 @@ import wx
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row
 from collections import OrderedDict as od
 import numpy as np
-from ECFM_Interface import get_diag_launch, write_diag_launch
+from ECRad_Interface import get_diag_launch, write_diag_launch
 import os
 from Diags import ECRH_diag, EXT_diag
 if(AUG):
     from get_ECRH_config import get_ECRH_launcher, get_ECRH_viewing_angles
     from shotfile_handling_AUG import get_ECI_launch
 
-class Launch_Panel(wx.Panel):
+class LaunchPanel(wx.Panel):
     def __init__(self, parent, Scenario):
         wx.Panel.__init__(self, parent, wx.ID_ANY)
         self.Notebook = Diag_Notebook(self)
@@ -39,6 +39,7 @@ class Launch_Panel(wx.Panel):
         self.Notebook.Spawn_Pages(Scenario.avail_diags_dict)
         self.sizer.Add(self.Notebook, 0, wx.ALL | wx.LEFT, 5)
         self.SetSizer(self.sizer)
+        self.new_data_available = False
 
     def RecreateNb(self):
         self.Notebook.DeleteAllPages()
@@ -47,20 +48,25 @@ class Launch_Panel(wx.Panel):
     def UpdateScenario(self, Scenario):
         Scenario.diags_set = False
         Scenario.avail_diags_dict = self.Notebook.UpdateDiagDict(Scenario.avail_diags_dict)
+        Scenario.used_diags_dict = od()
         for Diagkey in self.diag_cb_dict.keys():
             if(self.diag_cb_dict[Diagkey].GetValue()):
                 Scenario.used_diags_dict.update({Diagkey : Scenario.avail_diags_dict[Diagkey]})
+        if(len(Scenario.used_diags_dict.keys()) == 0):
+            print("No diagnostics Selected")
+            return Scenario
         if(len(Scenario.plasma_dict["time"]) == 0):
             # No time points yet, only updating diag info
             return Scenario
+        gy_dict = {}
+        ECI_dict = {}
         for diag_key in Scenario.used_diags_dict.keys():
-            gy_dict = {}
             if("CT" in diag_key or "IEC" == diag_key):
-                new_gy = get_ECRH_viewing_angles(self.Scenario.shot, \
-                                                self.Scenario.used_diags_dict[diag_key].beamline, \
-                                                self.Scenario.used_diags_dict[diag_key].base_freq_140)
+                new_gy = get_ECRH_viewing_angles(Scenario.shot, \
+                                                Scenario.used_diags_dict[diag_key].beamline, \
+                                                Scenario.used_diags_dict[diag_key].base_freq_140)
                 if(new_gy.error == 0):
-                    gy_dict[str(self.Scenario.used_diags_dict[diag_key].beamline)] = new_gy
+                    gy_dict[str(Scenario.used_diags_dict[diag_key].beamline)] = new_gy
                 else:
                     print("Error when reading viewing angles")
                     print("Launch aborted")
@@ -68,9 +74,8 @@ class Launch_Panel(wx.Panel):
                     evt.SetStatus('Error while preparing launch!')
                     self.GetEventHandler().ProcessEvent(evt)
                     return
-            ECI_dict = {}
             if(diag_key in ["ECN", "ECO", "ECI"]):
-                ECI_dict = get_ECI_launch(self.Scenario.used_diags_dict[diag_key], self.Config.shot)
+                ECI_dict = get_ECI_launch(Scenario.used_diags_dict[diag_key], Scenario.shot)
         Scenario.ray_launch = []
         # Prepare the launches for each time point
         # Some diagnostics have steerable LO, hence each time point has an individual launch
@@ -87,17 +92,28 @@ class Launch_Panel(wx.Panel):
                 self.diag_cb_dict[Diagkey].SetValue(True)
         self.Notebook.DistributeInfo(Scenario)
 
+    def UpdateNeeded(self):
+        check_list = []
+        for Diagkey in self.diag_cb_dict.keys():
+            if(self.diag_cb_dict[Diagkey].CheckForNewValue()):
+                return True
+            if(self.diag_cb_dict[Diagkey].GetValue()):
+                check_list.append(Diagkey)
+        if(len(check_list) == 0):
+            return True
+        return  self.Notebook.CheckForNewValues(check_list)
+
 class Diag_Notebook(wx.Choicebook):
     def __init__(self, parent):
         wx.Choicebook.__init__(self, parent, wx.ID_ANY, \
                             style=wx.BK_DEFAULT)
-        self.PageList = []
+        self.PageDict = od()
 
     def Spawn_Pages(self, DiagDict) :
         self.varsize = (0, 0)
         for diag in DiagDict.keys():
-            self.PageList.append(Diag_Page(self, DiagDict[diag]))
-            pagename = self.PageList[-1].name
+            self.PageDict.update({diag : Diag_Page(self, DiagDict[diag])})
+            pagename = diag
             if(len(pagename) > 10 and ' ' in pagename):
                 pagelist = pagename.split(' ')
                 pagename = ""
@@ -111,18 +127,23 @@ class Diag_Notebook(wx.Choicebook):
                     pagename = pagename + pagelist[j]
                 if(pagename.endswith('\n') or pagename.endswith(' ')):
                     pagename = pagename[0:len(pagename) - 1]
-            self.AddPage(self.PageList[-1], pagename)
+            self.AddPage(self.PageDict[diag], pagename)
 
     def UpdateDiagDict(self, DiagDict):
-        for i in range(len(self.PageList)):
-            DiagDict[self.PageList[i].name] = self.PageList[i].RetrieveDiag()
+        for diag in self.PageDict.keys():
+            DiagDict[diag] = self.PageDict[diag].RetrieveDiag()
         return DiagDict
 
     def DistributeInfo(self, Scenario):
-        for i in range(len(self.PageList)):
-            if(self.PageList[i].name in Scenario.avail_diags_dict.keys()):
-                self.PageList[i].DepositDiag(Scenario.avail_diags_dict[self.PageList[i].name])
+        for diag in self.PageDict.keys():
+            if(self.PageDict[diag].name in Scenario.avail_diags_dict.keys()):
+                self.PageDict[diag].DepositDiag(Scenario.avail_diags_dict[self.PageDict[diag].name])
 
+    def CheckForNewValues(self, check_list):
+        for diag in check_list:
+            if(self.PageDict[diag].CheckForNewValues()):
+                return True
+        return False
 
 class Diag_Page(wx.Panel):
     def __init__(self, parent, Diag_obj, border=1, maxwidth=max_var_in_row, \
@@ -130,7 +151,10 @@ class Diag_Page(wx.Panel):
         wx.Panel.__init__(self, parent, wx.ID_ANY, style=style)
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.SetSizer(self.sizer)
-        self.diagpanel = Diag_Panel(self, Diag_obj)
+        if(hasattr(Diag_obj, "N_ch")):
+            self.diagpanel = ExtDiagPanel(self, Diag_obj)
+        else:
+            self.diagpanel = Diag_Panel(self, Diag_obj)
         self.name = Diag_obj.name
         self.sizer.Add(self.diagpanel, 0, wx.ALL | wx.TOP, 5)
 
@@ -141,11 +165,12 @@ class Diag_Page(wx.Panel):
     def DepositDiag(self, diag):
         self.diagpanel.SetDiag(diag)
 
+    def CheckForNewValues(self):
+        return self.diagpanel.CheckForNewValues()
+
 class Diag_Panel(wx.Panel):
     def __init__(self, parent, Diag_obj):
         wx.Panel.__init__(self, parent, wx.ID_ANY, style=wx.SUNKEN_BORDER)
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.SetSizer(self.sizer)
         self.Diag = Diag_obj
         self.grid_sizer = wx.GridSizer(0, 4, 0, 0)
         self.art_data_beamline = 1
@@ -153,277 +178,130 @@ class Diag_Panel(wx.Panel):
         self.art_data_pol_coeff_X = 1.0
         self.art_data_pol_launch = 0.0
         self.art_data_tor_launch = 0.0
-        if(not hasattr(self.Diag, 'N_ch')):
-            self.N_freq_tc = simple_label_tc(self, "# frequencies", self.Diag.N_freq, "integer")
-            self.N_freq_tc.Disable()
-            self.N_ray_tc = simple_label_tc(self, "# rays", self.Diag.N_ray, "integer")
-            self.N_ray_tc.Disable()
-            self.waist_scale_tc = simple_label_tc(self, "waist scale", self.Diag.waist_scale, "real")
-            self.waist_scale_tc.Disable()
-            self.waist_shift_tc = simple_label_tc(self, "waist shift", self.Diag.waist_shift, "real")
-            self.waist_shift_tc.Disable()
-        self.exp_tc = simple_label_tc(self, "Exp", self.Diag.exp, "string")
-        self.diag_tc = simple_label_tc(self, "DIAG", self.Diag.diag, "string")
-        self.ed_tc = simple_label_tc(self, "Edition", self.Diag.ed, "integer")
-        if(hasattr(self.Diag, 'beamline')):
-            if(self.Diag.name == "CTC" or self.Diag.name == "IEC"):
-                self.beamline_tc = simple_label_tc(self, "Beamline", self.Diag.beamline, "integer")
+        self.widget_dict = {}
+        self.selected_channel = 0
+        for attribute in Diag_obj.properties:
+            if(Diag_obj.data_types_dict[attribute] != "bool"):
+                scale = None
+                if(attribute in Diag_obj.scale_dict.keys()):
+                    scale = Diag_obj.scale_dict[attribute]
+                self.widget_dict[attribute] = simple_label_tc(self, Diag_obj.descriptions_dict[attribute], \
+                                                              getattr(Diag_obj, attribute), \
+                                                              Diag_obj.data_types_dict[attribute], \
+                                                              scale=scale)
             else:
-                self.beamline_tc = simple_label_tc(self, "Beamline", self.Diag.beamline, "integer")
-            self.pol_coeff_X_tc = simple_label_tc(self, "Pol. coeff. X", self.Diag.pol_coeff_X, "real")
-            self.base_freq_140_cb = simple_label_cb(self, "140 [GHz]", self.Diag.base_freq_140)
-        elif(hasattr(self.Diag, 'Rz_exp')):
-            self.RZ_label = wx.StaticText(self, wx.ID_ANY, "Geometry:")
-            self.exp_tc_RZ = simple_label_tc(self, "Exp", self.Diag.Rz_exp, "string")
-            self.diag_tc_RZ = simple_label_tc(self, "DIAG", self.Diag.Rz_diag, "string")
-            self.ed_tc_RZ = simple_label_tc(self, "Edition", self.Diag.Rz_ed, "integer")
-            self.grid_sizer.AddSpacer(10)
-        elif(hasattr(self.Diag, 'N_ch')):
-            self.selected_channel = 0
-            self.N_freq_tc = simple_label_tc(self, "# frequencies", self.Diag.N_freq[self.selected_channel], "integer")
-            self.N_freq_tc.Disable()
-            self.N_ray_tc = simple_label_tc(self, "# rays", self.Diag.N_ray[self.selected_channel], "integer")
-            self.N_ray_tc.Disable()
-            self.waist_scale_tc = simple_label_tc(self, "waist scale", self.Diag.waist_scale[self.selected_channel], "real")
-            self.waist_scale_tc.Disable()
-            self.waist_shift_tc = simple_label_tc(self, "waist shift", self.Diag.waist_shift[self.selected_channel], "real")
-            self.waist_shift_tc.Disable()
-            self.ext_h_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            self.N_ch_tc = simple_label_tc(self, "# of Channels", self.Diag.N_ch, "integer")
-            self.update_N_ch_Button = wx.Button(self, label='Update Channel Number')
-            self.update_N_ch_Button.Bind(wx.EVT_BUTTON, self.OnUpdateNch)
-            self.chanel_select = wx.ComboBox(self, wx.ID_ANY, choices=np.array(range(1, self.Diag.N_ch + 1), dtype="|S3").tolist(), \
-                                             style=wx.CB_READONLY | wx.ALIGN_CENTRE, size=(150, -1))
-            self.chanel_select.Bind(wx.EVT_COMBOBOX, self.OnNewChannelSelected)
-            self.ray_launch_format_cb = simple_label_cb(self, "Raylaunch file", False)
-            self.load_launch_Button = wx.Button(self, label='Load launch')
-            self.load_launch_Button.Bind(wx.EVT_BUTTON, self.OnLoadLaunch)
-            self.save_launch_Button = wx.Button(self, label='Save launch')
-            self.save_launch_Button.Bind(wx.EVT_BUTTON, self.OnSaveLaunch)
-            self.ArtCTA_launch_Button = wx.Button(self, label='Artifical CTA launch')
-            self.ArtCTA_launch_Button.Bind(wx.EVT_BUTTON, self.OnMakeArtificalCTA)
-            self.f_tc = simple_label_tc(self, "f [GHz]", self.Diag.f[self.selected_channel] / 1.e9, "real")
-            self.df_tc = simple_label_tc(self, "Bandwidth [GHz]", self.Diag.df[self.selected_channel] / 1.e9, "real")
-            self.R_tc = simple_label_tc(self, "R [m]", self.Diag.R[self.selected_channel], "real")
-            self.phi_tc = simple_label_tc(self, "phi [deg]", self.Diag.phi[self.selected_channel], "real")
-            self.z_tc = simple_label_tc(self, "z [m]", self.Diag.z[self.selected_channel], "real")
-            self.theta_pol_tc = simple_label_tc(self, "theta pol [deg]", self.Diag.theta_pol[self.selected_channel], "real")
-            self.phi_tor_tc = simple_label_tc(self, "phi tor [deg]", self.Diag.phi_tor[self.selected_channel], "real")
-            self.dist_focus_tc = simple_label_tc(self, "distance launch-focus [m]", self.Diag.dist_focus[self.selected_channel], "real")
-            self.width_tc = simple_label_tc(self, "1/e^2 beam width[m]", self.Diag.width[self.selected_channel], "real")
-            self.pol_coeff_X_tc = simple_label_tc(self, "X-mode fraction", self.Diag.pol_coeff_X[self.selected_channel], "real", \
-                                                  tooltip="-1 for toroidally aligned polarizer")
-            self.chanel_select.Select(0)
-            # self.launch_label = wx.StaticText(self, wx.ID_ANY, "Launching Geometry")
-            self.grid_sizer.AddSpacer(10)
-        elif(hasattr(self.Diag, 'R_scale')):
-            self.R_scale_tc = simple_label_tc(self, "R scale", self.Diag.R_scale, "real")
-            self.z_scale_tc = simple_label_tc(self, "z scale", self.Diag.z_scale, "real")
-        self.grid_sizer.Add(self.N_freq_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-        self.grid_sizer.Add(self.N_ray_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-        self.grid_sizer.Add(self.waist_scale_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-        self.grid_sizer.Add(self.waist_shift_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-        self.grid_sizer.Add(self.exp_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-        self.grid_sizer.Add(self.diag_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-        self.grid_sizer.Add(self.ed_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-        if(hasattr(self.Diag, 'beamline')):
-            self.grid_sizer.Add(self.beamline_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.pol_coeff_X_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.base_freq_140_cb, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-        elif(hasattr(self.Diag, 'Rz_exp')):
-            self.grid_sizer.Add(self.RZ_label, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.exp_tc_RZ, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.diag_tc_RZ, 0, \
-                             wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.ed_tc_RZ, 0, \
-                             wx.ALIGN_LEFT | wx.ALL, 5)
-        elif(hasattr(self.Diag, 'N_ch')):
-            self.ext_h_sizer.Add(self.N_ch_tc, 0, \
-                                 wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
-            self.ext_h_sizer.Add(self.update_N_ch_Button, 0, \
-                                 wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
-            self.ext_h_sizer.Add(self.chanel_select, 1, \
-                                 wx.EXPAND | wx.ALL, 5)
-            self.ext_h_sizer.Add(self.ray_launch_format_cb, 1, \
-                                 wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
-            self.ext_h_sizer.Add(self.load_launch_Button, 1, \
-                                 wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
-            self.ext_h_sizer.Add(self.save_launch_Button, 1, \
-                                 wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
-            self.ext_h_sizer.Add(self.ArtCTA_launch_Button, 1, \
-                                 wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
-            self.sizer.Add(self.ext_h_sizer, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.f_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.df_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.R_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.phi_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.z_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.theta_pol_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.phi_tor_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.dist_focus_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.width_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.pol_coeff_X_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-        elif(hasattr(self.Diag, 'R_scale')):
-            self.grid_sizer.Add(self.R_scale_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-            self.grid_sizer.Add(self.z_scale_tc, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
-        self.sizer.Add(self.grid_sizer, 0, \
-                             wx.ALIGN_LEFT | wx.ALL, 5)
-        self.SetSize(self.sizer.GetSize())
+                self.widget_dict[attribute] = simple_label_cb(self, Diag_obj.descriptions_dict[attribute], \
+                                                              getattr(Diag_obj, attribute))
+            self.grid_sizer.Add(self.widget_dict[attribute], 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
+            self.SetSizer(self.grid_sizer)
+
+    def GetDiag(self):
+        for attribute in self.Diag.properties:
+            setattr(self.Diag, attribute, self.widget_dict[attribute].GetValue())
+        return self.Diag
+
+    def SetDiag(self, Diag):
+        self.Diag = Diag
+        for attribute in self.Diag.properties:
+            self.widget_dict[attribute].SetValue(getattr(self.Diag, attribute))
+
+    def CheckForNewValues(self):
+        for attribute in self.Diag.properties:
+            if(self.widget_dict[attribute].CheckForNewValue()):
+                return True
+        return False
+
+class ExtDiagPanel(Diag_Panel):
+    def __init__(self, parent, Diag_obj):
+        wx.Panel.__init__(self, parent, wx.ID_ANY, style=wx.SUNKEN_BORDER)
+        self.Diag = Diag_obj
+        self.grid_sizer = wx.GridSizer(0, 4, 0, 0)
+        self.art_data_beamline = 1
+        self.art_data_base_freq_140 = True
+        self.art_data_pol_coeff_X = 1.0
+        self.art_data_pol_launch = 0.0
+        self.art_data_tor_launch = 0.0
+        self.widget_dict = {}
+        self.selected_channel = 0
+        self.NewValues = False
+        N_ch = getattr(Diag_obj, "N_ch")
+        self.widget_dict["N_ch"] = simple_label_tc(self, Diag_obj.descriptions_dict["N_ch"], \
+                                                   getattr(Diag_obj, "N_ch"), \
+                                                   Diag_obj.data_types_dict["N_ch"])
+        self.grid_sizer.Add(self.widget_dict["N_ch"], 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
+        self.channel_ctrl_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.channel_select_ch = wx.Choice(self, wx.ID_ANY)
+        self.channel_select_ch.AppendItems(np.array(range(1, N_ch + 1), dtype="|S3").tolist())
+        self.channel_select_ch.SetSelection(self.selected_channel)
+        self.channel_select_ch.Bind(wx.EVT_CHOICE, self.OnNewChannelSelected)
+        self.channel_ctrl_sizer.Add(self.channel_select_ch, 0, wx.EXPAND | wx.ALL, 5)
+        self.update_N_ch_Button = wx.Button(self, label='Update Channel Number')
+        self.update_N_ch_Button.Bind(wx.EVT_BUTTON, self.OnUpdateNch)
+        self.channel_ctrl_sizer.Add(self.update_N_ch_Button, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
+        self.grid_sizer.Add(self.channel_ctrl_sizer, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
+        for attribute in Diag_obj.properties:
+            if(attribute == "N_ch"):
+                continue
+            if(Diag_obj.data_types_dict[attribute] != "bool"):
+                scale = None
+                if(attribute in Diag_obj.scale_dict.keys()):
+                    scale = Diag_obj.scale_dict[attribute]
+                self.widget_dict[attribute] = simple_label_tc(self, Diag_obj.descriptions_dict[attribute], \
+                                                              getattr(Diag_obj, attribute)[self.selected_channel], \
+                                                              Diag_obj.data_types_dict[attribute], \
+                                                              scale=scale)
+            else:
+                self.widget_dict[attribute] = simple_label_cb(self, Diag_obj.descriptions_dict[attribute], \
+                                                              getattr(Diag_obj, attribute))
+            self.grid_sizer.Add(self.widget_dict[attribute], 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
+        self.SetSizer(self.grid_sizer)
 
     def OnUpdateNch(self, evt):
-        N_ch = self.N_ch_tc.GetValue()
+        N_ch = self.widget_dict["N_ch"].GetValue()
         if(N_ch < self.Diag.N_ch):
-            temp = self.Diag.f
-            self.Diag.f = np.zeros(N_ch)
-            self.Diag.f[:] = temp[0:N_ch]
-            temp = self.Diag.df
-            self.Diag.df = np.zeros(N_ch)
-            self.Diag.df[:] = temp[0:N_ch]
-            temp = self.Diag.N_freq
-            self.Diag.N_freq = np.zeros(N_ch, dtype=np.int)
-            self.Diag.N_freq[:] = temp[0:N_ch]
-            temp = self.Diag.N_ray
-            self.Diag.N_ray = np.zeros(N_ch, dtype=np.int)
-            self.Diag.N_ray[:] = temp[0:N_ch]
-            temp = self.Diag.waist_scale
-            self.Diag.waist_scale = np.zeros(N_ch)
-            self.Diag.waist_scale[:] = temp[0:N_ch]
-            temp = self.Diag.waist_shift
-            self.Diag.waist_shift = np.zeros(N_ch)
-            self.Diag.waist_shift[:] = temp[0:N_ch]
-            temp = self.Diag.R
-            self.Diag.R = np.zeros(N_ch)
-            self.Diag.R[:] = temp[0:N_ch]
-            temp = self.Diag.phi
-            self.Diag.phi = np.zeros(N_ch)
-            self.Diag.phi[:] = temp[0:N_ch]
-            temp = self.Diag.z
-            self.Diag.z = np.zeros(N_ch)
-            self.Diag.z[:] = temp[0:N_ch]
-            temp = self.Diag.theta_pol
-            self.Diag.theta_pol = np.zeros(N_ch)
-            self.Diag.theta_pol[:] = temp[0:N_ch]
-            temp = self.Diag.phi_tor
-            self.Diag.phi_tor = np.zeros(N_ch)
-            self.Diag.phi_tor[:] = temp[0:N_ch]
-            temp = self.Diag.dist_focus
-            self.Diag.dist_focus = np.zeros(N_ch)
-            self.Diag.dist_focus[:] = temp[0:N_ch]
-            temp = self.Diag.width
-            self.Diag.width = np.zeros(N_ch)
-            self.Diag.width[:] = temp[0:N_ch]
             if(self.selected_channel > N_ch):
                 self.selected_channel = N_ch - 1
+        # Shorten current channel list
+            for attribute in self.Diag.properties:
+                if(attribute == "N_ch"):
+                    continue
+                temp = np.copy(getattr(self.Diag, attribute))
+                new_vals = np.zeros(N_ch)
+                new_vals[:] = temp[0:N_ch]
+                setattr(self.Diag, attribute, new_vals)
         elif(N_ch > self.Diag.N_ch):
-            temp = self.Diag.f
-            self.Diag.f = np.zeros(N_ch)
-            self.Diag.f[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.f[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.df
-            self.Diag.df = np.zeros(N_ch)
-            self.Diag.df[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.df[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.N_freq
-            self.Diag.N_freq = np.zeros(N_ch, dtype=np.int)
-            self.Diag.N_freq[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.N_freq[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.N_ray
-            self.Diag.N_ray = np.zeros(N_ch)
-            self.Diag.N_ray[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.N_ray[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.waist_scale
-            self.Diag.waist_scale = np.zeros(N_ch)
-            self.Diag.waist_scale[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.waist_scale[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.waist_shift
-            self.Diag.waist_shift = np.zeros(N_ch)
-            self.Diag.waist_shift[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.waist_shift[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.R
-            self.Diag.R = np.zeros(N_ch)
-            self.Diag.R[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.R[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.phi
-            self.Diag.phi = np.zeros(N_ch)
-            self.Diag.phi[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.phi[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.z
-            self.Diag.z = np.zeros(N_ch)
-            self.Diag.z[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.z[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.theta_pol
-            self.Diag.theta_pol = np.zeros(N_ch)
-            self.Diag.theta_pol[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.theta_pol[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.phi_tor
-            self.Diag.phi_tor = np.zeros(N_ch)
-            self.Diag.phi_tor[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.phi_tor[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.dist_focus
-            self.Diag.dist_focus = np.zeros(N_ch)
-            self.Diag.dist_focus[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.dist_focus[self.Diag.N_ch:N_ch] = temp[-1]
-            temp = self.Diag.width
-            self.Diag.width = np.zeros(N_ch)
-            self.Diag.width[0:self.Diag.N_ch] = temp[0:self.Diag.N_ch]
-            self.Diag.width[self.Diag.N_ch:N_ch] = temp[-1]
-        self.Diag.N_ch = N_ch
-        self.chanel_select.Clear()
-        self.chanel_select.AppendItems(np.array(range(1, N_ch + 1), dtype="|S3").tolist())
-        self.chanel_select.Select(0)
+        # Extend list
+            for attribute in self.Diag.properties:
+                if(attribute == "N_ch"):
+                    continue
+                temp = np.copy(getattr(self.Diag, attribute))
+                new_vals = np.zeros(N_ch)
+                new_vals[:] = temp[0]  # Use first channel as default for the new ones
+                new_vals[0:N_ch] = temp[:]
+                setattr(self.Diag, attribute, new_vals)
+        setattr(self.Diag, "N_ch", N_ch)
+        self.channel_select_ch.Clear()
+        self.channel_select_ch.AppendItems(np.array(range(1, N_ch + 1), dtype="|S3").tolist())
+        self.channel_select_ch.Select(self.selected_channel)  # note not channel number but channel index, i.e. ch no. 1 -> 0
 
     def OnNewChannelSelected(self, evt):
-        self.Diag.f[self.selected_channel] = self.f_tc.GetValue() * 1.e9
-        self.Diag.df[self.selected_channel] = self.df_tc.GetValue() * 1.e9
-        self.Diag.N_freq[self.selected_channel] = self.N_freq_tc.GetValue()
-        self.Diag.N_ray[self.selected_channel] = self.N_ray_tc.GetValue()
-        self.Diag.waist_scale[self.selected_channel] = self.waist_scale_tc.GetValue()
-        self.Diag.waist_shift[self.selected_channel] = self.waist_shift_tc.GetValue()
-        self.Diag.R[self.selected_channel] = self.R_tc.GetValue()
-        self.Diag.phi[self.selected_channel] = self.phi_tc.GetValue()
-        self.Diag.z[self.selected_channel] = self.z_tc.GetValue()
-        self.Diag.theta_pol[self.selected_channel] = self.theta_pol_tc.GetValue()
-        self.Diag.phi_tor[self.selected_channel] = self.phi_tor_tc.GetValue()
-        self.selected_channel = int(self.chanel_select.GetValue()) - 1
-        self.f_tc.SetValue(self.Diag.f[self.selected_channel] / 1.e9)
-        self.df_tc.SetValue(self.Diag.df[self.selected_channel] / 1.e9)
-        self.R_tc.SetValue(self.Diag.R[self.selected_channel])
-        self.phi_tc.SetValue(self.Diag.phi[self.selected_channel])
-        self.z_tc.SetValue(self.Diag.z[self.selected_channel])
-        self.theta_pol_tc.SetValue(self.Diag.theta_pol[self.selected_channel])
-        self.phi_tor_tc.SetValue(self.Diag.phi_tor[self.selected_channel])
-        self.dist_focus_tc.SetValue(self.Diag.dist_focus[self.selected_channel])
-        self.width_tc.SetValue(self.Diag.width[self.selected_channel])
+        old_selected_channel = self.selected_channel
+        self.selected_channel = self.channel_select_ch.GetSelection()
+        for attribute in self.Diag.properties:
+            if(self.widget_dict[attribute].CheckForNewValue()):
+                self.NewValues = True
+            if(attribute == "N_ch"):
+                    continue
+            vals = getattr(self.Diag, attribute)
+            vals[old_selected_channel] = self.widget_dict[attribute].GetValue()
+            setattr(self.Diag, attribute, vals)
+            self.widget_dict[attribute].SetValue(getattr(self.Diag, attribute)[self.selected_channel])
+
 
     def OnLoadLaunch(self, evt):
         dlg = wx.FileDialog(\
             self, message="Choose a *_launch.dat file for input", \
-            defaultDir=self.ECFMConfig.working_dir, \
+            defaultDir=self.ECRadConfig.working_dir, \
             wildcard=('Launch files (*_launch.dat)|*_launch.dat|All files (*.*)|*.*'),
             style=wx.FD_OPEN)
         if(dlg.ShowModal() == wx.ID_OK):
@@ -436,17 +314,19 @@ class Diag_Panel(wx.Panel):
                 print("Failed to load external launch - reason:")
                 print(e)
                 return
+            self.NewValues = True
         else:
             print("Import aborted")
             return
 
     def OnSaveLaunch(self, evt):
         dlg = wx.DirDialog(self,
-                           message="Choose the folder to store the EXT_launch.dat file")  # defaultDir=self.ECFMConfig.working_dir, \
+                           message="Choose the folder to store the EXT_launch.dat file")  # defaultDir=self.ECRadConfig.working_dir, \
         if(dlg.ShowModal() == wx.ID_OK):
             path = dlg.GetPath()
             dlg.Destroy()
             used_diags_dict = {}
+            self.Diag = self.GetDiag()
             used_diags_dict["EXT"] = self.Diag
             write_diag_launch(path, used_diags_dict)
             print("Sucessfully created: " + path + os.sep + "ray_launch.dat")
@@ -462,7 +342,7 @@ class Diag_Panel(wx.Panel):
                 diags_dict = {}
                 diags_dict["CTA"] = ECRH_diag("EXT", "EXT", 0, dlg.beamline_tc.GetValue(), \
                                               dlg.pol_coeff_X_tc.GetValue(), dlg.freq_140_rb.GetValue())
-                new_gy = get_ECRH_launcher(self.ECFMConfig.shot, diags_dict["CTA"].beamline, diags_dict["CTA"].base_freq_140)
+                new_gy = get_ECRH_launcher(self.ECRadConfig.shot, diags_dict["CTA"].beamline, diags_dict["CTA"].base_freq_140)
                 if(np.isscalar(new_gy.phi_tor)):
                     new_gy.phi_tor = -dlg.tor_launch_tc.GetValue()
                 else:
@@ -480,9 +360,10 @@ class Diag_Panel(wx.Panel):
                 self.art_data_tor_launch = dlg.tor_launch_tc.GetValue()
                 self.append = dlg.append_cb.GetValue()
                 dlg.Destroy()
-                diag_launch = get_diag_launch(self.ECFMConfig.working_dir, self.ECFMConfig.shot, 0.0, diags_dict, gy_dict=gy_dict)
-                self.SetDiag(EXT_diag(self.Diag.name, self.Diag.exp, self.Diag.diag, self.Diag.ed, \
+                diag_launch = get_diag_launch(self.ECRadConfig.working_dir, self.ECRadConfig.shot, 0.0, diags_dict, gy_dict=gy_dict)
+                self.SetDiag(EXT_diag(self.Diag.name, \
                              diag_launch=diag_launch, t_smooth=self.Diag.t_smooth, append_launch=self.append))
+                self.NewValues = True
             except Exception as e:
                 print("Failed to load external launch - reason:")
                 print(e)
@@ -492,66 +373,19 @@ class Diag_Panel(wx.Panel):
             return
 
     def GetDiag(self):
-        self.Diag.exp = self.exp_tc.GetValue()
-        self.Diag.diag = self.diag_tc.GetValue()
-        self.Diag.ed = self.ed_tc.GetValue()
-        if(hasattr(self.Diag, 'beamline')):
-            self.Diag.beamline = self.beamline_tc.GetValue()
-            self.Diag.pol_coeff_X = self.pol_coeff_X_tc.GetValue()
-            self.Diag.base_freq_140 = self.base_freq_140_cb.GetValue()
-        elif(hasattr(self.Diag, 'Rz_exp')):
-            self.Diag.Rz_exp = self.exp_tc_RZ.GetValue()
-            self.Diag.Rz_diag = self.diag_tc_RZ.GetValue()
-            self.Diag.Rz_ed = self.ed_tc_RZ.GetValue()
-        elif(hasattr(self.Diag, 'N_ch')):
-            self.Diag.f[self.selected_channel] = self.f_tc.GetValue() * 1.e9
-            self.Diag.df[self.selected_channel] = self.df_tc.GetValue() * 1.e9
-            self.Diag.R[self.selected_channel] = self.R_tc.GetValue()
-            self.Diag.phi[self.selected_channel] = self.phi_tc.GetValue()
-            self.Diag.z[self.selected_channel] = self.z_tc.GetValue()
-            self.Diag.theta_pol[self.selected_channel] = self.theta_pol_tc.GetValue()
-            self.Diag.phi_tor[self.selected_channel] = self.phi_tor_tc.GetValue()
-            self.Diag.dist_focus[self.selected_channel] = self.dist_focus_tc.GetValue()
-            self.Diag.width[self.selected_channel] = self.width_tc.GetValue()
-            self.Diag.pol_coeff_X[self.selected_channel] = self.pol_coeff_X_tc.GetValue()
-        elif(hasattr(self.Diag, 'R_scale')):
-            self.Diag.R_scale = self.R_scale_tc.GetValue()
-            self.Diag.z_scale = self.z_scale_tc.GetValue()
+        self.OnNewChannelSelected(None)
+        self.NewValues = False
         return self.Diag
 
     def SetDiag(self, Diag):
         self.Diag = Diag
-        self.exp_tc.SetValue(self.Diag.exp)
-        self.diag_tc.SetValue(self.Diag.diag)
-        self.ed_tc.SetValue(self.Diag.ed)
-        if(hasattr(self.Diag, 'beamline')):
-            self.beamline_tc.SetValue(self.Diag.beamline)
-            self.pol_coeff_X_tc.SetValue(self.Diag.pol_coeff_X)
-            self.base_freq_140_cb.SetValue(self.Diag.base_freq_140)
-        elif(hasattr(self.Diag, 'Rz_exp')):
-            self.exp_tc_RZ.SetValue(self.Diag.Rz_exp)
-            self.diag_tc_RZ.SetValue(self.Diag.Rz_diag)
-            self.ed_tc_RZ.SetValue(self.Diag.Rz_ed)
-        elif(hasattr(self.Diag, 'N_ch')):
-            self.ext_h_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            self.N_ch_tc.SetValue(self.Diag.N_ch)
-            self.chanel_select.Clear()
-            self.chanel_select.AppendItems(np.array(range(1, self.Diag.N_ch + 1), dtype="|S3").tolist())
-            self.selected_channel = 0
-            self.f_tc.SetValue(self.Diag.f[self.selected_channel] / 1.e9)
-            self.R_tc.SetValue(self.Diag.R[self.selected_channel])
-            self.phi_tc.SetValue(self.Diag.phi[self.selected_channel])
-            self.z_tc.SetValue(self.Diag.z[self.selected_channel])
-            self.theta_pol_tc.SetValue(self.Diag.theta_pol[self.selected_channel])
-            self.phi_tor_tc.SetValue(self.Diag.phi_tor[self.selected_channel])
-            self.dist_focus_tc.SetValue(self.Diag.dist_focus[self.selected_channel])
-            self.width_tc.SetValue(self.Diag.width[self.selected_channel])
-            self.pol_coeff_X_tc.SetValue(self.Diag.pol_coeff_X[self.selected_channel])
-            self.chanel_select.Select(0)
-        elif(hasattr(self.Diag, 'R_scale')):
-            self.R_scale_tc.SetValue(self.Diag.R_scale)
-            self.z_scale_tc.SetValue(self.Diag.z_scale)
-        return self.Diag
+        self.OnNewChannelSelected(None)
+        self.NewValues = False
+
+    def CheckForNewValues(self):
+        if(self.NewValues):
+            return self.NewValues
+        return Diag_Panel.CheckForNewValues(self)
 
 class ECRH_launch_dialogue(wx.Dialog):
     def __init__(self, parent, art_data_beamline, \
