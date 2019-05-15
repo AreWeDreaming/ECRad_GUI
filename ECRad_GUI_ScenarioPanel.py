@@ -23,7 +23,6 @@ if(TCV):
 elif(AUG):
     from equilibrium_utils_AUG import EQData, vessel_bd_file
     from shotfile_handling_AUG import load_IDA_data, get_diag_data_no_calib, get_freqs, get_divertor_currents, filter_CTA
-    from get_ECRH_config import get_ECRH_viewing_angles, identify_ECRH_on_phase, get_ECRH_launcher
     import ElmSync
 else:
     print('Neither AUG nor TCV selected')
@@ -300,7 +299,7 @@ class ScenarioSelectPanel(wx.Panel):
             print("Failed to parse Configuration")
             print("Reason: " + e)
             return
-        self.Scenario.reset()
+        self.Scenario.reset() # sets profile_dimension to one which is correct for usage with IDA data
         self.unused = []
         self.used = []
         self.used_list.Clear()
@@ -382,6 +381,9 @@ class ScenarioSelectPanel(wx.Panel):
             ECE_indices = np.zeros((len(self.plasma_dict["ECE_rhop"]), len(self.plasma_dict["ECE_rhop"][0])), dtype=np.bool)
             ECE_labels = []
             ECRad_labels = []
+            ECE_reduced_data = np.average(self.plasma_dict["ECE_dat"].reshape((len(self.plasma_dict["time"]), \
+                                                                               len(self.plasma_dict["ECE_rhop"][0]), \
+                                                                               self.plasma_dict["ECE_dat"].shape[-1] / len(self.plasma_dict["ECE_rhop"][0]))), axis=2)
             for index in range(len(self.plasma_dict["time"])):
                 for rhop in rhop_range:
                     ECE_indices[index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))] = True
@@ -399,7 +401,7 @@ class ScenarioSelectPanel(wx.Panel):
             if(diag_obj.name != "ECE"):
                 if(AUG):
                     try:
-                        diag_time, diag_data = get_diag_data_no_calib(diag_obj, self.Config.shot, preview=True)
+                        diag_time, diag_data = get_diag_data_no_calib(diag_obj, self.Scenario.shot, preview=True)
                         if(len(diag_time) != len(diag_data[0])):
                             print("WARNING: The time base does not have the same length as the signal")
                             print(diag_time.shape , diag_data.shape)
@@ -466,7 +468,7 @@ class ScenarioSelectPanel(wx.Panel):
             diag_data = diag_data.T[diag_indices].T
         if(len(self.plasma_dict["ECE_rhop"]) > 0):
             self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, np.reshape(self.plasma_dict["Te"][Te_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, \
-                                                    IDA_labels, np.reshape(np.average(self.plasma_dict["ECE_dat"], axis=1)[ECE_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, ECE_labels, \
+                                                    IDA_labels, ECE_reduced_data[ECE_indices].reshape((len(self.plasma_dict["time"]), len(rhop_range))).T, ECE_labels, \
                                                     np.reshape(self.plasma_dict["ECE_mod"][ECE_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, ECRad_labels, \
                                                     diag_data, diag_labels, div_cur)
         else:
@@ -478,6 +480,8 @@ class ScenarioSelectPanel(wx.Panel):
         self.loaded = True
         self.new_data_available = True
         self.data_source = "aug_database"
+        self.Scenario.IDA_ed = self.plasma_dict["ed"]
+        self.IDA_ed_tc.SetValue(str(self.plasma_dict["ed"]))
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('IDA data loaded successfully!')
         self.GetEventHandler().ProcessEvent(evt)
@@ -521,6 +525,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
         self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
         self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
+        self.Scenario.profile_dimension = len(self.plasma_dict["Te"][0].shape)
         self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - self.plasma_dict["time"][0:len(self.plasma_dict["time"]) - 1])
         for t in self.plasma_dict["time"]:
             self.unused.append("{0:2.5f}".format(t))
@@ -565,6 +570,10 @@ class ScenarioSelectPanel(wx.Panel):
         # Get rid of the old stuff it will be updated now
         old_time_list = Scenario.plasma_dict["time"]
         old_eq_list = Scenario.plasma_dict["eq_data"]
+        if(len(old_time_list) != len(old_eq_list)):
+            # Something went wrong on the last load -> reload everything
+            old_time_list = []
+            old_eq_list = []
         Scenario.reset()
         Scenario.shot = self.shot_tc.GetValue()
         Scenario.IDA_exp = self.IDA_exp_tc.GetValue()
@@ -589,7 +598,7 @@ class ScenarioSelectPanel(wx.Panel):
             Scenario.plasma_dict["Te"].append(self.plasma_dict["Te"][itime] * Config.Te_scale)
             Scenario.plasma_dict["ne"].append(self.plasma_dict["ne"][itime] * Config.ne_scale)
             if(float(time) in old_time_list and self.last_used_bt_vac_correction == Config.bt_vac_correction):
-                Scenario.plasma_dict["eq_data"].append(old_eq_list[np.argmin(np.abs(old_time_list - float(time)))])
+                Scenario.plasma_dict["eq_data"].append(old_eq_list[np.argmin(np.abs(np.array(old_time_list) - float(time)))])
             elif(self.data_source == "aug_database"):
                 if(EQObj is None):
                     EQObj = EQData(Scenario.shot, EQ_exp=Scenario.EQ_exp, EQ_diag=Scenario.EQ_diag, EQ_ed=Scenario.EQ_ed, bt_vac_correction=Config.bt_vac_correction)
@@ -597,6 +606,7 @@ class ScenarioSelectPanel(wx.Panel):
             else:
                 Scenario.plasma_dict["eq_data"].append(self.plasma_dict["eq_data"][itime])
                 Scenario.plasma_dict["eq_data"][-1].Bt *= Config.bt_vac_correction
+        Scenario.plasma_dict["time"] = np.array(Scenario.plasma_dict["time"])
         Scenario.data_source = self.data_source
         Scenario.plasma_set = True
         self.new_data_available = False

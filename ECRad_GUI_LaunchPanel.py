@@ -12,9 +12,6 @@ import numpy as np
 from ECRad_Interface import get_diag_launch, write_diag_launch
 import os
 from Diags import ECRH_diag, EXT_diag
-if(AUG):
-    from get_ECRH_config import get_ECRH_launcher, get_ECRH_viewing_angles
-    from shotfile_handling_AUG import get_ECI_launch
 
 class LaunchPanel(wx.Panel):
     def __init__(self, parent, Scenario):
@@ -62,7 +59,8 @@ class LaunchPanel(wx.Panel):
         ECI_dict = {}
         for diag_key in Scenario.used_diags_dict.keys():
             if("CT" in diag_key or "IEC" == diag_key):
-                new_gy = get_ECRH_viewing_angles(Scenario.shot, \
+                import get_ECRH_config
+                new_gy = get_ECRH_config.get_ECRH_viewing_angles(Scenario.shot, \
                                                 Scenario.used_diags_dict[diag_key].beamline, \
                                                 Scenario.used_diags_dict[diag_key].base_freq_140)
                 if(new_gy.error == 0):
@@ -74,7 +72,9 @@ class LaunchPanel(wx.Panel):
                     evt.SetStatus('Error while preparing launch!')
                     self.GetEventHandler().ProcessEvent(evt)
                     return
+                del(get_ECRH_config) # Need to destroy this here otherwise we cause an incompatability with libece
             if(diag_key in ["ECN", "ECO", "ECI"]):
+                from shotfile_handling_AUG import get_ECI_launch
                 ECI_dict = get_ECI_launch(Scenario.used_diags_dict[diag_key], Scenario.shot)
         Scenario.ray_launch = []
         # Prepare the launches for each time point
@@ -82,6 +82,7 @@ class LaunchPanel(wx.Panel):
         for time in Scenario.plasma_dict["time"]:
             Scenario.ray_launch.append(get_diag_launch(Scenario.shot, time, Scenario.used_diags_dict, \
                                                         gy_dict=gy_dict, ECI_dict=ECI_dict))
+        Scenario.ray_launch = np.array(Scenario.ray_launch)
         Scenario.diags_set = True
         return Scenario
 
