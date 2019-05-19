@@ -3,7 +3,7 @@ import re
 import os
 import wx
 import sys
-import glob
+from glob import glob
 from __builtin__ import True
 library_list = glob("../*pylib") + glob("../*Pylib")
 found_lib = False
