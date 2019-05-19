@@ -3,14 +3,19 @@ import re
 import os
 import wx
 import sys
-if(os.path.isdir("../ECRad_Pylib")):
-    sys.path.append("../ECRad_Pylib")
-elif(os.path.isdir("../AUGD_ECRad_Pylib")):
-    sys.path.append("../AUGD_ECRad_Pylib")
-else:
+import glob
+from __builtin__ import True
+library_list = glob("../*pylib") + glob("../*Pylib")
+found_lib = False
+for folder in library_list:
+    if("ECRad" in folder or "ecrad"):
+        sys.path.append(folder)
+        found_lib = True
+        break
+if(not found_lib):
     print("Could not find pylib")
     print("Important: ECRad_GUI must be launched with its home directory as the current working directory")
-    print("Additionally, the ECRad_Pylib must be either in ../ECRad_Pylib or ../AUGD_ECRad_Pylib")
+    print("Additionally, the ECRad_Pylib must be in the parent directory of the GUI and must contain one of ECRad, ecrad and Pylib or pylib")
     exit(-1)
 from GlobalSettings import Phoenix
 import wx.lib.scrolledpanel as scrolled
