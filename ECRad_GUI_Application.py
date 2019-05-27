@@ -244,7 +244,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.UpperBook = wx.Notebook(self)
         self.scenario_select_panel = ScenarioSelectPanel(self.UpperBook, self.Results.Scenario, self.Results.Config)
         self.UpperBook.AddPage(self.scenario_select_panel, "Select IDA time points")
-        self.launch_panel = LaunchPanel(self.UpperBook, self.Results.Scenario)
+        self.launch_panel = LaunchPanel(self.UpperBook, self.Results.Scenario, self.Results.Config.working_dir)
         self.UpperBook.AddPage(self.launch_panel, "Diagnostic configuration")
         self.config_panel = ConfigPanel(self.UpperBook, self.Results.Config)
         self.UpperBook.AddPage(self.config_panel, "ECRad configuration")
@@ -607,7 +607,7 @@ class Main_Panel(scrolled.ScrolledPanel):
 
     def OnConfigLoaded(self, evt):
         self.config_panel.SetConfig(self.Results.Config)
-        self.launch_panel.SetScenario(self.Results.Scenario)
+        self.launch_panel.SetScenario(self.Results.Scenario, self.Results.Config.working_dir)
         
     def OnName(self, evt):
         comment_dialogue = wx.TextEntryDialog(None, 'Please type comment for your calculation!')

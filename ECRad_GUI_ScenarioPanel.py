@@ -91,17 +91,14 @@ class ScenarioSelectPanel(wx.Panel):
             self.line_AUG_data = wx.StaticLine(self, wx.ID_ANY)
             self.control_sizer.Add(self.line_AUG_data, 0, \
                              wx.EXPAND | wx.ALL, 5)
-        self.load_data_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.load_from_mat_button = wx.Button(self, wx.ID_ANY, "Load from .mat")
         self.load_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadfromMat)
-        self.load_data_sizer.Add(self.load_from_mat_button, 0, \
-                         wx.ALIGN_BOTTOM | wx.ALL, 5)
 #        self.load_GENE_button = wx.Button(self, wx.ID_ANY, "Load GENE dist.")
 #        self.load_GENE_button.Bind(wx.EVT_BUTTON, self.OnLoadGene)
 #        self.load_data_sizer.Add(self.load_GENE_button, 0, \
 #                         wx.ALIGN_BOTTOM | wx.ALL, 5)
-        self.control_sizer.Add(self.load_data_sizer, 0, \
-                         wx.ALIGN_LEFT | wx.ALL, 5)
+        self.control_sizer.Add(self.load_from_mat_button, 0, \
+                               wx.EXPAND |  wx.ALL, 5)
 #        if(getpass.getuser() == "sdenk"):
 #            self.line_extra_1 = wx.StaticLine(self, wx.ID_ANY)
 #            self.control_sizer.Add(self.line_extra_1, 0, \
@@ -131,6 +128,24 @@ class ScenarioSelectPanel(wx.Panel):
         self.line1 = wx.StaticLine(self, wx.ID_ANY)
         self.control_sizer.Add(self.line1, 0, \
                          wx.EXPAND | wx.ALL, 5)
+        self.modifierlabel = wx.StaticText(self, wx.ID_ANY, "Scenario modifiers")
+        self.control_sizer.Add(self.modifierlabel, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.ScenarioModifierGrid = wx.GridSizer(0,4,0,0)
+        self.bt_vac_correction_tc = simple_label_tc(self, "vacuum B_t scale", Scenario.bt_vac_correction, "real")
+        self.ScenarioModifierGrid.Add(self.bt_vac_correction_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
+        self.Te_rhop_scale_tc = simple_label_tc(self, "rhop scale for Te", Scenario.Te_rhop_scale, "real")
+        self.ScenarioModifierGrid.Add(self.Te_rhop_scale_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
+        self.ne_rhop_scale_tc = simple_label_tc(self, "rhop scale for ne", Scenario.ne_rhop_scale, "real")
+        self.ScenarioModifierGrid.Add(self.ne_rhop_scale_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
+        self.Te_scale_tc = simple_label_tc(self, "Te scale", Scenario.Te_scale, "real")
+        self.ScenarioModifierGrid.Add(self.Te_scale_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
+        self.ne_scale_tc = simple_label_tc(self, "ne scale", Scenario.ne_scale, "real")
+        self.ScenarioModifierGrid.Add(self.ne_scale_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
+        self.control_sizer.Add(self.ScenarioModifierGrid, 0, \
+                         wx.EXPAND | wx.ALL, 5)
+        self.line2 = wx.StaticLine(self, wx.ID_ANY)
+        self.control_sizer.Add(self.line2, 0, \
+                         wx.EXPAND | wx.ALL, 5)
         self.regular_label = wx.StaticText(self, wx.ID_ANY, "For regular time intervals")
         self.label_regular_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.label_regular_sizer.AddStretchSpacer(1)
@@ -139,8 +154,8 @@ class ScenarioSelectPanel(wx.Panel):
         self.label_regular_sizer.AddStretchSpacer(1)
         self.control_sizer.Add(self.label_regular_sizer, 0, \
                          wx.ALIGN_CENTER | wx.ALL, 5)
-        self.line2 = wx.StaticLine(self, wx.ID_ANY)
-        self.control_sizer.Add(self.line2, 0, \
+        self.line3 = wx.StaticLine(self, wx.ID_ANY)
+        self.control_sizer.Add(self.line3, 0, \
                          wx.EXPAND | wx.ALL, 5)
         self.t_start_tc = simple_label_tc(self, "start time", 0.0, "real")
         self.t_end_tc = simple_label_tc(self, "end time", 10.0, "real")
@@ -162,8 +177,8 @@ class ScenarioSelectPanel(wx.Panel):
                          wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.control_sizer.Add(self.time_step_sizer, 0, \
                          wx.ALIGN_CENTER | wx.ALL, 5)
-        self.line3 = wx.StaticLine(self, wx.ID_ANY)
-        self.control_sizer.Add(self.line3, 0, \
+        self.line4 = wx.StaticLine(self, wx.ID_ANY)
+        self.control_sizer.Add(self.line4, 0, \
                          wx.EXPAND | wx.ALL, 5)
         self.elm_filter_label = wx.StaticText(self, wx.ID_ANY, "Remove all time points during an ELM/ECRH", style=wx.ALIGN_CENTER_HORIZONTAL)
         self.elm_filter_label.Wrap(400)
@@ -184,8 +199,8 @@ class ScenarioSelectPanel(wx.Panel):
                          wx.ALIGN_CENTER | wx.ALL, 5)
         self.control_sizer.Add(self.elm_filter_label_sizer, 0, \
                          wx.ALIGN_CENTER | wx.ALL, 5)
-        self.line4 = wx.StaticLine(self, wx.ID_ANY)
-        self.control_sizer.Add(self.line4, 0, \
+        self.line5 = wx.StaticLine(self, wx.ID_ANY)
+        self.control_sizer.Add(self.line5, 0, \
                          wx.EXPAND | wx.ALL, 5)
         self.timepoint_label = wx.StaticText(self, wx.ID_ANY, \
                                              "Current selection - double click in plot on right to add/remove time points", \
@@ -198,8 +213,8 @@ class ScenarioSelectPanel(wx.Panel):
         self.timepoint_label_sizer.AddStretchSpacer(1)
         self.control_sizer.Add(self.timepoint_label_sizer, 0, \
                          wx.ALIGN_CENTER | wx.ALL, 5)
-        self.line4 = wx.StaticLine(self, wx.ID_ANY)
-        self.control_sizer.Add(self.line4, 0, \
+        self.line6 = wx.StaticLine(self, wx.ID_ANY)
+        self.control_sizer.Add(self.line6, 0, \
                          wx.EXPAND | wx.ALL, 5)
         self.used = []
         self.unused = []
@@ -246,7 +261,7 @@ class ScenarioSelectPanel(wx.Panel):
                 wx.EXPAND, 0)
         self.sizer.Add(self.canvas_sizer, 0, wx.ALL | \
                 wx.ALIGN_TOP, 5)
-        self.last_used_bt_vac_correction = Config.bt_vac_correction
+        self.last_used_bt_vac_correction = Scenario.bt_vac_correction
         if(len(self.Scenario.plasma_dict["time"]) > 0):
             self.plasma_dict = dict(self.Scenario.plasma_dict)
             self.plasma_dict["eq_exp"] = Scenario.EQ_exp
@@ -268,19 +283,23 @@ class ScenarioSelectPanel(wx.Panel):
 
     def OnUpdate(self, evt):
         self.Results = evt.Results
+        self.Scenario = evt.Results.Scenario
         diag_id_list = []
-        for key in self.Scenario.used_diags_dict.keys():
-            diag_id_list.append(self.Scenario.used_diags_dict[key].name)
-        if(self.diag_tc.GetValue() not in diag_id_list):
-            i = 0
-            while(diag_id_list[i] == "RMD" or diag_id_list[i] == "CEC"):
-                i += 1
-                if(i >= len(diag_id_list)):
-                    break
-            if(i < len(diag_id_list)):
-                self.diag_tc.SetValue(diag_id_list[i])
-            else:
-                self.diag_tc.SetValue("")
+        self.pc_obj.reset(False)
+        self.canvas.draw()
+        self.shot_tc.SetValue(self.Scenario.shot)
+        self.IDA_exp_tc.SetValue(self.Scenario.IDA_exp) 
+        self.IDA_ed_tc.SetValue(self.Scenario.IDA_ed) 
+        self.diag_tc.SetValue(self.Scenario.default_diag)
+        self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
+        self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
+        self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
+        self.bt_vac_correction_tc.SetValue(self.Scenario.bt_vac_correction)
+        self.Te_rhop_scale_tc.SetValue(self.Scenario.Te_rhop_scale)
+        self.ne_rhop_scale_tc.SetValue(self.Scenario.ne_rhop_scale)
+        self.Te_scale_tc.SetValue(self.Scenario.Te_scale)
+        self.ne_scale_tc.SetValue(self.Scenario.ne_scale)
+        self.last_used_bt_vac_correction = self.Scenario.bt_vac_correction
         self.post_run = True
         self.used_list.Disable()
         self.unused_list.Disable()
@@ -299,7 +318,7 @@ class ScenarioSelectPanel(wx.Panel):
             print("Failed to parse Configuration")
             print("Reason: " + e)
             return
-        self.Scenario.reset() # sets profile_dimension to one which is correct for usage with IDA data
+        self.OnUnlockSelection(None)
         self.unused = []
         self.used = []
         self.used_list.Clear()
@@ -330,13 +349,13 @@ class ScenarioSelectPanel(wx.Panel):
             self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
             self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
             self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
-            if(self.Config.bt_vac_correction != self.plasma_dict["Btf_corr"]):
+            if(self.Scenario.bt_vac_correction != self.plasma_dict["Btf_corr"]):
                 print("WARNING! Currently selected vacuum bt correction differs from IDA")
-                print("ECRad GUI:", self.Config.bt_vac_correction)
+                print("ECRad GUI:", self.Scenario.bt_vac_correction)
                 print("IDA:", self.plasma_dict["Btf_corr"])
-            if(self.Config.ne_rhop_scale != self.plasma_dict["ne_rhop_scale_mean"]):
+            if(self.Scenario.ne_rhop_scale != self.plasma_dict["ne_rhop_scale_mean"]):
                 print("WARNING! Currently selected ne_rhop_scale differs from IDA")
-                print("ECRad GUI:", self.Config.ne_rhop_scale)
+                print("ECRad GUI:", self.Scenario.ne_rhop_scale)
                 print("IDA:", self.plasma_dict["ne_rhop_scale_mean"])
             if(self.Config.reflec_X != self.plasma_dict["RwallX"]):
                 print("WARNING! Currently selected X-mode wall reflection coefficient differs from IDA")
@@ -361,7 +380,7 @@ class ScenarioSelectPanel(wx.Panel):
         if(len(self.plasma_dict["time"]) > 1):
             self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - self.plasma_dict["time"][0:len(self.plasma_dict["time"]) - 1])
         else:
-            self.delta_t = 1.e-3
+            self.delta_t = 1000.0 # Used for click adding time points -> one time point click anywhere
         for t in self.plasma_dict["time"]:
             self.unused.append("{0:2.4f}".format(t))
         self.unused = list(set(self.unused))
@@ -467,10 +486,11 @@ class ScenarioSelectPanel(wx.Panel):
             diag_time = diag_time[diag_indices]
             diag_data = diag_data.T[diag_indices].T
         if(len(self.plasma_dict["ECE_rhop"]) > 0):
-            self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, np.reshape(self.plasma_dict["Te"][Te_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, \
-                                                    IDA_labels, ECE_reduced_data[ECE_indices].reshape((len(self.plasma_dict["time"]), len(rhop_range))).T, ECE_labels, \
-                                                    np.reshape(self.plasma_dict["ECE_mod"][ECE_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, ECRad_labels, \
-                                                    diag_data, diag_labels, div_cur)
+            self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, np.reshape(self.plasma_dict["Te"][Te_indices], \
+                                                                                                                                      (len(self.plasma_dict["time"]), len(rhop_range))).T / 1.e3, \
+                                                        IDA_labels, ECE_reduced_data[ECE_indices].reshape((len(self.plasma_dict["time"]), len(rhop_range))).T / 1.e3, ECE_labels, \
+                                                        np.reshape(self.plasma_dict["ECE_mod"][ECE_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T / 1.e3, ECRad_labels, \
+                                                        diag_data, diag_labels, div_cur)
         else:
             self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, np.reshape(self.plasma_dict["Te"][Te_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, \
                                                     IDA_labels, [], [], [], [], diag_data, diag_labels, div_cur)
@@ -484,6 +504,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.IDA_ed_tc.SetValue(str(self.plasma_dict["ed"]))
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('IDA data loaded successfully!')
+        print("Scaling factors of rhop, Te and ne are ignored in this plot!")
         self.GetEventHandler().ProcessEvent(evt)
 
     def OnLoadfromMat(self, evt):
@@ -493,22 +514,18 @@ class ScenarioSelectPanel(wx.Panel):
             print("Failed to parse Configuration")
             print("Reason: " + e)
             return
-        self.Scenario.reset()
+        self.OnUnlockSelection(None)
+        if(AUG):
+            self.Scenario.bt_vac_correction = 1.0
+        self.last_used_bt_vac_correction = 1.0
         self.unused = []
         self.used = []
         self.used_list.Clear()
         self.unused_list.Clear()
-        try:
-            self.Scenario = self.Parent.Parent.launch_panel.UpdateScenario(self.Scenario)
-        except ValueError as e:
-            print("Failed to parse Configuration")
-            print("Reason: " + e)
-            return
-        dlg = wx.FileDialog(\
-            self, message="Choose a .mat file for input", \
-            defaultDir=self.Config.working_dir, \
-            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
-            style=wx.FD_OPEN)
+        dlg = wx.FileDialog(self, message="Choose a .mat file for input", \
+                            defaultDir=self.Config.working_dir, \
+                            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+                            style=wx.FD_OPEN)
         if(dlg.ShowModal() != wx.ID_OK):
             return
         path = dlg.GetPath()
@@ -521,31 +538,41 @@ class ScenarioSelectPanel(wx.Panel):
         self.Scenario.EQ_exp = self.plasma_dict["eq_exp"]
         self.Scenario.EQ_diag = self.plasma_dict["eq_diag"]
         self.Scenario.EQ_ed = self.plasma_dict["eq_ed"]
-        print("Updated equilibrium settings with values from IDA shotfile")
+        print("Updated equilibrium settings with values from .mat")
+        self.IDA_exp_tc.SetValue("None")
+        self.IDA_exp_tc.Disable()
+        self.IDA_ed_tc.SetValue("-1")
+        self.IDA_ed_tc.Disable()
         self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
         self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
         self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
         self.Scenario.profile_dimension = len(self.plasma_dict["Te"][0].shape)
-        self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - self.plasma_dict["time"][0:len(self.plasma_dict["time"]) - 1])
+        if(len(self.plasma_dict["time"]) > 1):
+            self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - self.plasma_dict["time"][0:len(self.plasma_dict["time"]) - 1])
+        else:
+            self.delta_t =  10.0 # Used for click adding time points -> one time point click anywhere
         for t in self.plasma_dict["time"]:
             self.unused.append("{0:2.5f}".format(t))
+        self.last_used_bt_vac_correction = self.plasma_dict["bt_vac_correction"]
         self.unused = list(set(self.unused))
         self.unused.sort()
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
         self.pc_obj.reset(True)
-        Te_indices = np.zeros((len(self.Scenario.plasma_dict["Te"]), len(self.Scenario.plasma_dict["Te"][0])), dtype=np.bool)
+        Te_indices = np.zeros((len(self.plasma_dict["Te"]), len(self.plasma_dict["Te"][0])), dtype=np.bool)
         IDA_labels = []
         rhop_range = [0.2, 0.95]
         for index in range(len(self.plasma_dict["time"])):
             for rhop in rhop_range:
-                Te_indices[index][np.argmin(np.abs(self.Scenario.plasma_dict["rhop_prof"][index] - rhop))] = True
+                Te_indices[index][np.argmin(np.abs(self.plasma_dict["rhop_prof"][index] - rhop))] = True
                 if(index == 0):
-                    IDA_labels.append("$T_\mathrm{e}$" + "({0:1.2f})".format(self.Scenario.plasma_dict["rhop_prof"][index][np.argmin(np.abs(self.Scenario.plasma_dict["rhop_prof"][index] - rhop))]))
+                    IDA_labels.append("$T_\mathrm{e}$" + "({0:1.2f})".format(self.plasma_dict["rhop_prof"][index][np.argmin(np.abs(self.plasma_dict["rhop_prof"][index] - rhop))]))
         diag_time = None
         diag_data = None
         diag_labels = None
-        self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, np.reshape(self.Scenario.plasma_dict["Te"][Te_indices], (len(self.plasma_dict["time"]), len(rhop_range))).T, \
+        self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, \
+                                                    np.reshape(self.plasma_dict["Te"][Te_indices], \
+                                                               (len(self.plasma_dict["time"]), len(rhop_range))).T / 1.e3, \
                                                     IDA_labels, [], [], \
                                                     [], [], \
                                                     diag_data, diag_labels, None)
@@ -555,6 +582,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.data_source = "file:" + path
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Data loaded successfully!')
+        print("Scaling factors of rhop, Te and ne are ignored in this plot!")
         self.GetEventHandler().ProcessEvent(evt)
 
     def UpdateNeeded(self):
@@ -583,9 +611,14 @@ class ScenarioSelectPanel(wx.Panel):
         Scenario.EQ_diag = self.plasma_dict["eq_diag"]
         Scenario.EQ_ed = self.plasma_dict["eq_ed"]
         Scenario.plasma_dict["vessel_bd"] = self.plasma_dict["vessel_bd"]
+        Scenario.bt_vac_correction = self.bt_vac_correction_tc.GetValue()
+        Scenario.Te_rhop_scale = self.Te_rhop_scale_tc.GetValue()
+        Scenario.ne_rhop_scale = self.ne_rhop_scale_tc.GetValue()
+        Scenario.Te_scale = self.Te_scale_tc.GetValue()
+        Scenario.ne_scale = self.ne_scale_tc.GetValue()
         EQObj = None
-        if(not self.data_source == "aug_database" and  Config.bt_vac_correction != 1.0):
-            print("Warning ", Config.bt_vac_correction, " differs from 1")
+        if(not self.data_source == "aug_database" and  Scenario.bt_vac_correction != 1.0):
+            print("Warning ", Scenario.bt_vac_correction, " differs from 1")
             print("Since vacuum component of Bt cannot be determined for external data the entire Bt will be scaled")
         profile_dimension = len(self.plasma_dict["Te"][0].shape)
         if(profile_dimension == 1):
@@ -595,23 +628,24 @@ class ScenarioSelectPanel(wx.Panel):
             itime = np.argmin(np.abs(self.plasma_dict["time"] - Scenario.plasma_dict["time"][-1]))
             if(profile_dimension == 1):
                 Scenario.plasma_dict["rhop_prof"].append(self.plasma_dict["rhop_prof"][itime])
-            Scenario.plasma_dict["Te"].append(self.plasma_dict["Te"][itime] * Config.Te_scale)
-            Scenario.plasma_dict["ne"].append(self.plasma_dict["ne"][itime] * Config.ne_scale)
-            if(float(time) in old_time_list and self.last_used_bt_vac_correction == Config.bt_vac_correction):
+            Scenario.plasma_dict["Te"].append(self.plasma_dict["Te"][itime])
+            Scenario.plasma_dict["ne"].append(self.plasma_dict["ne"][itime])
+            if(float(time) in old_time_list and self.last_used_bt_vac_correction == Scenario.bt_vac_correction):
                 Scenario.plasma_dict["eq_data"].append(old_eq_list[np.argmin(np.abs(np.array(old_time_list) - float(time)))])
             elif(self.data_source == "aug_database"):
                 if(EQObj is None):
-                    EQObj = EQData(Scenario.shot, EQ_exp=Scenario.EQ_exp, EQ_diag=Scenario.EQ_diag, EQ_ed=Scenario.EQ_ed, bt_vac_correction=Config.bt_vac_correction)
+                    EQObj = EQData(Scenario.shot, EQ_exp=Scenario.EQ_exp, EQ_diag=Scenario.EQ_diag, EQ_ed=Scenario.EQ_ed, bt_vac_correction=Scenario.bt_vac_correction)
                 Scenario.plasma_dict["eq_data"].append(EQObj.GetSlice(Scenario.plasma_dict["time"][-1]))
             else:
                 Scenario.plasma_dict["eq_data"].append(self.plasma_dict["eq_data"][itime])
-                Scenario.plasma_dict["eq_data"][-1].Bt *= Config.bt_vac_correction
+                print("Bt is corrected by currently used bt vac correcting divided by last used bt vac correction",  Scenario.bt_vac_correction, self.last_used_bt_vac_correction)
+                Scenario.plasma_dict["eq_data"][-1].Bt *= Scenario.bt_vac_correction / self.last_used_bt_vac_correction
         Scenario.plasma_dict["time"] = np.array(Scenario.plasma_dict["time"])
         Scenario.data_source = self.data_source
         Scenario.plasma_set = True
         self.new_data_available = False
         self.Scenario = Scenario
-        self.last_used_bt_vac_correction = Config.bt_vac_correction
+        self.last_used_bt_vac_correction = Scenario.bt_vac_correction
         return Scenario
 
     def OnFilterElms(self, evt):
@@ -851,7 +885,9 @@ class ScenarioSelectPanel(wx.Panel):
         self.new_data_available = True
 
     def OnPlotClick(self, evt):
-        if(evt.dblclick):
+        if(self.post_run):
+            return
+        if(evt.dblclick and len(self.unused) > 0):
             t = evt.xdata
             unused_timepoints = np.array(self.unused, np.double)
             used_timepoints = np.array(self.used, np.double)
@@ -895,10 +931,14 @@ class ScenarioSelectPanel(wx.Panel):
         self.new_data_available = True
 
     def OnUnlockSelection(self, evt):
+        self.post_run = False
+        self.Scenario.reset()
         self.used_list.Enable()
         self.unused_list.Enable()
         self.AddButton.Enable()
         self.RemoveButton.Enable()
+        self.IDA_exp_tc.Enable()
+        self.IDA_ed_tc.Enable()
         evt = LockExportEvt(Unbound_EVT_LOCK_EXPORT, self.GetId())
         self.Parent.Parent.GetEventHandler().ProcessEvent(evt)
 
@@ -932,7 +972,7 @@ class ScenarioSelectPanel(wx.Panel):
 #            print("Reason: " + e)
 #            return
 #        make_LUKE_data(self.Config.working_dir, self.Scenario.shot, self.time, i_time, self.Scenario.plasma_dict, \
-#                        self.Config.EQ_exp, self.Config.EQ_diag, self.Config.EQ_ed, self.Config.bt_vac_correction)
+#                        self.Config.EQ_exp, self.Config.EQ_diag, self.Config.EQ_ed, self.Scenario.bt_vac_correction)
 #    def OnMakeLUKEMat(self, evt):
 #        if(len(self.used) == 0):
 #            print("No time point used!")
@@ -946,7 +986,7 @@ class ScenarioSelectPanel(wx.Panel):
 #            return
 #        make_LUKE_input_mat(self.Config.working_dir, self.Config.shot, times, IDA_exp=self.Config.IDA_exp, \
 #                            IDA_ed=self.Config.IDA_ed, EQ_exp=self.Config.EQ_exp, EQ_diag=self.Config.EQ_diag, \
-#                            EQ_ed=self.Config.EQ_ed, bt_vac_correction=self.Config.bt_vac_correction)
+#                            EQ_ed=self.Config.EQ_ed, bt_vac_correction=self.Scenario.bt_vac_correction)
 
     def ChangeCursor(self, event):
         if(Phoenix):

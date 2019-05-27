@@ -12,35 +12,58 @@ import numpy as np
 from ECRad_Interface import get_diag_launch, write_diag_launch
 import os
 from Diags import ECRH_diag, EXT_diag
+from ECRad_Scenario import ECRadScenario
+from ECRad_debugging_kit import working_dir
 
 class LaunchPanel(wx.Panel):
-    def __init__(self, parent, Scenario):
+    def __init__(self, parent, Scenario, working_dir):
         wx.Panel.__init__(self, parent, wx.ID_ANY)
         self.Notebook = Diag_Notebook(self)
         self.diag_select_panel = wx.Panel(self, wx.ID_ANY, style=wx.SUNKEN_BORDER)
         self.diag_select_panel.sizer = wx.BoxSizer(wx.VERTICAL)
         self.diag_select_panel.SetSizer(self.diag_select_panel.sizer)
         self.diag_select_label = wx.StaticText(self.diag_select_panel, wx.ID_ANY, "Select diagnostics to model")
-        self.diag_select_panel.sizer.Add(self.diag_select_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.diag_select_panel.sizer.Add(self.diag_select_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         self.grid = wx.GridSizer(0, 10, 0, 0)
         self.diag_cb_dict = od()
+        self.working_dir = working_dir
         for Diagkey in Scenario.avail_diags_dict.keys():
             self.diag_cb_dict.update({Diagkey :simple_label_cb(self.diag_select_panel, Diagkey, False)})
             self.grid.Add(self.diag_cb_dict[Diagkey], 0, \
                           wx.TOP | wx.ALL, 5)
         for Diagkey in Scenario.used_diags_dict.keys():
             self.diag_cb_dict[Diagkey].SetValue(True)
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.diag_select_panel.sizer.Add(self.grid, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.sizer.Add(self.diag_select_panel, 0, wx.ALL | wx.LEFT, 5)
+        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.diag_config_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.diag_select_panel.sizer.Add(self.grid, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self.load_launch_panel = wx.Panel(self, wx.ID_ANY, style=wx.SUNKEN_BORDER)
+        self.load_launch_panel.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.load_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch")
+        self.load_from_old_button.Bind(wx.EVT_BUTTON, self.LoadLaunch)
+        self.load_launch_panel.sizer.Add(self.load_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
+        self.gen_ext_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Generate Ext launch from file")
+        self.gen_ext_from_old_button.Bind(wx.EVT_BUTTON, self.GenExtFromOld)
+        self.load_launch_panel.sizer.Add(self.gen_ext_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
+        self.diag_config_sizer.Add(self.diag_select_panel, 0, wx.ALL | wx.EXPAND, 5)
+        self.load_launch_panel.SetSizer(self.load_launch_panel.sizer)
         self.Notebook.Spawn_Pages(Scenario.avail_diags_dict)
-        self.sizer.Add(self.Notebook, 0, wx.ALL | wx.LEFT, 5)
+        self.diag_config_sizer.Add(self.Notebook, 0, wx.ALL | wx.LEFT, 5)
+        self.sizer.Add(self.diag_config_sizer,0, wx.EXPAND | wx.ALL,5)
+        self.sizer.Add(self.load_launch_panel,1, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL,5)
         self.SetSizer(self.sizer)
         self.new_data_available = False
 
     def RecreateNb(self):
         self.Notebook.DeleteAllPages()
         self.Notebook.PageList = []
+
+    def GetCurScenario(self):
+        Scenario = ECRadScenario(noLoad=True)
+        Scenario.avail_diags_dict = self.Notebook.UpdateDiagDict(Scenario.avail_diags_dict)
+        for Diagkey in self.diag_cb_dict.keys():
+            if(self.diag_cb_dict[Diagkey].GetValue()):
+                Scenario.used_diags_dict.update({Diagkey : Scenario.avail_diags_dict[Diagkey]})
+        return Scenario
 
     def UpdateScenario(self, Scenario):
         Scenario.diags_set = False
@@ -86,12 +109,77 @@ class LaunchPanel(wx.Panel):
         Scenario.diags_set = True
         return Scenario
 
-    def SetScenario(self, Scenario):
+    def SetScenario(self, Scenario, working_dir):
+        self.working_dir = working_dir
         for Diagkey in self.diag_cb_dict.keys():
             self.diag_cb_dict[Diagkey].SetValue(False)
             if(Diagkey in Scenario.used_diags_dict.keys()):
                 self.diag_cb_dict[Diagkey].SetValue(True)
         self.Notebook.DistributeInfo(Scenario)
+        
+    def LoadLaunch(self, evt):
+        dlg = wx.FileDialog(\
+            self, message="Choose a preexisting calculation", \
+            defaultDir=self.working_dir, \
+            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+            style=wx.FD_OPEN)
+        if(dlg.ShowModal() == wx.ID_OK):
+            path = dlg.GetPath()
+            NewSceario = ECRadScenario(noLoad=True)
+            NewSceario.from_mat(path_in=path, load_plasma_dict=False)
+            self.SetScenario(NewSceario, os.path.dirname(path))     
+
+    def GenExtFromOld(self, evt):
+        dlg = wx.FileDialog(\
+            self, message="Choose a preexisting calculation", \
+            defaultDir=self.working_dir, \
+            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+            style=wx.FD_OPEN)
+        if(dlg.ShowModal() == wx.ID_OK):
+            path = dlg.GetPath()
+            NewSceario = ECRadScenario(noLoad=True)
+            NewSceario.from_mat(path_in=path, load_plasma_dict=False)
+            newExtDiag = EXT_diag("EXT")
+            if(len(NewSceario.plasma_dict["time"]) == 1):
+                itime = 0
+            else:
+                timepoint_dlg = Select_Raylaunch_timepoint(self, NewSceario.plasma_dict["time"])
+                if(not timepoint_dlg.ShowModal() == wx.ID_OK):
+                    print("Aborted")
+                    return
+                itime = timepoint_dlg.itime
+            newExtDiag.set_from_ray_launch(NewSceario.ray_launch, itime, set_only_EXT=False)
+            NewSceario.avail_diags_dict.update({"EXT":  newExtDiag})
+            curScenario = self.GetCurScenario()
+            curScenario.avail_diags_dict.update({"EXT":  newExtDiag})
+            curScenario.used_diags_dict.update({"EXT":  newExtDiag})
+            self.SetScenario(curScenario, self.working_dir)
+        
+    def GenExtFromOld(self, evt):
+        dlg = wx.FileDialog(\
+            self, message="Choose a preexisting calculation", \
+            defaultDir=self.working_dir, \
+            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+            style=wx.FD_OPEN)
+        if(dlg.ShowModal() == wx.ID_OK):
+            path = dlg.GetPath()
+            NewSceario = ECRadScenario(noLoad=True)
+            NewSceario.from_mat(path_in=path, load_plasma_dict=False)
+            newExtDiag = EXT_diag("EXT")
+            if(len(NewSceario.plasma_dict["time"]) == 1):
+                itime = 0
+            else:
+                timepoint_dlg = Select_Raylaunch_timepoint(self, NewSceario.plasma_dict["time"])
+                if(not timepoint_dlg.ShowModal() == wx.ID_OK):
+                    print("Aborted")
+                    return
+                itime = timepoint_dlg.itime
+            newExtDiag.set_from_ray_launch(NewSceario.ray_launch, itime, set_only_EXT=False)
+            NewSceario.avail_diags_dict.update({"EXT":  newExtDiag})
+            curScenario = self.GetCurScenario()
+            curScenario.avail_diags_dict.update({"EXT":  newExtDiag})
+            curScenario.used_diags_dict.update({"EXT":  newExtDiag})
+            self.SetScenario(curScenario, self.working_dir)
 
     def UpdateNeeded(self):
         check_list = []
@@ -298,89 +386,21 @@ class ExtDiagPanel(Diag_Panel):
             setattr(self.Diag, attribute, vals)
             self.widget_dict[attribute].SetValue(getattr(self.Diag, attribute)[self.selected_channel])
 
-
-    def OnLoadLaunch(self, evt):
-        dlg = wx.FileDialog(\
-            self, message="Choose a *_launch.dat file for input", \
-            defaultDir=self.ECRadConfig.working_dir, \
-            wildcard=('Launch files (*_launch.dat)|*_launch.dat|All files (*.*)|*.*'),
-            style=wx.FD_OPEN)
-        if(dlg.ShowModal() == wx.ID_OK):
-            path = dlg.GetPath()
-            dlg.Destroy()
-            try:
-                self.Diag.load_launch_geo_from_file(path, ray_launch=self.ray_launch_format_cb.GetValue())
-                self.SetDiag(self.Diag)
-            except Exception as e:
-                print("Failed to load external launch - reason:")
-                print(e)
-                return
-            self.NewValues = True
-        else:
-            print("Import aborted")
-            return
-
-    def OnSaveLaunch(self, evt):
-        dlg = wx.DirDialog(self,
-                           message="Choose the folder to store the EXT_launch.dat file")  # defaultDir=self.ECRadConfig.working_dir, \
-        if(dlg.ShowModal() == wx.ID_OK):
-            path = dlg.GetPath()
-            dlg.Destroy()
-            used_diags_dict = {}
-            self.Diag = self.GetDiag()
-            used_diags_dict["EXT"] = self.Diag
-            write_diag_launch(path, used_diags_dict)
-            print("Sucessfully created: " + path + os.sep + "ray_launch.dat")
-
-    def OnMakeArtificalCTA(self, evt):
-        dlg = ECRH_launch_dialogue(self, self.art_data_beamline, \
-                                   self.art_data_base_freq_140, \
-                                   self.art_data_pol_coeff_X, \
-                                   self.art_data_pol_launch, \
-                                   self.art_data_tor_launch)
-        if(dlg.ShowModal() == True):
-            try:
-                diags_dict = {}
-                diags_dict["CTA"] = ECRH_diag("EXT", "EXT", 0, dlg.beamline_tc.GetValue(), \
-                                              dlg.pol_coeff_X_tc.GetValue(), dlg.freq_140_rb.GetValue())
-                new_gy = get_ECRH_launcher(self.ECRadConfig.shot, diags_dict["CTA"].beamline, diags_dict["CTA"].base_freq_140)
-                if(np.isscalar(new_gy.phi_tor)):
-                    new_gy.phi_tor = -dlg.tor_launch_tc.GetValue()
-                else:
-                    new_gy.phi_tor[:] = -dlg.tor_launch_tc.GetValue()
-                if(np.isscalar(new_gy.phi_tor)):
-                    new_gy.theta_pol = -dlg.pol_launch_tc.GetValue()
-                else:
-                    new_gy.theta_pol[:] = -dlg.pol_launch_tc.GetValue()
-                gy_dict = {}
-                gy_dict[str(diags_dict["CTA"].beamline)] = new_gy
-                self.art_data_beamline = diags_dict["CTA"].beamline
-                self.art_data_base_freq_140 = diags_dict["CTA"].base_freq_140
-                self.art_data_pol_coeff_X = diags_dict["CTA"].pol_coeff_X
-                self.art_data_pol_launch = dlg.pol_launch_tc.GetValue()
-                self.art_data_tor_launch = dlg.tor_launch_tc.GetValue()
-                self.append = dlg.append_cb.GetValue()
-                dlg.Destroy()
-                diag_launch = get_diag_launch(self.ECRadConfig.working_dir, self.ECRadConfig.shot, 0.0, diags_dict, gy_dict=gy_dict)
-                self.SetDiag(EXT_diag(self.Diag.name, \
-                             diag_launch=diag_launch, t_smooth=self.Diag.t_smooth, append_launch=self.append))
-                self.NewValues = True
-            except Exception as e:
-                print("Failed to load external launch - reason:")
-                print(e)
-                return
-        else:
-            print("Setup aborted")
-            return
-
     def GetDiag(self):
         self.OnNewChannelSelected(None)
         self.NewValues = False
         return self.Diag
 
     def SetDiag(self, Diag):
+        self.channel_select_ch.Clear()
+        self.channel_select_ch.AppendItems(np.array(range(1, Diag.N_ch + 1), dtype="|S3").tolist())
+        self.channel_select_ch.SetSelection(0)
         self.Diag = Diag
-        self.OnNewChannelSelected(None)
+        for attribute in self.Diag.properties:
+            if(attribute == "N_ch"):
+                    continue
+            setattr(self.Diag, attribute,  getattr(self.Diag, attribute))
+            self.widget_dict[attribute].SetValue(getattr(self.Diag, attribute)[0])
         self.NewValues = False
 
     def CheckForNewValues(self):
@@ -388,31 +408,15 @@ class ExtDiagPanel(Diag_Panel):
             return self.NewValues
         return Diag_Panel.CheckForNewValues(self)
 
-class ECRH_launch_dialogue(wx.Dialog):
-    def __init__(self, parent, art_data_beamline, \
-                               art_data_base_freq_140, \
-                               art_data_pol_coeff_X, \
-                               art_data_pol_launch, \
-                               art_data_tor_launch):
+class Select_Raylaunch_timepoint(wx.Dialog):
+    def __init__(self, parent, time_list):
         wx.Dialog.__init__(self, parent, wx.ID_ANY)
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self.sizer)
-        self.BoxSizer = wx.GridSizer(0, 5, 5, 5)
-        self.beamline_tc = simple_label_tc(self, "Beamline", art_data_beamline, "integer")
-        self.BoxSizer.Add(self.beamline_tc, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        self.pol_launch_tc = simple_label_tc(self, "Poloidal launch angle", art_data_pol_launch, "real")
-        self.BoxSizer.Add(self.pol_launch_tc, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        self.tor_launch_tc = simple_label_tc(self, "Toroidal launch angle", art_data_tor_launch, "real")
-        self.BoxSizer.Add(self.tor_launch_tc, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        self.freq_140_rb = wx.RadioButton(self, id=wx.ID_ANY, label="140 GHz")
-        self.BoxSizer.Add(self.freq_140_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        self.freq_140_rb.SetValue(art_data_base_freq_140)
-        self.freq_105_rb = wx.RadioButton(self, id=wx.ID_ANY, label="105 GHz")
-        self.BoxSizer.Add(self.freq_105_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        self.pol_coeff_X_tc = simple_label_tc(self, "X-mode fraction", art_data_pol_coeff_X, "real")
-        self.BoxSizer.Add(self.freq_105_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        self.append_cb = simple_label_cb(self, "Append Launch?", False)
-        self.BoxSizer.Add(self.append_cb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self.time_ctrl = wx.ListBox(self, wx.ID_ANY)
+        for time in time_list:
+            self.time_ctrl.Append("{0:1.4f}".format(time))
+        self.time_ctrl.Select(0)
         self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
         self.FinishButton = wx.Button(self, wx.ID_ANY, 'Accept')
         self.Bind(wx.EVT_BUTTON, self.EvtAccept, self.FinishButton)
@@ -420,14 +424,58 @@ class ECRH_launch_dialogue(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
         self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
         self.ButtonSizer.Add(self.FinishButton, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.sizer.Add(self.BoxSizer, 0, wx.ALL | \
-                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.sizer.Add(self.time_ctrl, 1, wx.ALL | wx.EXPAND, 5)
         self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
                                     wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.SetClientSize(self.GetEffectiveMinSize())
 
     def EvtClose(self, Event):
         self.EndModal(False)
 
     def EvtAccept(self, Event):
+        self.itime = self.time_ctrl.GetSelection()
+        print(self.itime)
         self.EndModal(True)
+
+# class ECRH_launch_dialogue(wx.Dialog):
+#     def __init__(self, parent, art_data_beamline, \
+#                                art_data_base_freq_140, \
+#                                art_data_pol_coeff_X, \
+#                                art_data_pol_launch, \
+#                                art_data_tor_launch):
+#         wx.Dialog.__init__(self, parent, wx.ID_ANY)
+#         self.sizer = wx.BoxSizer(wx.VERTICAL)
+#         self.SetSizer(self.sizer)
+#         self.BoxSizer = wx.GridSizer(0, 5, 5, 5)
+#         self.beamline_tc = simple_label_tc(self, "Beamline", art_data_beamline, "integer")
+#         self.BoxSizer.Add(self.beamline_tc, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+#         self.pol_launch_tc = simple_label_tc(self, "Poloidal launch angle", art_data_pol_launch, "real")
+#         self.BoxSizer.Add(self.pol_launch_tc, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+#         self.tor_launch_tc = simple_label_tc(self, "Toroidal launch angle", art_data_tor_launch, "real")
+#         self.BoxSizer.Add(self.tor_launch_tc, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+#         self.freq_140_rb = wx.RadioButton(self, id=wx.ID_ANY, label="140 GHz")
+#         self.BoxSizer.Add(self.freq_140_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+#         self.freq_140_rb.SetValue(art_data_base_freq_140)
+#         self.freq_105_rb = wx.RadioButton(self, id=wx.ID_ANY, label="105 GHz")
+#         self.BoxSizer.Add(self.freq_105_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+#         self.pol_coeff_X_tc = simple_label_tc(self, "X-mode fraction", art_data_pol_coeff_X, "real")
+#         self.BoxSizer.Add(self.freq_105_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+#         self.append_cb = simple_label_cb(self, "Append Launch?", False)
+#         self.BoxSizer.Add(self.append_cb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+#         self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
+#         self.FinishButton = wx.Button(self, wx.ID_ANY, 'Accept')
+#         self.Bind(wx.EVT_BUTTON, self.EvtAccept, self.FinishButton)
+#         self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
+#         self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
+#         self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+#         self.ButtonSizer.Add(self.FinishButton, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+#         self.sizer.Add(self.BoxSizer, 0, wx.ALL | \
+#                                     wx.ALIGN_CENTER_HORIZONTAL, 5)
+#         self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
+#                                     wx.ALIGN_CENTER_HORIZONTAL, 5)
+#         self.SetClientSize(self.GetEffectiveMinSize())
+# 
+#     def EvtClose(self, Event):
+#         self.EndModal(False)
+# 
+#     def EvtAccept(self, Event):
+#         self.EndModal(True)

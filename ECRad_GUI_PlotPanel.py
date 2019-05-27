@@ -630,7 +630,7 @@ class PlotContainer(wx.Panel):
                         rays.append(cur_ray)
                 except KeyError:
                     print("No TORBEAM rays found")
-                    print("Availabe keys", Results.ray.keys())
+#                     print("Availabe keys", Results.ray.keys())
                     rays = []
                     straight = True
                     if(alt_model):
@@ -713,9 +713,15 @@ class PlotContainer(wx.Panel):
             except KeyError:
                 print("Error: No ray information in currently loaded data set")
                 return False
-            s_cold = Results.resonance["R_cold"][time_index][ch]
-            R_cold = Results.resonance["R_cold"][time_index][ch]
-            z_cold = Results.resonance["z_cold"][time_index][ch]
+            if(Results.resonance["R_cold"][time_index][ch] < 0.0):
+                print("ECRad did not find a cold resonance for this channel. Cut-off?")
+                s_cold = None
+                R_cold = None
+                z_cold = None
+            else:
+                s_cold = Results.resonance["R_cold"][time_index][ch]
+                R_cold = Results.resonance["R_cold"][time_index][ch]
+                z_cold = Results.resonance["z_cold"][time_index][ch]
             EQ_obj = EQData(Results.Scenario.shot)
             EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
             # the matrices in the slices are Fortran ordered - hence transposition necessary
@@ -779,8 +785,8 @@ class PlotContainer(wx.Panel):
             diagdict = {}
             for diag_name in diag_data_selected:
                 diagdict[diag_name]=diag_data[diag_name].getSlice(time_index)
-            rhop_Te= Results.Scenario.plasma_dict["rhop_prof"][time_index]
-            Te = Results.Scenario.plasma_dict["Te"][time_index] / 1.e3
+            rhop_Te= Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
+            Te = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
 #            if(Config.Ext_plasma == False):
 #                try:
 #                    rhop_ECE = Config.plasma_dict["ECE_rhop"][time_index]
@@ -816,8 +822,8 @@ class PlotContainer(wx.Panel):
                 tau_comp = Results.tau_comp[time_index][Results.tau[time_index] >= tau_threshhold]
             else:
                 tau_comp = None
-            rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index]
-            Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] / 1.e3
+            rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
+            Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             self.fig = self.pc_obj.plot_tau(time, rhop, \
                                             tau, tau_comp, rhop_IDA, Te_IDA, \
                                             Config.dstf, alt_model)
@@ -839,8 +845,8 @@ class PlotContainer(wx.Panel):
             diagdict = {}
             for diag_name in diag_data_selected:
                 diagdict[diag_name]=diag_data[diag_name].getSlice(time_index)
-            rhop_Te= Results.Scenario.plasma_dict["rhop_prof"][time_index]
-            Te = Results.Scenario.plasma_dict["Te"][time_index] / 1.e3
+            rhop_Te = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
+            Te = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             diag_names = Results.Scenario.ray_launch[time_index]["diag_name"][Results.tau[time_index] >= tau_threshhold]
             if(mode):
                 # X-mode
@@ -884,8 +890,8 @@ class PlotContainer(wx.Panel):
                 rhop = Results.resonance["rhop_cold"][time_index][Results.Otau[time_index] >= tau_threshhold]
                 tau = Results.Otau[time_index][Results.Otau[time_index] >= tau_threshhold]
                 tau_comp = Results.Otau_comp[time_index][Results.Otau[time_index] >= tau_threshhold]
-            rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index]
-            Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] / 1.e3
+            rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
+            Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             self.fig = self.pc_obj.plot_tau(time, rhop, \
                                             tau, tau_comp, rhop_IDA, Te_IDA, \
                                             Config.dstf, alt_model)
@@ -895,8 +901,8 @@ class PlotContainer(wx.Panel):
                 print("Rerun ECRad with 'extra output' set to True")
                 return
             # R = Results.los["R" + mode_str][time_index][ch]
-            rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index]
-            Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] / 1.e3
+            rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
+            Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             if(mode):
                 if(len(Results.BPD["rhopX"]) == 0):
                     print("No data availabe for X-mode")
