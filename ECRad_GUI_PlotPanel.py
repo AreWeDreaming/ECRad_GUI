@@ -16,6 +16,8 @@ from shotfile_handling_AUG import shotfile_exists, get_data_calib, AUG_profile_d
                                   load_IDA_data, get_Thomson_data
 from _pylief import NONE
 from pip._vendor.distlib._backport.tarfile import TUREAD
+from yt.visualization import base_plot_types
+from __builtin__ import False
 if(Phoenix):
     from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 else:
@@ -131,11 +133,15 @@ class PlotPanel(wx.Panel):
     def OnNewPlotChoice(self, evt):
         plot_type = self.plot_choice.GetStringSelection()
         self.other_result_box.Clear()
-        if(plot_type in  self.compare_data.keys()):
+        if(plot_type in  self.compare_data.keys()):        
             other_results = self.compare_data[plot_type].keys()
-            other_results.sort()
-            self.other_result_box.AppendItems(other_results)
-            self.other_result_box.Layout()
+        elif(plot_type=="Ray" and "RayXRz" in self.compare_data.keys()):
+            other_results = self.compare_data["RayXRz"].keys()
+        else:
+            return
+        other_results.sort()
+        self.other_result_box.AppendItems(other_results)
+        self.other_result_box.Layout()
 
     def OnUpdate(self, evt):
         self.Results = evt.Results
@@ -438,8 +444,8 @@ class PlotPanel(wx.Panel):
         evt.SetStatus('Loading data - GUI might be unresponsive for a minute - please wait!')
         self.GetEventHandler().ProcessEvent(evt)
         plot_type = self.plot_choice.GetStringSelection()
-        if(plot_type != "Trad"):
-            print("Sorry only Trad supported at the moment")
+        if(plot_type not in ["Trad", "Ray"]):
+            print("Sorry only Trad and Ray supported at the moment")
             return
         if(self.Results is None):
             print("First load results before you compare")
@@ -453,13 +459,18 @@ class PlotPanel(wx.Panel):
             paths = dlg.GetPaths()
             dlg.Destroy()
             if(len(paths) > 0):
-                wt = WorkerThread(self.get_other_results, [paths])
+                wt = WorkerThread(self.get_other_results, [paths, plot_type])
                 self.load_other_results_button.Disable()
         
     def get_other_results(self, args):
         paths = args[0]
+        plot_type = args[1]
         temp_compare_data = {}
-        temp_compare_data["Trad"] =  {}
+        if(plot_type == "Trad"):
+            temp_compare_data[plot_type] =  {}
+        elif(plot_type == "Ray"):
+            for quant in ["RayXRz", "RayORz", "RayXxy", "RayXxy"]:
+                temp_compare_data[quant] =  {}
         try:
             for path in paths:
                     result = ECRadResults()
@@ -471,15 +482,23 @@ class PlotPanel(wx.Panel):
                     else:
                         label = os.path.basename(path)
                         label = label.replace("_", " ")
-                    temp_compare_data["Trad"][label] = {}
-                    temp_compare_data["Trad"][label]["time"] = result.time
-                    temp_compare_data["Trad"][label]["x"] = result.resonance["rhop_cold"]
-                    temp_compare_data["Trad"][label]["y"] = result.Trad
-                    diag_mask = []
-                    for itime in range(len(result.Scenario.plasma_dict["time"])):
-                        diag_mask.append(result.Scenario.ray_launch[itime]["diag_name"])
-                    temp_compare_data["Trad"][label]["diag_mask"] = np.array(diag_mask)
-                        
+                    if(plot_type == "Trad"):
+                        temp_compare_data[plot_type][label] = {}
+                        x, y = result.extract_field(plot_type)
+                        temp_compare_data[plot_type][label]["x"] = x
+                        temp_compare_data[plot_type][label]["y"] = y
+                        temp_compare_data[plot_type][label]["time"] = result.time
+                        diag_mask = []
+                        for itime in range(len(result.Scenario.plasma_dict["time"])):
+                            diag_mask.append(result.Scenario.ray_launch[itime]["diag_name"])
+                        temp_compare_data[plot_type][label]["diag_mask"] = np.array(diag_mask)
+                    elif(plot_type == "Ray"):
+                        for quant in ["RayXRz", "RayORz", "RayXxy", "RayXxy"]:
+                            x, y = result.extract_field(quant)
+                            temp_compare_data[quant][label] = {}
+                            temp_compare_data[quant][label]["x"] = x
+                            temp_compare_data[quant][label]["y"] = y
+                            temp_compare_data[quant][label]["time"] = result.time
         except Exception as e:
             print("Something went wrong when importing the other results")
             print(e)
@@ -495,10 +514,13 @@ class PlotPanel(wx.Panel):
                 self.compare_data[key][entry] = evt.Data[key][entry]
         plot_type = self.plot_choice.GetStringSelection()
         self.other_result_box.Clear()
+        resultlist = []
         if(plot_type in  evt.Data.keys()):
             resultlist = self.compare_data[plot_type].keys()
-            resultlist.sort()
-            self.other_result_box.AppendItems(resultlist)
+        elif(plot_type == "Ray" and "RayXRz" in evt.Data.keys()):
+            resultlist = self.compare_data["RayXRz"].keys()
+        resultlist.sort()
+        self.other_result_box.AppendItems(resultlist)
         self.load_other_results_button.Enable()
 
 class FigureBook(wx.Notebook):
@@ -585,6 +607,40 @@ class PlotContainer(wx.Panel):
             elif(len(Results.ray["s" + mode_str][time_index][ch]) == 0):
                 print(mode_str + "-mode was not included in the calculation")
                 return
+            R_other_list = []
+            z_other_list = []
+            x_other_list = []
+            y_other_list = []
+            if(len(other_results_selected) > 0 and "RayXRz" in other_results.keys()):
+                multiple_models = True
+                if(hasattr(Results, "comment")):
+                    label = Results.comment
+                else:
+                    label = "Main Result"
+                label_list = [label]
+            else:
+                multiple_models = False
+                label_list = None
+            if(multiple_models):
+                for entry in other_results["RayXRz"].keys():
+                    if(entry not in other_results_selected):
+                        continue
+                    itime = np.argmin(np.abs(other_results["Ray"+mode_str + "Rz"][entry]["time"] - time))
+                    
+                    try:
+                        dummy=other_results["Ray"+mode_str + "Rz"][entry]["x"][itime][ch][0][0]
+                        print("Found multiple rays per channel in result " + entry + ". Only plotting central ray." )
+                        print("Comparing with ray bundles not supported atm., sorry.")
+                        R_other_list.append(other_results["Ray"+mode_str + "Rz"][entry]["x"][itime][ch][0])
+                        z_other_list.append(other_results["Ray"+mode_str + "Rz"][entry]["y"][itime][ch][0])
+                        x_other_list.append(other_results["Ray"+mode_str + "xy"][entry]["x"][itime][ch][0])
+                        y_other_list.append(other_results["Ray"+mode_str + "xy"][entry]["y"][itime][ch][0])
+                    except IndexError:
+                        R_other_list.append(other_results["Ray"+mode_str + "Rz"][entry]["x"][itime][ch])
+                        z_other_list.append(other_results["Ray"+mode_str + "Rz"][entry]["y"][itime][ch])
+                        x_other_list.append(other_results["Ray"+mode_str + "xy"][entry]["x"][itime][ch])
+                        y_other_list.append(other_results["Ray"+mode_str + "xy"][entry]["y"][itime][ch])
+                    label_list.append(entry)
             try:
                 try:
                     rays = []
@@ -708,7 +764,6 @@ class PlotContainer(wx.Panel):
                             Results.ray["H" + mode_str][time_index][ch], \
                             Results.ray["N" + mode_str][time_index][ch], \
                             Results.ray["Nc" + mode_str][time_index][ch])
-                            rays.append(cur_ray)
                         rays.append(cur_ray)
             except KeyError:
                 print("Error: No ray information in currently loaded data set")
@@ -727,7 +782,10 @@ class PlotContainer(wx.Panel):
             # the matrices in the slices are Fortran ordered - hence transposition necessary
             self.fig = self.pc_obj.plot_ray(Results.Scenario.shot, time, rays, index=time_index, \
                                         EQ_obj=EQ_obj, H=False, R_cold=R_cold, \
-                                        z_cold=z_cold, s_cold=s_cold, straight=straight, eq_aspect_ratio=eq_aspect_ratio)
+                                        z_cold=z_cold, s_cold=s_cold, straight=straight, \
+                                        eq_aspect_ratio=eq_aspect_ratio, R_other_list=R_other_list, \
+                                        z_other_list=z_other_list, x_other_list = x_other_list, \
+                                        y_other_list=y_other_list, label_list=label_list)
 #            else:
 #                self.fig = self.pc_obj.plot_ray(Results.Scenario.shot, time, rays, index=time_index, \
 #                                            H=False, R_cold=R_cold, \

@@ -586,7 +586,12 @@ class ScenarioSelectPanel(wx.Panel):
         self.GetEventHandler().ProcessEvent(evt)
 
     def UpdateNeeded(self):
-        return self.new_data_available
+        if(self.new_data_available):
+            return True
+        for widget in [self.bt_vac_correction_tc, self.Te_rhop_scale_tc, self.ne_rhop_scale_tc, self.Te_scale_tc, self.ne_scale_tc]:
+            if(widget.CheckForNewValue()):
+                return True
+        
 
     def LoadScenario(self, Scenario, Config, callee):
         if(self.loaded == False):
