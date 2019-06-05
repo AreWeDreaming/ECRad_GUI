@@ -8,7 +8,7 @@ from __builtin__ import True
 library_list = glob("../*pylib") + glob("../*Pylib")
 found_lib = False
 for folder in library_list:
-    if("ECRad" in folder or "ecrad"):
+    if("ECRad" in folder or "ecrad"in folder ):
         sys.path.append(folder)
         found_lib = True
         break
