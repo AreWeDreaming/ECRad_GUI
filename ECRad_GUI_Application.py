@@ -285,6 +285,15 @@ class Main_Panel(scrolled.ScrolledPanel):
             evt.SetStatus('')
             self.GetEventHandler().ProcessEvent(evt)
             return
+        if(self.Results.Config.dstf not in ["Th", "Re", "Lu", "Ge", "GB"]):
+            print("Invalid choice of distribution")
+            print("Possible options:")
+            print("Th -> thermal plasma")
+            print("Re -> distribution function computed by RELAX")
+            print("Lu -> distribution function computed by LUKE (deprecated)")
+            print("Ge, GB -> distribution function computed by GENE (deprecated)")
+            print("Please select a valid distribution function identifier.")
+            return
         # Sets time points and stores plasma data in Scenario
         if(self.scenario_select_panel.UpdateNeeded() or not  self.Results.Scenario.plasma_set):
             try:
@@ -325,7 +334,9 @@ class Main_Panel(scrolled.ScrolledPanel):
                 self.DiagBox.Append(diag)
         self.stop_current_evaluation = False
         self.index = 0
+        old_comment = self.Results.comment
         self.Results.reset()
+        self.Results.comment = old_comment # Keep the comment
         if(len(self.Results.Scenario.used_diags_dict.keys()) == 0):
             print("No diagnostics selected")
             print("Run aborted")
@@ -391,7 +402,11 @@ class Main_Panel(scrolled.ScrolledPanel):
         print('Successfully saved new values')
         self.ExporttoMatButton.Disable()
         self.NameButton.Disable()
-        self.InvokeECRad = GetECRadExec(self.Results.Config, self.Results.Scenario, self.Results.Scenario.plasma_dict["time"][self.index])
+        try:
+            self.InvokeECRad = GetECRadExec(self.Results.Config, self.Results.Scenario, self.Results.Scenario.plasma_dict["time"][self.index])
+        except ValueError:
+            print("Something wrong with the job submission configuration!")
+            return
         os.environ['ECRad_WORKING_DIR'] = self.Results.Config.working_dir
         self.Progress_label.SetLabel("ECRad running - ({0:d}/{1:d})".format(self.index + 1,len(self.Results.Scenario.plasma_dict["time"])))
         self.ProgressBar.SetValue(self.index)
@@ -534,7 +549,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.index += 1
         except IOError as e:
             print("Results of ECRad cannot be found!")
-            print("Most likely cause is an error that occurred within the ECRad")
+            print("Most likely cause is an error that occurred within ECRad")
             print("Please run the ECRad with current input parameters in a separate shell.")
             print("The command to launch the ECRad can be found above.")
             print("Afterwards please send any error messages that appear at sdenk|at|ipp.mpg.de")
@@ -610,7 +625,11 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.launch_panel.SetScenario(self.Results.Scenario, self.Results.Config.working_dir)
         
     def OnName(self, evt):
-        comment_dialogue = wx.TextEntryDialog(None, 'Please type comment for your calculation!')
+        if(self.Results.comment == None):
+            comment = ""
+        else:
+            comment = self.Results.comment
+        comment_dialogue = wx.TextEntryDialog(None, 'Please type comment for your calculation!', value=comment)
         if(comment_dialogue.ShowModal() == wx.ID_OK):
             self.Results.comment = comment_dialogue.GetValue()
 
