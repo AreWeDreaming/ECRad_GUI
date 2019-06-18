@@ -1,4 +1,3 @@
-from GlobalSettings import *
 
 class IDA_GUI_Error(Exception):
     pass

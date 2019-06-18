@@ -3,7 +3,7 @@ Created on Apr 3, 2019
 
 @author: sdenk
 '''
-from GlobalSettings import Phoenix, AUG
+from GlobalSettings import globalsettings
 import wx
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row
 from wxEvents import *
@@ -11,7 +11,7 @@ from plotting_configuration import *
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from plotting_core import plotting_core
 from ECRad_DIAG_AUG import DefaultDiagDict
-if(Phoenix):
+if(globalsettings.Phoenix):
     from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 else:
     from matplotlib.backends.backend_wxagg import NavigationToolbar2Wx
@@ -20,7 +20,10 @@ from Fitting import make_fit
 import numpy as np
 import os
 from ECRad_Results import ECRadResults
-from shotfile_handling_AUG import get_data_calib, moving_average
+if(globalsettings.AUG):
+    from shotfile_handling_AUG import get_data_calib, moving_average
+else:
+    print("AUG shotfile system inaccessible -> Cross-calibration not supported at the moment.")
 from Diags import Diag
 
 
@@ -707,7 +710,7 @@ class CalibEvolutionPanel(wx.Panel):
         if(ch < 0):
             print("Error!!: No channel selected")
             return
-        if(AUG and len(used_results) == 1):
+        if(globalsettings.AUG and len(used_results) == 1):
             cur_result = used_results[0]
             from shotfile_handling_AUG import get_shot_heating
             heating_array = get_shot_heating(cur_result.Scenario.shot)

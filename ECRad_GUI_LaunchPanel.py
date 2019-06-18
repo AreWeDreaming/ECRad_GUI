@@ -3,7 +3,6 @@ Created on Mar 21, 2019
 
 @author: sdenk
 '''
-from GlobalSettings import AUG, TCV
 from wxEvents import *
 import wx
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row
@@ -13,7 +12,6 @@ from ECRad_Interface import get_diag_launch, write_diag_launch
 import os
 from Diags import ECRH_diag, EXT_diag
 from ECRad_Scenario import ECRadScenario
-from ECRad_debugging_kit import working_dir
 
 class LaunchPanel(wx.Panel):
     def __init__(self, parent, Scenario, working_dir):
@@ -38,12 +36,15 @@ class LaunchPanel(wx.Panel):
         self.diag_select_panel.sizer.Add(self.grid, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         self.load_launch_panel = wx.Panel(self, wx.ID_ANY, style=wx.SUNKEN_BORDER)
         self.load_launch_panel.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.load_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch")
+        self.load_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from ECRad result")
         self.load_from_old_button.Bind(wx.EVT_BUTTON, self.LoadLaunch)
         self.load_launch_panel.sizer.Add(self.load_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
-        self.gen_ext_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Generate Ext launch from file")
+        self.gen_ext_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Generate Ext launch from ECRad result")
         self.gen_ext_from_old_button.Bind(wx.EVT_BUTTON, self.GenExtFromOld)
         self.load_launch_panel.sizer.Add(self.gen_ext_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
+        self.gen_ext_from_raylaunch_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Import ray_launch as EXT")
+        self.gen_ext_from_raylaunch_button.Bind(wx.EVT_BUTTON, self.GenExtFromRaylaunch)
+        self.load_launch_panel.sizer.Add(self.gen_ext_from_raylaunch_button, 1, wx.ALL | wx.EXPAND, 5)
         self.diag_config_sizer.Add(self.diag_select_panel, 0, wx.ALL | wx.EXPAND, 5)
         self.load_launch_panel.SetSizer(self.load_launch_panel.sizer)
         self.Notebook.Spawn_Pages(Scenario.avail_diags_dict)
@@ -153,33 +154,22 @@ class LaunchPanel(wx.Panel):
             curScenario = self.GetCurScenario()
             curScenario.avail_diags_dict.update({"EXT":  newExtDiag})
             curScenario.used_diags_dict.update({"EXT":  newExtDiag})
-            self.SetScenario(curScenario, self.working_dir)
-        
-    def GenExtFromOld(self, evt):
+            self.SetScenario(curScenario, self.working_dir) 
+    
+    def GenExtFromRaylaunch(self, evt):
         dlg = wx.FileDialog(\
-            self, message="Choose a preexisting calculation", \
+            self, message="Choose a file with raylaunch data", \
             defaultDir=self.working_dir, \
             wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
             style=wx.FD_OPEN)
         if(dlg.ShowModal() == wx.ID_OK):
             path = dlg.GetPath()
-            NewSceario = ECRadScenario(noLoad=True)
-            NewSceario.from_mat(path_in=path, load_plasma_dict=False)
             newExtDiag = EXT_diag("EXT")
-            if(len(NewSceario.plasma_dict["time"]) == 1):
-                itime = 0
-            else:
-                timepoint_dlg = Select_Raylaunch_timepoint(self, NewSceario.plasma_dict["time"])
-                if(not timepoint_dlg.ShowModal() == wx.ID_OK):
-                    print("Aborted")
-                    return
-                itime = timepoint_dlg.itime
-            newExtDiag.set_from_ray_launch(NewSceario.ray_launch, itime, set_only_EXT=False)
-            NewSceario.avail_diags_dict.update({"EXT":  newExtDiag})
+            newExtDiag.set_from_mat(path)
             curScenario = self.GetCurScenario()
             curScenario.avail_diags_dict.update({"EXT":  newExtDiag})
             curScenario.used_diags_dict.update({"EXT":  newExtDiag})
-            self.SetScenario(curScenario, self.working_dir)
+            self.SetScenario(curScenario, self.working_dir)  
 
     def UpdateNeeded(self):
         check_list = []

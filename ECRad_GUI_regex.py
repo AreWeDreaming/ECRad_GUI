@@ -5,7 +5,6 @@ Created on Dec 16, 2015
 '''
 import re
 import os
-from GlobalSettings import *
 string_pattern = re.compile(r'[^0-9^\.^\+^\-^e^d]')
 integer_pattern = re.compile(r'^(([+-])?\d+)$')
 tuple_pattern = re.compile(r'(?<=_)\d*(?=tuple)')

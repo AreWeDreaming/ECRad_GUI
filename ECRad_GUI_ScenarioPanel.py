@@ -3,7 +3,7 @@ Created on Mar 21, 2019
 
 @author: sdenk
 '''
-from GlobalSettings import AUG, TCV, Phoenix
+from GlobalSettings import globalsettings
 import wx
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
 from wxEvents import *
@@ -13,20 +13,14 @@ import numpy as np
 from ECRad_Interface import load_plasma_from_mat
 from plotting_configuration import *
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-if(Phoenix):
+if(globalsettings.Phoenix):
     from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 else:
     from matplotlib.backends.backend_wxagg import NavigationToolbar2Wx
-if(TCV):
-    from equilibrium_utils_TCV import EQData
-    from shotfile_handling_TCV import load_IDA_data, get_diag_data_no_calib, get_freqs, get_divertor_currents, filter_CTA
-elif(AUG):
+if(globalsettings.AUG):
     from equilibrium_utils_AUG import EQData, vessel_bd_file
     from shotfile_handling_AUG import load_IDA_data, get_diag_data_no_calib, get_freqs, get_divertor_currents, filter_CTA
     import ElmSync
-else:
-    print('Neither AUG nor TCV selected')
-    raise(ValueError('No system selected!'))
 
 class ScenarioSelectPanel(wx.Panel):
     def __init__(self, parent, Scenario, Config):
@@ -56,7 +50,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.load_data_line = wx.StaticLine(self, wx.ID_ANY)
         self.control_sizer.Add(self.load_data_line, 0, \
                                wx.EXPAND | wx.ALL, 5)
-        if(AUG):
+        if(globalsettings.AUG):
             self.load_AUG_data_sizer = wx.BoxSizer(wx.VERTICAL)
             self.AUG_data_grid_sizer = wx.GridSizer(0, 4, 0, 0)
             self.shot_tc = simple_label_tc(self, "Shot #", Scenario.shot, "integer")
@@ -287,13 +281,14 @@ class ScenarioSelectPanel(wx.Panel):
         diag_id_list = []
         self.pc_obj.reset(False)
         self.canvas.draw()
-        self.shot_tc.SetValue(self.Scenario.shot)
-        self.IDA_exp_tc.SetValue(self.Scenario.IDA_exp) 
-        self.IDA_ed_tc.SetValue(self.Scenario.IDA_ed) 
-        self.diag_tc.SetValue(self.Scenario.default_diag)
-        self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
-        self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
-        self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
+        if(globalsettings.AUG):
+            self.shot_tc.SetValue(self.Scenario.shot)
+            self.IDA_exp_tc.SetValue(self.Scenario.IDA_exp) 
+            self.IDA_ed_tc.SetValue(self.Scenario.IDA_ed) 
+            self.diag_tc.SetValue(self.Scenario.default_diag)
+            self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
+            self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
+            self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
         self.bt_vac_correction_tc.SetValue(self.Scenario.bt_vac_correction)
         self.Te_rhop_scale_tc.SetValue(self.Scenario.Te_rhop_scale)
         self.ne_rhop_scale_tc.SetValue(self.Scenario.ne_rhop_scale)
@@ -418,7 +413,7 @@ class ScenarioSelectPanel(wx.Panel):
         if(self.diag_tc.GetValue() in self.Scenario.avail_diags_dict.keys() and self.diag_tc.GetValue() != 'EXT'):
             diag_obj = self.Scenario.avail_diags_dict[self.diag_tc.GetValue()]
             if(diag_obj.name != "ECE"):
-                if(AUG):
+                if(globalsettings.AUG):
                     try:
                         diag_time, diag_data = get_diag_data_no_calib(diag_obj, self.Scenario.shot, preview=True)
                         if(len(diag_time) != len(diag_data[0])):
@@ -449,7 +444,7 @@ class ScenarioSelectPanel(wx.Panel):
                         diag_time = None
                         diag_data = None
                         diag_labels = None
-                elif(TCV):
+                elif(globalsettings.TCV):
                     print("Loading diagnostic data not yet implemented for TCV")
                     diag_time = None
                     diag_data = None
@@ -515,7 +510,7 @@ class ScenarioSelectPanel(wx.Panel):
             print("Reason: " + e)
             return
         self.OnUnlockSelection(None)
-        if(AUG):
+        if(globalsettings.AUG):
             self.Scenario.bt_vac_correction = 1.0
         self.last_used_bt_vac_correction = 1.0
         self.unused = []
@@ -534,18 +529,19 @@ class ScenarioSelectPanel(wx.Panel):
         if(self.plasma_dict is None):
             return
         self.Scenario.shot = self.plasma_dict["shot"]
-        self.shot_tc.SetValue(self.plasma_dict["shot"])
         self.Scenario.EQ_exp = self.plasma_dict["eq_exp"]
         self.Scenario.EQ_diag = self.plasma_dict["eq_diag"]
         self.Scenario.EQ_ed = self.plasma_dict["eq_ed"]
         print("Updated equilibrium settings with values from .mat")
-        self.IDA_exp_tc.SetValue("None")
-        self.IDA_exp_tc.Disable()
-        self.IDA_ed_tc.SetValue("-1")
-        self.IDA_ed_tc.Disable()
-        self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
-        self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
-        self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
+        if(globalsettings.AUG):
+            self.shot_tc.SetValue(self.plasma_dict["shot"])
+            self.IDA_exp_tc.SetValue("None")
+            self.IDA_exp_tc.Disable()
+            self.IDA_ed_tc.SetValue("-1")
+            self.IDA_ed_tc.Disable()
+            self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
+            self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
+            self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
         self.Scenario.profile_dimension = len(self.plasma_dict["Te"][0].shape)
         if(len(self.plasma_dict["time"]) > 1):
             self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - self.plasma_dict["time"][0:len(self.plasma_dict["time"]) - 1])
@@ -608,13 +604,14 @@ class ScenarioSelectPanel(wx.Panel):
             old_time_list = []
             old_eq_list = []
         Scenario.reset()
-        Scenario.shot = self.shot_tc.GetValue()
-        Scenario.IDA_exp = self.IDA_exp_tc.GetValue()
-        Scenario.IDA_ed = self.IDA_ed_tc.GetValue()
-        Scenario.default_diag = self.diag_tc.GetValue()
-        Scenario.EQ_exp = self.plasma_dict["eq_exp"]
-        Scenario.EQ_diag = self.plasma_dict["eq_diag"]
-        Scenario.EQ_ed = self.plasma_dict["eq_ed"]
+        if(globalsettings.AUG):
+            Scenario.shot = self.shot_tc.GetValue()
+            Scenario.IDA_exp = self.IDA_exp_tc.GetValue()
+            Scenario.IDA_ed = self.IDA_ed_tc.GetValue()
+            Scenario.default_diag = self.diag_tc.GetValue()
+            Scenario.EQ_exp = self.plasma_dict["eq_exp"]
+            Scenario.EQ_diag = self.plasma_dict["eq_diag"]
+            Scenario.EQ_ed = self.plasma_dict["eq_ed"]
         Scenario.plasma_dict["vessel_bd"] = self.plasma_dict["vessel_bd"]
         Scenario.bt_vac_correction = self.bt_vac_correction_tc.GetValue()
         Scenario.Te_rhop_scale = self.Te_rhop_scale_tc.GetValue()
@@ -942,8 +939,9 @@ class ScenarioSelectPanel(wx.Panel):
         self.unused_list.Enable()
         self.AddButton.Enable()
         self.RemoveButton.Enable()
-        self.IDA_exp_tc.Enable()
-        self.IDA_ed_tc.Enable()
+        if(globalsettings.AUG):
+            self.IDA_exp_tc.Enable()
+            self.IDA_ed_tc.Enable()
         evt = LockExportEvt(Unbound_EVT_LOCK_EXPORT, self.GetId())
         self.Parent.Parent.GetEventHandler().ProcessEvent(evt)
 
@@ -994,7 +992,7 @@ class ScenarioSelectPanel(wx.Panel):
 #                            EQ_ed=self.Config.EQ_ed, bt_vac_correction=self.Scenario.bt_vac_correction)
 
     def ChangeCursor(self, event):
-        if(Phoenix):
+        if(globalsettings.Phoenix):
             self.canvas.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
         else:
             self.canvas.SetCursor(wx.StockCursor(wx.CURSOR_CROSS))

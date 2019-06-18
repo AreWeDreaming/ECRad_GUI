@@ -4,7 +4,6 @@ Created on Tue Sep 25 17:16:40 2012
 
 @author: Severin
 """
-from GlobalSettings import *
 import wx
 class Redirect_Text:
     def __init__(self, aWxTextCtrl):

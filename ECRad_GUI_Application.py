@@ -17,7 +17,12 @@ if(not found_lib):
     print("Important: ECRad_GUI must be launched with its home directory as the current working directory")
     print("Additionally, the ECRad_Pylib must be in the parent directory of the GUI and must contain one of ECRad, ecrad and Pylib or pylib")
     exit(-1)
-from GlobalSettings import Phoenix
+from GlobalSettings import globalsettings
+try:
+    from equilibrium_utils_AUG import EQData
+except OSError:
+    globalsettings.AUG = False
+    print("Failed to load AUG libraries continuing in non-AUG mode.")
 import wx.lib.scrolledpanel as scrolled
 from ECRad_GUI_LaunchPanel import LaunchPanel
 from ECRad_GUI_ScenarioPanel import ScenarioSelectPanel
@@ -47,7 +52,7 @@ def kill_handler(signum, frame):
 class ECRad_GUI_App(wx.App):
     def OnInit(self):
         self.SetAppName("ECRad GUI")
-        if(Phoenix):
+        if(globalsettings.Phoenix):
             frame = ECRad_GUI_MainFrame(self, 'ECRad GUI')
             self.SetTopWindow(frame)
             frame.Show(True)
@@ -98,7 +103,7 @@ class ECRad_GUI_MainFrame(wx.Frame):
             'Show the Input Mask')
         self.ECRad_quit = wx.MenuItem(self._fileMenu, wx.ID_ANY, \
                                 "&Close\tCtrl-Q", "Close ECRad_GUI")
-        if(Phoenix):
+        if(globalsettings.Phoenix):
             self._fileMenu.Append(self.ECRad_config_load)
             self._fileMenu.Append(self.ECRad_quit)
         else:
@@ -174,7 +179,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.KillECRadButton.Bind(wx.EVT_BUTTON, self.OnKillECRad)
         self.KillECRadButton.Disable()
         self.ExporttoMatButton = wx.Button(self, wx.ID_ANY, 'Export to .mat')
-        if(Phoenix):
+        if(globalsettings.Phoenix):
             self.ExporttoMatButton.SetToolTipString("If this is grayed out there is no (new) data to save!")
         else:
             self.ExporttoMatButton.SetToolTipString("If this is grayed out there is no (new) data to save!")
@@ -252,10 +257,13 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.UpperBook.AddPage(self.plot_panel, "Misc. Plots")
         self.sizer.Add(self.Progress_sizer, 0, wx.ALL | wx.EXPAND, 5)
         self.SetScrollRate(20, 20)
-        self.calib_panel = CalibPanel(self.UpperBook, self.Results.Scenario)
-        self.UpperBook.AddPage(self.calib_panel, "ECRad Calibration")
-        self.calib_evolution_Panel = CalibEvolutionPanel(self.UpperBook, self.Results.Config.working_dir)
-        self.UpperBook.AddPage(self.calib_evolution_Panel, "Plotting for calibration")
+        if(globalsettings.AUG):
+            self.calib_panel = CalibPanel(self.UpperBook, self.Results.Scenario)
+            self.UpperBook.AddPage(self.calib_panel, "ECRad Calibration")
+            self.calib_evolution_Panel = CalibEvolutionPanel(self.UpperBook, self.Results.Config.working_dir)
+            self.UpperBook.AddPage(self.calib_evolution_Panel, "Plotting for calibration")
+        else:
+            print("AUG shotfile system inaccessible -> Cross calibration disabled")
         self.sizer.Add(self.UpperBook, 1, wx.ALL | \
             wx.LEFT, 5)
 
@@ -463,7 +471,8 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.GetEventHandler().ProcessEvent(evt_out)
         evt_out_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
         evt_out_2.SetResults(self.Results)
-        self.calib_panel.GetEventHandler().ProcessEvent(evt_out_2)
+        if(globalsettings.AUG):
+            self.calib_panel.GetEventHandler().ProcessEvent(evt_out_2)
         self.scenario_select_panel.GetEventHandler().ProcessEvent(evt_out_2)
         self.plot_panel.GetEventHandler().ProcessEvent(evt_out_2)
         print("Successfully imported:", evt.filename)
@@ -614,7 +623,8 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.GetEventHandler().ProcessEvent(evt)
             evt_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
             evt_2.SetResults(self.Results)
-            self.calib_panel.GetEventHandler().ProcessEvent(evt_2)
+            if(globalsettings.AUG):
+                self.calib_panel.GetEventHandler().ProcessEvent(evt_2)
             self.scenario_select_panel.GetEventHandler().ProcessEvent(evt_2)
             self.plot_panel.GetEventHandler().ProcessEvent(evt_2)
             print("-------- ECRad has terminated -----------\n")
@@ -636,7 +646,7 @@ class Main_Panel(scrolled.ScrolledPanel):
 class ECRad_GUI:
     def __init__(self):
         GUI = ECRad_GUI_App()
-        if(not Phoenix):
+        if(not globalsettings.Phoenix):
             MainFrame = ECRad_GUI_MainFrame(GUI, 'ECRad GUI')
             MainFrame.Show(True)
         GUI.MainLoop()

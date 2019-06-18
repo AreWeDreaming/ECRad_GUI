@@ -5,7 +5,6 @@ Created on Tue Feb 25 18:31:50 2014
 @author: sdenk
 """
 from threading import Thread
-from GlobalSettings import *
 class WorkerThread(Thread):
     """Worker Thread Class."""
     def __init__(self, function, args):

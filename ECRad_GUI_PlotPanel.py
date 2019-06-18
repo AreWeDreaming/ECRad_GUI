@@ -4,7 +4,7 @@ Created on Apr 3, 2019
 @author: sdenk
 '''
 
-from GlobalSettings import Phoenix
+from GlobalSettings import globalsettings
 import wx
 import os
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row
@@ -12,13 +12,12 @@ from wxEvents import *
 from plotting_configuration import *
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from plotting_core import plotting_core
-from shotfile_handling_AUG import shotfile_exists, get_data_calib, AUG_profile_diags,\
-                                  load_IDA_data, get_Thomson_data
-from _pylief import NONE
-from pip._vendor.distlib._backport.tarfile import TUREAD
-from yt.visualization import base_plot_types
-from __builtin__ import False
-if(Phoenix):
+if(globalsettings.AUG):
+    from shotfile_handling_AUG import shotfile_exists, get_data_calib, AUG_profile_diags,\
+                                      load_IDA_data, get_Thomson_data
+else:
+    print("AUG shotfile system inaccessible -> Cannot plot diagnostic data!")                                
+if(globalsettings.Phoenix):
     from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 else:
     from matplotlib.backends.backend_wxagg import NavigationToolbar2Wx
@@ -100,13 +99,14 @@ class PlotPanel(wx.Panel):
         self.diag_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.controlplotsizer.Add(self.FigureControlPanel, 1, wx.ALL | wx.EXPAND, 10)
         self.diag_box_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.load_diag_data_button = wx.Button(self, wx.ID_ANY, "Load diagnostic data")
-        self.load_diag_data_button.Bind(wx.EVT_BUTTON, self.OnLoadDiagData)
-        self.diag_box_sizer.Add(self.load_diag_data_button, 0, wx.ALL | wx.EXPAND, 5)
-        self.diag_text = wx.StaticText(self, wx.ID_ANY, "Select diagnostics to include in plot")
-        self.diag_box_sizer.Add(self.diag_text, 0, wx.ALL | wx.TOP, 5)
-        self.diag_box = wx.ListBox(self, wx.ID_ANY, style=wx.LB_MULTIPLE, size=(100,100))
-        self.diag_box_sizer.Add(self.diag_box, 0, wx.ALL | wx.EXPAND, 5)
+        if(globalsettings.AUG):
+            self.load_diag_data_button = wx.Button(self, wx.ID_ANY, "Load diagnostic data")
+            self.load_diag_data_button.Bind(wx.EVT_BUTTON, self.OnLoadDiagData)
+            self.diag_box_sizer.Add(self.load_diag_data_button, 0, wx.ALL | wx.EXPAND, 5)
+            self.diag_text = wx.StaticText(self, wx.ID_ANY, "Select diagnostics to include in plot")
+            self.diag_box_sizer.Add(self.diag_text, 0, wx.ALL | wx.TOP, 5)
+            self.diag_box = wx.ListBox(self, wx.ID_ANY, style=wx.LB_MULTIPLE, size=(100,100))
+            self.diag_box_sizer.Add(self.diag_box, 0, wx.ALL | wx.EXPAND, 5)
         self.load_other_results_button = wx.Button(self, wx.ID_ANY, "Load other results")
         self.load_other_results_button.Bind(wx.EVT_BUTTON, self.OnLoadOtherResults)
         self.diag_box_sizer.Add(self.load_other_results_button, 0, wx.ALL | wx.EXPAND, 5)
@@ -152,9 +152,10 @@ class PlotPanel(wx.Panel):
             self.ch_choice.Clear()
             self.ch_choice.AppendItems(np.array(range(1, len(self.Results.Trad.T) + 1)).astype("|S4"))
             self.ch_choice.Select(0)
-            self.diag_data = {}
-            self.diag_box.Clear()
-            self.load_diag_data_button.Enable()
+            if(globalsettings.AUG):
+                self.diag_data = {}
+                self.diag_box.Clear()
+                self.load_diag_data_button.Enable()
             self.load_other_results_button.Enable()
 
     def OnUpdateChtooltip(self, evt):
@@ -163,7 +164,7 @@ class PlotPanel(wx.Panel):
             itime = np.argmin(np.abs(self.Results.time - time))
             ch = int(self.ch_choice.GetStringSelection()) - 1
             res = self.Results.resonance["rhop_cold"][itime][ch]
-            if(Phoenix):
+            if(globalsettings.Phoenix):
                 self.ch_choice.SetToolTip(r"rhopol = {0:1.3f}".format(res))
             else:
                 self.ch_choice.SetToolTipString(r"rhopol = {0:1.3f}".format(res))
@@ -172,6 +173,9 @@ class PlotPanel(wx.Panel):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Plotting - GUI might be unresponsive for minutes - please wait!')
         self.GetEventHandler().ProcessEvent(evt)
+        if(len(self.time_choice.GetItems()) == 0):
+            print("NO time points available!")
+            return
         plot_type = self.plot_choice.GetStringSelection()
         time = float(self.time_choice.GetStringSelection())
         ch = int(self.ch_choice.GetStringSelection()) - 1  # index - not channel number
@@ -179,7 +183,10 @@ class PlotPanel(wx.Panel):
         alt_model = self.alt_model_cb.GetValue()
         tau_threshhold = self.tau_threshhold_tc.GetValue()
         eq_aspect_ratio = self.eq_aspect_ratio_cb.GetValue()
-        diag_data_selected = np.array(self.diag_box.GetItems())[self.diag_box.GetSelections()]
+        if(globalsettings.AUG):
+            diag_data_selected = np.array(self.diag_box.GetItems())[self.diag_box.GetSelections()]
+        else:
+            diag_data_selected = np.array([] )
         compare_data_selected = np.array(self.other_result_box.GetItems())[self.other_result_box.GetSelections()]
         self.FigureControlPanel.AddPlot(plot_type, self.Results.Config, self.Results, self.diag_data, diag_data_selected, self.compare_data, compare_data_selected, time, ch, mode, alt_model, tau_threshhold, eq_aspect_ratio)
         self.Layout()
@@ -785,7 +792,8 @@ class PlotContainer(wx.Panel):
                                         z_cold=z_cold, s_cold=s_cold, straight=straight, \
                                         eq_aspect_ratio=eq_aspect_ratio, R_other_list=R_other_list, \
                                         z_other_list=z_other_list, x_other_list = x_other_list, \
-                                        y_other_list=y_other_list, label_list=label_list)
+                                        y_other_list=y_other_list, label_list=label_list, \
+                                        vessel_bd=Results.Scenario.plasma_dict["vessel_bd"])
 #            else:
 #                self.fig = self.pc_obj.plot_ray(Results.Scenario.shot, time, rays, index=time_index, \
 #                                            H=False, R_cold=R_cold, \
@@ -964,6 +972,7 @@ class PlotContainer(wx.Panel):
             if(mode):
                 if(len(Results.BPD["rhopX"]) == 0):
                     print("No data availabe for X-mode")
+                    return False
                 rhop = Results.BPD["rhopX"][time_index][ch]
                 D = Results.BPD["BPDX"][time_index][ch]
                 D_comp = Results.BPD["BPD_secondX"][time_index][ch]
@@ -1089,7 +1098,8 @@ class PlotContainer(wx.Panel):
                     EQ_obj = EQData(Results.Scenario.shot)
                     EQ_obj.insert_slices_from_ext(Results.Scenario.time, Results.Scenario.plasma_dict["eq_data"])
                     self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-                                                       EQ_obj=EQ_obj, Rays=rays, tb_Rays=tb_rays)
+                                                       EQ_obj=EQ_obj, Rays=rays, tb_Rays=tb_rays, \
+                                                       vessel_bd=Results.Scenario.plasma_dict["vessel_bd"])
 #                    else:
 #                        self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
 #                                                           Rays=rays, tb_Rays=tb_rays)
@@ -1121,7 +1131,8 @@ class PlotContainer(wx.Panel):
                         EQ_obj.insert_slices_from_ext(time, Results.Scenario.plasma_dict["eq_data"])
                         # the matrices in the slices are Fortran ordered - hence transposition necessary
                         self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-                                                           EQ_obj=EQ_obj, Rays=rays, straight_Rays=straight_rays)
+                                                           EQ_obj=EQ_obj, Rays=rays, straight_Rays=straight_rays, \
+                                                           vessel_bd=Results.Scenario.plasma_dict["vessel_bd"])
 #                        else:
 #                            self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
 #                                                               Rays=rays, straight_Rays=straight_rays, \
