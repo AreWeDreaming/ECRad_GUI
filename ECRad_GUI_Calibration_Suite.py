@@ -56,7 +56,7 @@ class CalibPanel(wx.Panel):
         self.calibrate_button.Bind(wx.EVT_BUTTON, self.OnCalibrate)
         self.plot_avg_button = wx.Button(self, 0, "Plot avg.")
         self.plot_avg_button.Bind(wx.EVT_BUTTON, self.OnPlotAvg)
-        if(Phoenix):
+        if(globalsettings.Phoenix):
             self.plot_avg_button.SetToolTip("Plot avg. calib factors once they are loaded")
         else:
             self.plot_avg_button.SetToolTipString("Plot avg. calib factors once they are loaded")
