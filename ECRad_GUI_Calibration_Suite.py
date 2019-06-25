@@ -22,6 +22,7 @@ import os
 from ECRad_Results import ECRadResults
 if(globalsettings.AUG):
     from shotfile_handling_AUG import get_data_calib, moving_average
+    from get_ECRH_config import get_ECRH_viewing_angles
 else:
     print("AUG shotfile system inaccessible -> Cross-calibration not supported at the moment.")
 from Diags import Diag
@@ -206,7 +207,7 @@ class CalibPanel(wx.Panel):
             self.unused_list.AppendItems(self.unused)
 
     def ChangeCursor(self, event):
-        if(Phoenix):
+        if(globalsettings.Phoenix):
             self.canvas.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
         else:
             self.canvas.SetCursor(wx.StockCursor(wx.CURSOR_CROSS))
@@ -953,7 +954,7 @@ class CalibEvolutionPanel(wx.Panel):
         self.ch_ch.Clear()
 
     def ChangeCursor(self, event):
-        if(Phoenix):
+        if(globalsettings.Phoenix):
             self.canvas.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
         else:
             self.canvas.SetCursor(wx.StockCursor(wx.CURSOR_CROSS))

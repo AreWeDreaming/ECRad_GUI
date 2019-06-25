@@ -7,6 +7,6 @@
 <pydev_property name="org.python.pydev.PYTHON_PROJECT_INTERPRETER">Default</pydev_property>
 
 <pydev_pathproperty name="org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH">
-<path>/pfs/work/g2sdenk/workspace/ECRad_Pylib</path>
+<path>/afs/ipp/aug/ads-diags/common/python/lib</path>
 </pydev_pathproperty>
 </pydev_project>

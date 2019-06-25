@@ -20,6 +20,7 @@ else:
 if(globalsettings.AUG):
     from equilibrium_utils_AUG import EQData, vessel_bd_file
     from shotfile_handling_AUG import load_IDA_data, get_diag_data_no_calib, get_freqs, get_divertor_currents, filter_CTA
+    from get_ECRH_config import identify_ECRH_on_phase
     import ElmSync
 
 class ScenarioSelectPanel(wx.Panel):
@@ -93,32 +94,6 @@ class ScenarioSelectPanel(wx.Panel):
 #                         wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.control_sizer.Add(self.load_from_mat_button, 0, \
                                wx.EXPAND |  wx.ALL, 5)
-#        if(getpass.getuser() == "sdenk"):
-#            self.line_extra_1 = wx.StaticLine(self, wx.ID_ANY)
-#            self.control_sizer.Add(self.line_extra_1, 0, \
-#                         wx.EXPAND | wx.ALL, 5)
-#            self.special_label = wx.StaticText(self, wx.ID_ANY, "Export")
-#            self.special_label_sizer = wx.BoxSizer(wx.HORIZONTAL)
-#            self.special_label_sizer.AddStretchSpacer(1)
-#            self.special_label_sizer.Add(self.special_label, 0, \
-#                                         wx.ALIGN_CENTER | wx.ALL, 5)
-#            self.special_label_sizer.AddStretchSpacer(1)
-#            self.control_sizer.Add(self.special_label_sizer, 0, \
-#                         wx.ALIGN_CENTER | wx.ALL, 5)
-#            self.line_extra_1 = wx.StaticLine(self, wx.ID_ANY)
-#            self.control_sizer.Add(self.line_extra_1, 0, \
-#                         wx.EXPAND | wx.ALL, 5)
-#            self.export_data_sizer = wx.BoxSizer(wx.HORIZONTAL)
-#            self.make_LUKE_data_button = wx.Button(self, wx.ID_ANY, "LUKE data")
-#            self.make_LUKE_data_button.Bind(wx.EVT_BUTTON, self.OnMakeLUKEdata)
-#            self.make_LUKE_mat_button = wx.Button(self, wx.ID_ANY, "LUKE mat")
-#            self.make_LUKE_mat_button.Bind(wx.EVT_BUTTON, self.OnMakeLUKEMat)
-#            self.export_data_sizer.Add(self.make_LUKE_data_button, 0, \
-#                         wx.ALIGN_BOTTOM | wx.ALL, 5)
-#            self.export_data_sizer.Add(self.make_LUKE_mat_button, 0, \
-#                         wx.ALIGN_BOTTOM | wx.ALL, 5)
-#            self.control_sizer.Add(self.export_data_sizer, 0, \
-#                         wx.ALIGN_LEFT | wx.ALL, 5)
         self.line1 = wx.StaticLine(self, wx.ID_ANY)
         self.control_sizer.Add(self.line1, 0, \
                          wx.EXPAND | wx.ALL, 5)
@@ -174,28 +149,29 @@ class ScenarioSelectPanel(wx.Panel):
         self.line4 = wx.StaticLine(self, wx.ID_ANY)
         self.control_sizer.Add(self.line4, 0, \
                          wx.EXPAND | wx.ALL, 5)
-        self.elm_filter_label = wx.StaticText(self, wx.ID_ANY, "Remove all time points during an ELM/ECRH", style=wx.ALIGN_CENTER_HORIZONTAL)
-        self.elm_filter_label.Wrap(400)
-        self.elm_filter_label_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.elm_filter_label_sizer.AddStretchSpacer(1)
-        self.elm_filter_cb = wx.CheckBox(self, wx.ID_ANY, "Filter ELMS")
-        # self.elm_filter_cb.SetValue(True)
-        self.elm_filter_cb.Disable()
-        self.elm_filter_cb.Bind(wx.EVT_CHECKBOX, self.OnFilterElms)
-        self.ECRH_filter_cb = wx.CheckBox(self, wx.ID_ANY, "Filter ECRH")
-        self.ECRH_filter_cb.Disable()
-        self.ECRH_filter_cb.Bind(wx.EVT_CHECKBOX, self.OnFilterECRH)
-        self.elm_filter_label_sizer.Add(self.elm_filter_label, 0, \
-                         wx.ALIGN_CENTER | wx.ALL, 5)
-        self.elm_filter_label_sizer.Add(self.elm_filter_cb, 0, \
-                         wx.ALIGN_CENTER | wx.ALL, 5)
-        self.elm_filter_label_sizer.Add(self.ECRH_filter_cb, 0, \
-                         wx.ALIGN_CENTER | wx.ALL, 5)
-        self.control_sizer.Add(self.elm_filter_label_sizer, 0, \
-                         wx.ALIGN_CENTER | wx.ALL, 5)
-        self.line5 = wx.StaticLine(self, wx.ID_ANY)
-        self.control_sizer.Add(self.line5, 0, \
-                         wx.EXPAND | wx.ALL, 5)
+        if(globalsettings.AUG):
+            self.elm_filter_label = wx.StaticText(self, wx.ID_ANY, "Remove all time points during an ELM/ECRH", style=wx.ALIGN_CENTER_HORIZONTAL)
+            self.elm_filter_label.Wrap(400)
+            self.elm_filter_label_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            self.elm_filter_label_sizer.AddStretchSpacer(1)
+            self.elm_filter_cb = wx.CheckBox(self, wx.ID_ANY, "Filter ELMS")
+            # self.elm_filter_cb.SetValue(True)
+            self.elm_filter_cb.Disable()
+            self.elm_filter_cb.Bind(wx.EVT_CHECKBOX, self.OnFilterElms)
+            self.ECRH_filter_cb = wx.CheckBox(self, wx.ID_ANY, "Filter ECRH")
+            self.ECRH_filter_cb.Disable()
+            self.ECRH_filter_cb.Bind(wx.EVT_CHECKBOX, self.OnFilterECRH)
+            self.elm_filter_label_sizer.Add(self.elm_filter_label, 0, \
+                             wx.ALIGN_CENTER | wx.ALL, 5)
+            self.elm_filter_label_sizer.Add(self.elm_filter_cb, 0, \
+                             wx.ALIGN_CENTER | wx.ALL, 5)
+            self.elm_filter_label_sizer.Add(self.ECRH_filter_cb, 0, \
+                             wx.ALIGN_CENTER | wx.ALL, 5)
+            self.control_sizer.Add(self.elm_filter_label_sizer, 0, \
+                             wx.ALIGN_CENTER | wx.ALL, 5)
+            self.line5 = wx.StaticLine(self, wx.ID_ANY)
+            self.control_sizer.Add(self.line5, 0, \
+                             wx.EXPAND | wx.ALL, 5)
         self.timepoint_label = wx.StaticText(self, wx.ID_ANY, \
                                              "Current selection - double click in plot on right to add/remove time points", \
                                              style=wx.ALIGN_CENTER_HORIZONTAL)
@@ -274,6 +250,7 @@ class ScenarioSelectPanel(wx.Panel):
             self.loaded = False
             self.data_source = None
         self.new_data_available = False
+        self.post_run = False
 
     def OnUpdate(self, evt):
         self.Results = evt.Results

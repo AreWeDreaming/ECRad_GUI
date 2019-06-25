@@ -34,7 +34,6 @@ from signal import signal, SIGTERM
 from wxEvents import *
 from ECRad_GUI_Shell import Redirect_Text
 from ECRad_Interface import prepare_input_files, GetECRadExec
-from electron_distribution_utils import Gene, Gene_BiMax
 from ECRad_Results import ECRadResults
 import getpass
 from ECRad_GUI_PlotPanel import PlotPanel
@@ -371,23 +370,6 @@ class Main_Panel(scrolled.ScrolledPanel):
                 pathname = fileDialog.GetPath()
                 self.Results.Scenario.load_dist_obj(pathname)
                 fileDialog.Destroy()
-#        elif(self.Results.Config.dstf == "Ge" or self.Results.Config.dstf == "GB"):
-#            if(self.Results.Config.dstf == "Ge"):
-#                self.Results.Config.gene_obj = []
-#                self.Results.Config.gene_obj.append(Gene(self.Results.Config.working_dir, self.Results.Scenario.shot, EQSlice=EQSlice, it=it))
-#                self.unused.append("{0:d}".format(0))
-#                if(self.Results.Config.gene_obj[-1].total_time_cnt > 0):
-#                    for it in range(1, self.Results.Config.gene_obj[-1].total_time_cnt):
-#                        self.Results.Config.gene_obj.append(Gene(self.Results.Config.working_dir, self.Results.Scenario.shot, EQSlice=EQSlice, it=it))
-#                        self.unused.append("{0:d}".format(it))
-#            elif(self.Results.Config.dstf == "GB"):
-#                self.Results.Config.gene_obj = []
-#                self.Results.Config.gene_obj.append(Gene_BiMax(self.Results.Config.working_dir, self.Results.Scenario.shot, EQSlice=EQSlice, it=it))
-#    #            self.unused.append("{0:d}".format(0))
-#                if(self.Results.Config.gene_obj[-1].total_time_cnt > 0):
-#                    for it in range(1, self.Results.Config.gene_obj[-1].total_time_cnt):
-#                        self.Results.Config.gene_obj.append(Gene_BiMax(self.Results.Config.working_dir, self.Results.Scenario.shot, EQSlice=EQSlice, it=it))
-#                        self.unused.append("{0:d}".format(it))
         self.Results.Config.autosave()
         self.Results.Scenario.autosave()
         self.ProgressBar.SetRange(len(self.Results.Scenario.plasma_dict["time"]))

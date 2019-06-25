@@ -22,13 +22,14 @@ if(globalsettings.Phoenix):
 else:
     from matplotlib.backends.backend_wxagg import NavigationToolbar2Wx
 import numpy as np
-from TB_communication import make_all_TORBEAM_rays_thread
+from TB_communication import make_all_TORBEAM_rays_thread, Ray
 from ECRad_GUI_Thread import WorkerThread
-from electron_distribution_utils import Ray
 from equilibrium_utils import EQDataExt as EQData
 from Diags import Diag
 from ECRad_GUI_Diagnostic import Diagnostic
 from ECRad_Results import ECRadResults
+from BDOP_3D import make_3DBDOP_cut_GUI
+from Diag_efficiency import diag_weight
 
 class PlotPanel(wx.Panel):
     def __init__(self, parent):
@@ -57,6 +58,8 @@ class PlotPanel(wx.Panel):
         # self.plot_choice.Append("Ray_H_N")
         self.plot_choice.Append("Rz res.")
         self.plot_choice.Append("Rz res. w. rays")
+        self.plot_choice.Append("3D Birthplace distribution")
+        self.plot_choice.Append("Momentum space sensitivity")
         self.plot_choice.Select(0)
         self.plot_choice.Bind(wx.EVT_CHOICE, self.OnNewPlotChoice)
         self.plot_choice_sizer.Add(self.plot_choice_label, 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
@@ -560,11 +563,11 @@ class PlotContainer(wx.Panel):
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.SetSizer(self.sizer)
         self.fig_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.fig = plt.figure(figsize=(12.0, 8.5), tight_layout=False, frameon=False)
+        self.fig = plt.figure(figsize=(12.0, 8.5), tight_layout=True, frameon=False)
         self.fig.clf()
         self.canvas = FigureCanvas(self, -1, self.fig)
         self.canvas.mpl_connect('motion_notify_event', self.UpdateCoords)
-        self.canvas.draw()
+        self.Bind(EVT_DONE_PLOTTING, self.OnDonePlotting)
         self.plot_toolbar = NavigationToolbar2Wx(self.canvas)
         fw, th = self.plot_toolbar.GetSize().Get()
         self.plot_toolbar.SetSize(wx.Size(fw, th))
@@ -787,20 +790,22 @@ class PlotContainer(wx.Panel):
             EQ_obj = EQData(Results.Scenario.shot)
             EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
             # the matrices in the slices are Fortran ordered - hence transposition necessary
-            self.fig = self.pc_obj.plot_ray(Results.Scenario.shot, time, rays, index=time_index, \
-                                        EQ_obj=EQ_obj, H=False, R_cold=R_cold, \
-                                        z_cold=z_cold, s_cold=s_cold, straight=straight, \
-                                        eq_aspect_ratio=eq_aspect_ratio, R_other_list=R_other_list, \
-                                        z_other_list=z_other_list, x_other_list = x_other_list, \
-                                        y_other_list=y_other_list, label_list=label_list, \
-                                        vessel_bd=Results.Scenario.plasma_dict["vessel_bd"])
+            args = [self.pc_obj.plot_ray, Results.Scenario.shot, time, rays]
+            kwargs = {"index":time_index, "Eq_Slice":EQ_obj.GetSlice(time), "H":False, "R_cold":R_cold, \
+                      "z_cold":z_cold, "s_cold":s_cold, "straight":straight, "eq_aspect_ratio":eq_aspect_ratio, \
+                      "R_other_list":R_other_list, "z_other_list":z_other_list, "x_other_list":x_other_list, \
+                      "y_other_list":y_other_list, "label_list":label_list, "vessel_bd":Results.Scenario.plasma_dict["vessel_bd"]}
+#             self.fig = self.pc_obj.plot_ray(Results.Scenario.shot, time, rays, index=time_index, \
+#                                         EQ_obj=EQ_obj.GetSlice(time), H=False, R_cold=R_cold, \
+#                                         z_cold=z_cold, s_cold=s_cold, straight=straight, \
+#                                         eq_aspect_ratio=eq_aspect_ratio, R_other_list=R_other_list, \
+#                                         z_other_list=z_other_list, x_other_list = x_other_list, \
+#                                         y_other_list=y_other_list, label_list=label_list, \
+#                                         vessel_bd=Results.Scenario.plasma_dict["vessel_bd"])
 #            else:
 #                self.fig = self.pc_obj.plot_ray(Results.Scenario.shot, time, rays, index=time_index, \
 #                                            H=False, R_cold=R_cold, \
 #                                            z_cold=z_cold, s_cold=s_cold, straight=straight, eq_aspect_ratio=eq_aspect_ratio)
-            self.canvas.draw()
-            evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
-            self.GetEventHandler().ProcessEvent(evt)
         if(plot_type == "Ray_H_N"):
             print("Coming soon - sorry!")
             return False
@@ -873,11 +878,16 @@ class PlotContainer(wx.Panel):
 #                                                     rhop_IDA, Te_IDA, \
 #                                                    [], [], [], [], Config.dstf, alt_model)
 #            else:
-
-            self.fig = self.pc_obj.plot_Trad(time, rhop, Trad, Trad_comp, \
-                                             rhop_Te, Te, diagdict, diag_names, \
-                                             Config.dstf, alt_model, multiple_models=multiple_models, \
-                                             label_list=label_list)
+            args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
+                                         rhop_Te, Te,  diagdict, diag_names, \
+                                             Config.dstf, alt_model]
+            kwargs = {}
+            kwargs["multiple_models"] = multiple_models
+            kwargs["label_list"] = label_list
+#             self.fig = self.pc_obj.plot_Trad(time, rhop, Trad, Trad_comp, \
+#                                              rhop_Te, Te, diagdict, diag_names, \
+#                                              Config.dstf, alt_model, multiple_models=multiple_models, \
+#                                              label_list=label_list)
         elif(plot_type == "T"):
             rhop = Results.resonance["rhop_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
             if(len(rhop) == 0):
@@ -890,12 +900,12 @@ class PlotContainer(wx.Panel):
                 tau_comp = None
             rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
             Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
-            self.fig = self.pc_obj.plot_tau(time, rhop, \
-                                            tau, tau_comp, rhop_IDA, Te_IDA, \
-                                            Config.dstf, alt_model)
-            self.canvas.draw()
-            evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
-            self.GetEventHandler().ProcessEvent(evt)
+#             self.fig = self.pc_obj.plot_tau(time, rhop, \
+#                                             tau, tau_comp, rhop_IDA, Te_IDA, \
+#                                             Config.dstf, alt_model)
+            args = [self.pc_obj.plot_tau, time, rhop, tau, tau_comp, \
+                                         rhop_IDA, Te_IDA,  Config.dstf, alt_model]
+            kwargs = {}
         elif(plot_type == "Trad mode"):
             if(Config.considered_modes != 3):
                 print("This plot is only sensitble if both X and O mode are considered")
@@ -929,11 +939,12 @@ class PlotContainer(wx.Panel):
                 Trad_comp = Results.OTrad_comp[time_index][Results.Otau[time_index] >= tau_threshhold]
                 X_mode_frac = Results.X_mode_frac[time_index][Results.Otau[time_index] >= tau_threshhold]
                 X_mode_frac_comp = Results.X_mode_frac_comp[time_index][Results.Otau[time_index] >= tau_threshhold]
-            self.fig = self.pc_obj.plot_Trad(time, rhop, Trad, Trad_comp, \
-                                             rhop_Te, Te,  diagdict, diag_names, \
-                                             Config.dstf, alt_model, \
-                                             X_mode_fraction=X_mode_frac, \
-                                             X_mode_fraction_comp=X_mode_frac_comp)
+            args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
+                                         rhop_Te, Te,  diagdict, diag_names, \
+                                         Config.dstf, alt_model]
+            kwargs = {}
+            kwargs["X_mode_fraction"] = X_mode_frac
+            kwargs["X_mode_fraction_comp"] = X_mode_frac_comp
         elif(plot_type == "T mode"):
             if(Config.considered_modes != 3):
                 print("This plot is only sensitble if both X and O mode are considered")
@@ -958,9 +969,13 @@ class PlotContainer(wx.Panel):
                 tau_comp = Results.Otau_comp[time_index][Results.Otau[time_index] >= tau_threshhold]
             rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
             Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
-            self.fig = self.pc_obj.plot_tau(time, rhop, \
+            args = [self.pc_obj.plot_tau, time, rhop, \
                                             tau, tau_comp, rhop_IDA, Te_IDA, \
-                                            Config.dstf, alt_model)
+                                            Config.dstf, alt_model]
+            kwargs = {}
+#             self.fig = self.pc_obj.plot_tau(time, rhop, \
+#                                             tau, tau_comp, rhop_IDA, Te_IDA, \
+#                                             Config.dstf, alt_model)
         elif(plot_type == "BPD"):
             if(not Config.extra_output):
                 print("Birthplace distribution was not computed")
@@ -993,10 +1008,9 @@ class PlotContainer(wx.Panel):
             R_axis, z_axis = EQ_obj.get_axis(time)
             if(Results.resonance["R_cold"][time_index][ch] < R_axis):
                 rhop_cold *= -1.0
-            self.fig = self.pc_obj.plot_BPD(time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_cold)
-            self.canvas.draw()
-            evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
-            self.GetEventHandler().ProcessEvent(evt)
+            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_cold]
+            kwargs = {}
+#             self.fig = self.pc_obj.plot_BPD(time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_cold)
         elif(plot_type == "Rz res."):
             R_cold = Results.resonance["R_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
             z_cold = Results.resonance["z_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
@@ -1032,15 +1046,14 @@ class PlotContainer(wx.Panel):
             EQ_obj = EQData(Results.Scenario.shot)
             EQ_obj.insert_slices_from_ext(time, Results.Scenario.plasma_dict["eq_data"])
             # the matrices in the slices are Fortran ordered - hence transposition necessary
-            self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-                                               EQ_obj=EQ_obj, eq_aspect_ratio=eq_aspect_ratio)
+            args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
+            kwargs = {"EQ_obj":EQ_obj, "eq_aspect_ratio":eq_aspect_ratio}
+#             self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
+#                                                EQ_obj=EQ_obj, eq_aspect_ratio=eq_aspect_ratio)
 #            else:
 #                self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
 #                                                   EQ_exp=Config.EQ_exp, EQ_diag=Config.EQ_diag, \
 #                                                   EQ_ed=Config.EQ_ed, eq_aspect_ratio=eq_aspect_ratio)
-            self.canvas.draw()
-            evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
-            self.GetEventHandler().ProcessEvent(evt)
         elif(plot_type == "Rz res. w. rays"):
             if(not Config.extra_output):
                 print("The rays were not output by ECRad only showing cold resonances")
@@ -1089,7 +1102,11 @@ class PlotContainer(wx.Panel):
                             if(len(points_w_emission) > 0):
                                 i_min = np.min(points_w_emission)
                         rays.append([np.sqrt(Results.ray["x" + mode_str][time_index][ich][i_min:] ** 2 + Results.ray["y" + mode_str][time_index][ich][i_min:] ** 2), Results.ray["z" + mode_str][time_index][ich][i_min:]])
-                    rays = np.array(rays)[Results.tau[time_index] > tau_threshhold]
+                    if(len(Results.ray["x" + mode_str][time_index]) != len(Results.tau[time_index])):
+                        print("Ray computation was skipped for some rays for the selected mode")
+                        print("Cannot remove rays with low optical depth, showing all available rays")
+                    else:
+                        rays = np.array(rays)[Results.tau[time_index] > tau_threshhold]
                 try:
                     for ich in range(len(Results.ray["x" + mode_str + "tb"][time_index])):
                         tb_rays.append([Results.ray["R" + mode_str + "tb"][time_index][ich], \
@@ -1097,9 +1114,12 @@ class PlotContainer(wx.Panel):
                     tb_rays = np.array(tb_rays)[Results.tau[time_index] > tau_threshhold]
                     EQ_obj = EQData(Results.Scenario.shot)
                     EQ_obj.insert_slices_from_ext(Results.Scenario.time, Results.Scenario.plasma_dict["eq_data"])
-                    self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-                                                       EQ_obj=EQ_obj, Rays=rays, tb_Rays=tb_rays, \
-                                                       vessel_bd=Results.Scenario.plasma_dict["vessel_bd"])
+                    args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
+                    kwargs = {"EQ_obj":EQ_obj, "Rays":rays, "straight_Rays":straight_rays, \
+                              "vessel_bd": Results.Scenario.plasma_dict["vessel_bd"]}
+#                     self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
+#                                                        EQ_obj=EQ_obj, Rays=rays, tb_Rays=tb_rays, \
+#                                                        vessel_bd=Results.Scenario.plasma_dict["vessel_bd"])
 #                    else:
 #                        self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
 #                                                           Rays=rays, tb_Rays=tb_rays)
@@ -1126,14 +1146,21 @@ class PlotContainer(wx.Panel):
                             R = np.linspace(R0, Rmin, 100)
                             z = z0 + (R - R0) / (R1 - R0) * (z1 - z0)
                             straight_rays.append([R, z])
-                        straight_rays = np.array(straight_rays)[Results.tau[time_index] > tau_threshhold]
+                        if(len(Results.ray["x" + mode_str][time_index]) != len(Results.tau[time_index])):
+                            print("Ray computation was skipped for some rays for the selected mode")
+                            print("Cannot remove rays with low optical depth, showing all available rays")
+                        else:
+                            straight_rays = np.array(straight_rays)[Results.tau[time_index] > tau_threshhold]
                         EQ_obj = EQData(Results.Scenario.shot)
                         EQ_obj.insert_slices_from_ext(time, Results.Scenario.plasma_dict["eq_data"])
                         # the matrices in the slices are Fortran ordered - hence transposition necessary
-                        self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-                                                           EQ_obj=EQ_obj, Rays=rays, straight_Rays=straight_rays, \
-                                                           vessel_bd=Results.Scenario.plasma_dict["vessel_bd"])
-#                        else:
+                        args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
+                        kwargs = {"EQ_obj":EQ_obj, "Rays":rays, "straight_Rays":straight_rays, \
+                                  "vessel_bd": Results.Scenario.plasma_dict["vessel_bd"]}
+#                         self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
+#                                                            EQ_obj=EQ_obj, Rays=rays, straight_Rays=straight_rays, \
+#                                                            vessel_bd=Results.Scenario.plasma_dict["vessel_bd"])
+# #                        else:
 #                            self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
 #                                                               Rays=rays, straight_Rays=straight_rays, \
 #                                                               EQ_exp=Config.EQ_exp, EQ_diag=Config.EQ_diag, \
@@ -1142,8 +1169,8 @@ class PlotContainer(wx.Panel):
                         EQ_obj = EQData(Results.Scenario.shot)
                         EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
                         # the matrices in the slices are Fortran ordered - hence transposition necessary
-                        self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-                                                       EQ_obj=EQ_obj, Rays=rays)
+                        args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
+                        kwargs = {"EQ_obj":EQ_obj, "Rays":rays}
 #                        else:
 #                            self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
 #                                                               Rays=rays, EQ_exp=Results.Scenario.EQ_exp, EQ_diag=Results.Scenario.EQ_diag, \
@@ -1153,15 +1180,49 @@ class PlotContainer(wx.Panel):
                 EQ_obj = EQData(Results.Scenario.shot)
                 EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"], transpose=True)
                 # the matrices in the slices are Fortran ordered - hence transposition necessary
-                self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, EQ_obj=EQ_obj)
+                args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
+                kwargs = {"EQ_obj":EQ_obj}
 #                else:
 #                    self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
 #                                                               EQ_exp=Results.Scenario.EQ_exp, EQ_diag=Results.Scenario.EQ_diag, \
 #                                                               EQ_ed=Results.Scenario.Eq_ed)
-            self.canvas.draw()
-            evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
-            self.GetEventHandler().ProcessEvent(evt)
+            
+        elif(plot_type == "3D Birthplace distribution"):
+            if(not mode):
+                print("§D Birthplace distribution only available for X-mode at the moment")
+                return
+            args = [make_3DBDOP_cut_GUI, Results, self.fig, time, ch + 1]
+            kwargs = {}
+#             try:
+#                 self.fig = make_3DBDOP_cut_GUI(Results, self.fig, time, ch)
+#             except ValueError as e:
+#                 print(e)
+#                 return False
+        elif(plot_type == "Momentum space sensitivity"):
+            if(not mode):
+                print("Momentum space sensitivity plot only available for X-mode at the moment")
+                return
+            args = [diag_weight, self.fig, Results, time, ch + 1, None]
+            kwargs = {}
+#             try:
+#                 self.fig = diag_weight( self.fig, Results, time, ch, None)
+#             except ValueError as e:
+#                 print(e)
+#                 return False
+        wt = WorkerThread(self.plot_threading, args, kwargs)
         return True
+
+    def plot_threading(self, args, kwargs):
+        self.fig = args[0](*args[1:], **kwargs)
+        evt = wx.PyCommandEvent(Unbound_EVT_DONE_PLOTTING, self.GetId())
+        wx.PostEvent(self, evt)
+        
+    def OnDonePlotting(self, evt):
+        self.canvas.draw()
+        evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
+        wx.PostEvent(self, evt)
+        wx.PostEvent(self.Parent.Parent, evt) # There should be a way to avoid using Parent.Parent...
+        
 
     def UpdateCoords(self, event):
         if event.inaxes:
