@@ -1189,7 +1189,7 @@ class PlotContainer(wx.Panel):
             
         elif(plot_type == "3D Birthplace distribution"):
             if(not mode):
-                print("§D Birthplace distribution only available for X-mode at the moment")
+                print("3D Birthplace distribution only available for X-mode at the moment")
                 return
             args = [make_3DBDOP_cut_GUI, Results, self.fig, time, ch + 1]
             kwargs = {}
@@ -1221,7 +1221,7 @@ class PlotContainer(wx.Panel):
         self.canvas.draw()
         evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
         wx.PostEvent(self, evt)
-        wx.PostEvent(self.Parent.Parent, evt) # There should be a way to avoid using Parent.Parent...
+        wx.PostEvent(self.Parent.Parent, evt) # There should be a way to avoid using Parent.Parent
         
 
     def UpdateCoords(self, event):
