@@ -55,6 +55,7 @@ class PlotPanel(wx.Panel):
         self.plot_choice.Append("T mode")
         self.plot_choice.Append("BPD")
         self.plot_choice.Append("Ray")
+        self.plot_choice.Append("Frequencies")
         # self.plot_choice.Append("Ray_H_N")
         self.plot_choice.Append("Rz res.")
         self.plot_choice.Append("Rz res. w. rays")
@@ -167,10 +168,11 @@ class PlotPanel(wx.Panel):
             itime = np.argmin(np.abs(self.Results.time - time))
             ch = int(self.ch_choice.GetStringSelection()) - 1
             res = self.Results.resonance["rhop_cold"][itime][ch]
+            diag_name = self.Results.Scenario.ray_launch[itime]["diag_name"][ch]
             if(globalsettings.Phoenix):
-                self.ch_choice.SetToolTip(r"rhopol = {0:1.3f}".format(res))
+                self.ch_choice.SetToolTip(r"{0:s}: rhopol = {1:1.3f}".format(diag_name, res))
             else:
-                self.ch_choice.SetToolTipString(r"rhopol = {0:1.3f}".format(res))
+                self.ch_choice.SetToolTipString(r"{0:s}: rhopol = {1:1.3f}".format(diag_name, res))
 
     def OnPlot(self, evt):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
@@ -806,9 +808,12 @@ class PlotContainer(wx.Panel):
 #                self.fig = self.pc_obj.plot_ray(Results.Scenario.shot, time, rays, index=time_index, \
 #                                            H=False, R_cold=R_cold, \
 #                                            z_cold=z_cold, s_cold=s_cold, straight=straight, eq_aspect_ratio=eq_aspect_ratio)
-        if(plot_type == "Ray_H_N"):
+        elif(plot_type == "Ray_H_N"):
             print("Coming soon - sorry!")
             return False
+        elif(plot_type == "Frequencies"):
+            args = [self.pc_obj.B_plot, Results, time_index, ch, mode_str, Results.Scenario.ray_launch, Results.Config.N_ray]
+            kwargs = {}
         elif(plot_type == "Trad"):
             if(len(other_results_selected) > 0 and "Trad" in other_results.keys()):
                 rhop_list = []
