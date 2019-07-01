@@ -7,10 +7,12 @@ from glob import glob
 from __builtin__ import True
 library_list = glob("../*pylib") + glob("../*Pylib")
 found_lib = False
+ECRadPylibFolder = None
 for folder in library_list:
     if("ECRad" in folder or "ecrad"in folder ):
         sys.path.append(folder)
         found_lib = True
+        ECRadPylibFolder = folder
         break
 if(not found_lib):
     print("Could not find pylib")
@@ -18,6 +20,8 @@ if(not found_lib):
     print("Additionally, the ECRad_Pylib must be in the parent directory of the GUI and must contain one of ECRad, ecrad and Pylib or pylib")
     exit(-1)
 from GlobalSettings import globalsettings
+globalsettings.ECRadGUIRoot = os.getcwd()
+globalsettings.ECRadPylibRoot = ECRadPylibFolder
 try:
     from equilibrium_utils_AUG import EQData
 except OSError:
