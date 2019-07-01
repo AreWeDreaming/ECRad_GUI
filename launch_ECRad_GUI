@@ -36,10 +36,9 @@ else if ($SYS == "amd64_sles15") then
 endif
 rm id
 git rev-parse HEAD > id
-if [ -d "../ECRad_Pylib" ]; then
-  cd ../ECRad_Pylib; rm id; git rev-parse HEAD > id; cd -
-fi
-if [ -d "../augd_ecrad_pylib" ]; then
+if ( -d "../augd_ecrad_pylib" ) then
   cd ../augd_ecrad_pylib; rm id; git rev-parse HEAD > id; cd -
-fi
+else
+  cd ../ECRad_Pylib; rm id; git rev-parse HEAD > id; cd -
+endif
 python ECRad_GUI_Application.py
