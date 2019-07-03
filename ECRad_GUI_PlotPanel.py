@@ -50,10 +50,10 @@ class PlotPanel(wx.Panel):
         self.plot_choice_label = wx.StaticText(self, wx.ID_ANY, "Plot")
         self.plot_choice = wx.Choice(self, wx.ID_ANY)
         self.plot_choice.Append("Trad")
-        self.plot_choice.Append("T")
+        self.plot_choice.Append("Transmisivity")
         self.plot_choice.Append("tau")
         self.plot_choice.Append("Trad mode")
-        self.plot_choice.Append("T mode")
+        self.plot_choice.Append("Transmisivity mode")
         self.plot_choice.Append("tau mode")
         self.plot_choice.Append("BPD")
         self.plot_choice.Append("Ray")
@@ -895,7 +895,7 @@ class PlotContainer(wx.Panel):
 #                                              rhop_Te, Te, diagdict, diag_names, \
 #                                              Config.dstf, alt_model, multiple_models=multiple_models, \
 #                                              label_list=label_list)
-        elif(plot_type == "T" or plot_type == "tau"):
+        elif(plot_type == "Transmisivity" or plot_type == "tau"):
             rhop = Results.resonance["rhop_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
             if(len(rhop) == 0):
                 print("No channels have an optical depth below the currently selected threshold!")
@@ -952,7 +952,7 @@ class PlotContainer(wx.Panel):
             kwargs = {}
             kwargs["X_mode_fraction"] = X_mode_frac
             kwargs["X_mode_fraction_comp"] = X_mode_frac_comp
-        elif(plot_type == "T mode" and plot_type == "tau mode"):
+        elif(plot_type == "Transmisivity mode" and plot_type == "tau mode"):
             if(Config.considered_modes != 3):
                 print("This plot is only sensitble if both X and O mode are considered")
                 return
@@ -1305,11 +1305,7 @@ class DiagSelectDialog(wx.Dialog):
     def OnAddSelection(self, evt):
         used = self.used_list.GetItems()
         unused = self.unused_list.GetItems()
-        if(hasattr(evt, "GetSelection")):
-            sel = [evt.GetSelection()]
-        else:
-            sel = self.unused_list.GetSelections()
-        for i_sel in sel:
+        for i_sel in self.unused_list.GetSelections():
             string = self.unused_list.GetString(i_sel)
             used.append(unused.pop(unused.index(string)))
         self.UpdateLists(used, unused)
@@ -1317,11 +1313,7 @@ class DiagSelectDialog(wx.Dialog):
     def OnRemoveSelection(self, evt):
         used = self.used_list.GetItems()
         unused = self.unused_list.GetItems()
-        if(hasattr(evt, "GetSelection")):
-            sel = [evt.GetSelection()]
-        else:
-            sel = self.used_list.GetSelections()
-        for i_sel in sel:
+        for i_sel in self.used_list.GetSelections():
             string = self.used_list.GetString(i_sel)
             unused.append(used.pop(used.index(string)))
         self.UpdateLists(used, unused)
