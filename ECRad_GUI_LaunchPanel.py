@@ -95,7 +95,7 @@ class LaunchPanel(wx.Panel):
                     evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
                     evt.SetStatus('Error while preparing launch!')
                     self.GetEventHandler().ProcessEvent(evt)
-                    return
+                    return Scenario
                 del(get_ECRH_config) # Need to destroy this here otherwise we cause an incompatability with libece
             if(diag_key in ["ECN", "ECO", "ECI"]):
                 from shotfile_handling_AUG import get_ECI_launch
@@ -103,9 +103,13 @@ class LaunchPanel(wx.Panel):
         Scenario.ray_launch = []
         # Prepare the launches for each time point
         # Some diagnostics have steerable LO, hence each time point has an individual launch
-        for time in Scenario.plasma_dict["time"]:
-            Scenario.ray_launch.append(get_diag_launch(Scenario.shot, time, Scenario.used_diags_dict, \
-                                                        gy_dict=gy_dict, ECI_dict=ECI_dict))
+        try:
+            for time in Scenario.plasma_dict["time"]:
+                Scenario.ray_launch.append(get_diag_launch(Scenario.shot, time, Scenario.used_diags_dict, \
+                                                            gy_dict=gy_dict, ECI_dict=ECI_dict))
+        except IOError as e:
+            print(e)
+            return Scenario
         Scenario.ray_launch = np.array(Scenario.ray_launch)
         Scenario.diags_set = True
         return Scenario

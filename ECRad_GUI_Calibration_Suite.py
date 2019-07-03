@@ -602,6 +602,16 @@ class CalibEvolutionPanel(wx.Panel):
                 if(new_results[-1].from_mat_file(path) == False):
                     print("Failed to load file at " + path)
                     continue
+                if(self.diagnostic not in new_results[-1].calib.keys()):
+                    print("No calibration for " + self.diagnostic + " in " + path)
+                    print("Available Calibrations: ", new_results[-1].calib.keys())
+                    del(new_results[-1])
+                    continue
+                if(len(new_results[-1].time[new_results[-1].masked_time_points[self.diagnostic]]) < 2):
+                    print(path + " contains only a single time point with a calibration")
+                    print("At least two calibration time points are required for these plots")
+                    del(new_results[-1])
+                    continue
 #                elif("ed{0:d}".format(new_results[-1].edition) not in path):
 #                    print("Edition in .mat file does not match filename - distributing new edition according to filename")
 #                    new_results[-1].edition = 0
@@ -610,6 +620,9 @@ class CalibEvolutionPanel(wx.Panel):
                 # it would be nice to have also Te in this plot, but the mapping is a pain
 #                new_results[-1].time, new_results[-1].Scenario.plasma_dict = load_IDA_data(self.Results.Scenario.shot, \
 #                                    new_results[-1].time, self.Results.Scenario.IDA_exp, self.Results.Scenario.IDA_ed)
+            if(len(new_results) == 0):
+                print("No valid calibrations found")
+                return
             if(len(self.ECRad_result_list) == 0):
                 self.ECRad_result_list = new_results
                 self.shotlist = []

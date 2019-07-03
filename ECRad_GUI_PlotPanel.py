@@ -51,8 +51,10 @@ class PlotPanel(wx.Panel):
         self.plot_choice = wx.Choice(self, wx.ID_ANY)
         self.plot_choice.Append("Trad")
         self.plot_choice.Append("T")
+        self.plot_choice.Append("tau")
         self.plot_choice.Append("Trad mode")
         self.plot_choice.Append("T mode")
+        self.plot_choice.Append("tau mode")
         self.plot_choice.Append("BPD")
         self.plot_choice.Append("Ray")
         self.plot_choice.Append("Frequencies")
@@ -893,7 +895,7 @@ class PlotContainer(wx.Panel):
 #                                              rhop_Te, Te, diagdict, diag_names, \
 #                                              Config.dstf, alt_model, multiple_models=multiple_models, \
 #                                              label_list=label_list)
-        elif(plot_type == "T"):
+        elif(plot_type == "T" or plot_type == "tau"):
             rhop = Results.resonance["rhop_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
             if(len(rhop) == 0):
                 print("No channels have an optical depth below the currently selected threshold!")
@@ -905,11 +907,11 @@ class PlotContainer(wx.Panel):
                 tau_comp = None
             rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
             Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
-#             self.fig = self.pc_obj.plot_tau(time, rhop, \
-#                                             tau, tau_comp, rhop_IDA, Te_IDA, \
-#                                             Config.dstf, alt_model)
+            use_tau = False
+            if(plot_type == "tau"):
+                use_tau = True
             args = [self.pc_obj.plot_tau, time, rhop, tau, tau_comp, \
-                                         rhop_IDA, Te_IDA,  Config.dstf, alt_model]
+                                         rhop_IDA, Te_IDA,  Config.dstf, alt_model, use_tau]
             kwargs = {}
         elif(plot_type == "Trad mode"):
             if(Config.considered_modes != 3):
@@ -950,7 +952,7 @@ class PlotContainer(wx.Panel):
             kwargs = {}
             kwargs["X_mode_fraction"] = X_mode_frac
             kwargs["X_mode_fraction_comp"] = X_mode_frac_comp
-        elif(plot_type == "T mode"):
+        elif(plot_type == "T mode" and plot_type == "tau mode"):
             if(Config.considered_modes != 3):
                 print("This plot is only sensitble if both X and O mode are considered")
                 return
@@ -972,11 +974,14 @@ class PlotContainer(wx.Panel):
                 rhop = Results.resonance["rhop_cold"][time_index][Results.Otau[time_index] >= tau_threshhold]
                 tau = Results.Otau[time_index][Results.Otau[time_index] >= tau_threshhold]
                 tau_comp = Results.Otau_comp[time_index][Results.Otau[time_index] >= tau_threshhold]
+            use_tau = False
+            if("tau" is plot_type):
+                use_tau = True
             rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
             Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             args = [self.pc_obj.plot_tau, time, rhop, \
-                                            tau, tau_comp, rhop_IDA, Te_IDA, \
-                                            Config.dstf, alt_model]
+                    tau, tau_comp, rhop_IDA, Te_IDA, \
+                    Config.dstf, alt_model, use_tau]
             kwargs = {}
 #             self.fig = self.pc_obj.plot_tau(time, rhop, \
 #                                             tau, tau_comp, rhop_IDA, Te_IDA, \

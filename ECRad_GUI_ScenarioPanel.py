@@ -18,7 +18,7 @@ if(globalsettings.Phoenix):
 else:
     from matplotlib.backends.backend_wxagg import NavigationToolbar2Wx
 if(globalsettings.AUG):
-    from equilibrium_utils_AUG import EQData, vessel_bd_file
+    from equilibrium_utils_AUG import EQData, vessel_bd_file, check_Bt_vac_source
     from shotfile_handling_AUG import load_IDA_data, get_diag_data_no_calib, get_freqs, get_divertor_currents, filter_CTA
     from get_ECRH_config import identify_ECRH_on_phase
     import ElmSync
@@ -325,6 +325,10 @@ class ScenarioSelectPanel(wx.Panel):
                 print("WARNING! Currently selected vacuum bt correction differs from IDA")
                 print("ECRad GUI:", self.Scenario.bt_vac_correction)
                 print("IDA:", self.plasma_dict["Btf_corr"])
+            Success, bt_vac = check_Bt_vac_source(self.Scenario.shot)
+            if(Success):
+                print("Setting Bt vac according to IDA defaults")
+                self.bt_vac_correction_tc.SetValue(bt_vac)
             if(self.Scenario.ne_rhop_scale != self.plasma_dict["ne_rhop_scale_mean"]):
                 print("WARNING! Currently selected ne_rhop_scale differs from IDA")
                 print("ECRad GUI:", self.Scenario.ne_rhop_scale)

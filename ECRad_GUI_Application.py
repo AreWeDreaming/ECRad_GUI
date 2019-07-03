@@ -624,8 +624,9 @@ class Main_Panel(scrolled.ScrolledPanel):
         if(self.Results.comment == None):
             comment = ""
         else:
+            print(self.Results.comment)
             comment = self.Results.comment
-        comment_dialogue = wx.TextEntryDialog(None, 'Please type comment for your calculation!', value=comment)
+        comment_dialogue = wx.TextEntryDialog(self, 'Please type comment for your calculation!', value=comment)
         if(comment_dialogue.ShowModal() == wx.ID_OK):
             self.Results.comment = comment_dialogue.GetValue()
 
