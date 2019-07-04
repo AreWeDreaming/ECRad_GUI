@@ -464,10 +464,22 @@ class Main_Panel(scrolled.ScrolledPanel):
 
     def OnExporttoMat(self, evt):
         try:
+            try:
+                NewConfig = self.config_panel.UpdateConfig(self.Results.Config)
+                self.Results.Config.working_dir = NewConfig.working_dir
+            except ValueError as e:
+                print("Failed to parse Configuration")
+                print("Reason: ", e)
+                print("Did not update working directory")
             if(self.Results is not None):
                 self.Results.to_mat_file()
+            else:
+                print("No results to save")
         except AttributeError as e:
             print("No results to save")
+            print(e)
+        except IOError as e:
+            print("Failed to save results")
             print(e)
 
     def OnLockExport(self, evt):

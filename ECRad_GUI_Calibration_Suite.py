@@ -636,6 +636,7 @@ class CalibEvolutionPanel(wx.Panel):
                     print("Warning!! # {0:d} edition {1:d} does not have a calibration for the selected diagnostic".format(\
                                       self.ECRad_result_list[ishot].Scenario.shot, self.ECRad_result_list[ishot].edition))
                     print("Available diagnostics: ", self.ECRad_result_list[ishot].calib.keys())
+                    return
                 if(self.ch_cnt == 0):
                     while(self.ch_cnt == 0):
                         ishot += 1

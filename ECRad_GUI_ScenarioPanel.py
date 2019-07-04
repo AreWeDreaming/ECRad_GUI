@@ -273,6 +273,9 @@ class ScenarioSelectPanel(wx.Panel):
         self.ne_scale_tc.SetValue(self.Scenario.ne_scale)
         self.last_used_bt_vac_correction = self.Scenario.bt_vac_correction
         self.post_run = True
+        self.used_list.Clear()
+        self.used_list.AppendItems(np.array(self.Scenario.plasma_dict["time"], dtype="|S5"))
+        self.unused_list.Clear()
         self.used_list.Disable()
         self.unused_list.Disable()
         self.AddButton.Disable()
