@@ -149,7 +149,7 @@ class LaunchPanel(wx.Panel):
                 itime = 0
             else:
                 timepoint_dlg = Select_Raylaunch_timepoint(self, NewSceario.plasma_dict["time"])
-                if(not timepoint_dlg.ShowModal() == wx.ID_OK):
+                if(not (timepoint_dlg.ShowModal() == wx.ID_OK)):
                     print("Aborted")
                     return
                 itime = timepoint_dlg.itime
@@ -340,6 +340,8 @@ class ExtDiagPanel(Diag_Panel):
         self.SetSizer(self.grid_sizer)
 
     def OnUpdateNch(self, evt):
+        if(self.widget_dict["N_ch"].GetValue() == self.Diag.N_ch):
+            return
         N_ch = self.widget_dict["N_ch"].GetValue()
         if(N_ch < self.Diag.N_ch):
             if(self.selected_channel > N_ch):
@@ -360,12 +362,13 @@ class ExtDiagPanel(Diag_Panel):
                 temp = np.copy(getattr(self.Diag, attribute))
                 new_vals = np.zeros(N_ch)
                 new_vals[:] = temp[0]  # Use first channel as default for the new ones
-                new_vals[0:N_ch] = temp[:]
+                new_vals[0:self.Diag.N_ch] = temp[:]
                 setattr(self.Diag, attribute, new_vals)
         setattr(self.Diag, "N_ch", N_ch)
         self.channel_select_ch.Clear()
         self.channel_select_ch.AppendItems(np.array(range(1, N_ch + 1), dtype="|S3").tolist())
         self.channel_select_ch.Select(self.selected_channel)  # note not channel number but channel index, i.e. ch no. 1 -> 0
+        self.NewValues = True
 
     def OnNewChannelSelected(self, evt):
         old_selected_channel = self.selected_channel
@@ -390,11 +393,13 @@ class ExtDiagPanel(Diag_Panel):
         self.channel_select_ch.AppendItems(np.array(range(1, Diag.N_ch + 1), dtype="|S3").tolist())
         self.channel_select_ch.SetSelection(0)
         self.Diag = Diag
+        self.widget_dict["N_ch"].SetValue(self.Diag.N_ch)
         for attribute in self.Diag.properties:
-            if(attribute == "N_ch"):
-                    continue
             setattr(self.Diag, attribute,  getattr(self.Diag, attribute))
-            self.widget_dict[attribute].SetValue(getattr(self.Diag, attribute)[0])
+            if(attribute == "N_ch"):
+                self.widget_dict[attribute].SetValue(getattr(self.Diag, attribute))
+            else:
+                self.widget_dict[attribute].SetValue(getattr(self.Diag, attribute)[0])
         self.NewValues = False
 
     def CheckForNewValues(self):
@@ -423,53 +428,9 @@ class Select_Raylaunch_timepoint(wx.Dialog):
                                     wx.ALIGN_CENTER_HORIZONTAL, 5)
 
     def EvtClose(self, Event):
-        self.EndModal(False)
+        self.EndModal(wx.ID_ABORT)
 
     def EvtAccept(self, Event):
         self.itime = self.time_ctrl.GetSelection()
-        print(self.itime)
-        self.EndModal(True)
+        self.EndModal(wx.ID_OK)
 
-# class ECRH_launch_dialogue(wx.Dialog):
-#     def __init__(self, parent, art_data_beamline, \
-#                                art_data_base_freq_140, \
-#                                art_data_pol_coeff_X, \
-#                                art_data_pol_launch, \
-#                                art_data_tor_launch):
-#         wx.Dialog.__init__(self, parent, wx.ID_ANY)
-#         self.sizer = wx.BoxSizer(wx.VERTICAL)
-#         self.SetSizer(self.sizer)
-#         self.BoxSizer = wx.GridSizer(0, 5, 5, 5)
-#         self.beamline_tc = simple_label_tc(self, "Beamline", art_data_beamline, "integer")
-#         self.BoxSizer.Add(self.beamline_tc, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-#         self.pol_launch_tc = simple_label_tc(self, "Poloidal launch angle", art_data_pol_launch, "real")
-#         self.BoxSizer.Add(self.pol_launch_tc, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-#         self.tor_launch_tc = simple_label_tc(self, "Toroidal launch angle", art_data_tor_launch, "real")
-#         self.BoxSizer.Add(self.tor_launch_tc, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-#         self.freq_140_rb = wx.RadioButton(self, id=wx.ID_ANY, label="140 GHz")
-#         self.BoxSizer.Add(self.freq_140_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-#         self.freq_140_rb.SetValue(art_data_base_freq_140)
-#         self.freq_105_rb = wx.RadioButton(self, id=wx.ID_ANY, label="105 GHz")
-#         self.BoxSizer.Add(self.freq_105_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-#         self.pol_coeff_X_tc = simple_label_tc(self, "X-mode fraction", art_data_pol_coeff_X, "real")
-#         self.BoxSizer.Add(self.freq_105_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-#         self.append_cb = simple_label_cb(self, "Append Launch?", False)
-#         self.BoxSizer.Add(self.append_cb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-#         self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
-#         self.FinishButton = wx.Button(self, wx.ID_ANY, 'Accept')
-#         self.Bind(wx.EVT_BUTTON, self.EvtAccept, self.FinishButton)
-#         self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
-#         self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
-#         self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-#         self.ButtonSizer.Add(self.FinishButton, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-#         self.sizer.Add(self.BoxSizer, 0, wx.ALL | \
-#                                     wx.ALIGN_CENTER_HORIZONTAL, 5)
-#         self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
-#                                     wx.ALIGN_CENTER_HORIZONTAL, 5)
-#         self.SetClientSize(self.GetEffectiveMinSize())
-# 
-#     def EvtClose(self, Event):
-#         self.EndModal(False)
-# 
-#     def EvtAccept(self, Event):
-#         self.EndModal(True)

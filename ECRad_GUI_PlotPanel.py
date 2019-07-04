@@ -22,7 +22,7 @@ if(globalsettings.Phoenix):
 else:
     from matplotlib.backends.backend_wxagg import NavigationToolbar2Wx
 import numpy as np
-from TB_communication import make_all_TORBEAM_rays_thread, Ray
+from TB_communication import Ray #make_all_TORBEAM_rays_thread, 
 from ECRad_GUI_Thread import WorkerThread
 from equilibrium_utils import EQDataExt as EQData
 from Diags import Diag
@@ -865,26 +865,6 @@ class PlotContainer(wx.Panel):
                 diagdict[diag_name]=diag_data[diag_name].getSlice(time_index)
             rhop_Te= Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
             Te = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
-#            if(Config.Ext_plasma == False):
-#                try:
-#                    rhop_ECE = Config.plasma_dict["ECE_rhop"][time_index]
-#                    if(Config.plasma_dict["ECE_dat"][time_index].ndim == 2):
-#                        ECE_dat = np.mean(Config.plasma_dict["ECE_dat"][time_index] / 1.e3, axis=0)
-#                        ECE_err = np.mean(Config.plasma_dict["ECE_unc"][time_index] / 1.e3, axis=0)
-#                    else:
-#                        print(Config.plasma_dict["ECE_dat"])
-#                        ECE_dat = Config.plasma_dict["ECE_dat"][time_index] / 1.e3
-#                        ECE_err = Config.plasma_dict["ECE_unc"][time_index] / 1.e3
-#                    ECE_mod = Config.plasma_dict["ECE_mod"][time_index] / 1.e3
-#                    self.fig = self.pc_obj.plot_Trad(time, rhop, Trad, Trad_comp, \
-#                                                     rhop_IDA, Te_IDA, \
-#                                                     rhop_ECE, ECE_dat, ECE_err, ECE_mod, Config.dstf, alt_model)
-#                except IndexError:
-#                    print("Something wrong with the IDA data - plotting only fwd. model data")
-#                    self.fig = self.pc_obj.plot_Trad(time, rhop, Trad, Trad_comp, \
-#                                                     rhop_IDA, Te_IDA, \
-#                                                    [], [], [], [], Config.dstf, alt_model)
-#            else:
             args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
                                          rhop_Te, Te,  diagdict, diag_names, \
                                              Config.dstf, alt_model]
@@ -952,7 +932,7 @@ class PlotContainer(wx.Panel):
             kwargs = {}
             kwargs["X_mode_fraction"] = X_mode_frac
             kwargs["X_mode_fraction_comp"] = X_mode_frac_comp
-        elif(plot_type == "Transmisivity mode" and plot_type == "tau mode"):
+        elif(plot_type == "Transmisivity mode" or plot_type == "tau mode"):
             if(Config.considered_modes != 3):
                 print("This plot is only sensitble if both X and O mode are considered")
                 return
@@ -983,9 +963,6 @@ class PlotContainer(wx.Panel):
                     tau, tau_comp, rhop_IDA, Te_IDA, \
                     Config.dstf, alt_model, use_tau]
             kwargs = {}
-#             self.fig = self.pc_obj.plot_tau(time, rhop, \
-#                                             tau, tau_comp, rhop_IDA, Te_IDA, \
-#                                             Config.dstf, alt_model)
         elif(plot_type == "BPD"):
             if(not Config.extra_output):
                 print("Birthplace distribution was not computed")
@@ -1011,10 +988,6 @@ class PlotContainer(wx.Panel):
             rhop_cold = Results.resonance["rhop_cold"][time_index][ch]
             EQ_obj = EQData(Results.Scenario.shot)
             EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
-            # the matrices in the slices are Fortran ordered - hence transposition necessary
-#            else:
-#                EQ_obj = EQData(Results.Scenario.shot, EQ_exp=Results.Scenario.EQ_exp, EQ_diag=Results.Scenario.EQ_diag, \
-#                                EQ_ed=Results.Scenario.EQ_ed)
             R_axis, z_axis = EQ_obj.get_axis(time)
             if(Results.resonance["R_cold"][time_index][ch] < R_axis):
                 rhop_cold *= -1.0
@@ -1035,24 +1008,6 @@ class PlotContainer(wx.Panel):
             if(len(R_cold) == 0):
                 print("No channels have an optical depth below the currently selected threshold!")
                 return False
-#            if(alt_model):
-#                if(mode):
-#                    R_warm_comp = np.zeros(np.size(Results.birthplace_X_comp, axis=1))
-#                    z_warm_comp = np.zeros(np.size(Results.birthplace_X_comp, axis=1))
-#                    for ich in range(len(R_warm_comp)):
-#                        R_warm_comp[ich] = Results.los["RX"][time_index][ich][np.argmax(Results.birthplace_X_comp[time_index][ich])]
-#                        z_warm_comp[ich] = Results.los["zX"][time_index][ich][np.argmax(Results.birthplace_X_comp[time_index][ich])]
-#                else:
-#                    R_warm_comp = np.zeros(np.size(Results.birthplace_O_comp, axis=1))
-#                    z_warm_comp = np.zeros(np.size(Results.birthplace_O_comp, axis=1))
-#                    for ich in range(len(R_warm_comp)):
-#                        R_warm_comp[ich] = Results.los["RO"][time_index][ich][np.argmax(Results.birthplace_O_comp[time_index][ich])]
-#                        z_warm_comp[ich] = Results.los["zO"][time_index][ich][np.argmax(Results.birthplace_O_comp[time_index][ich])]
-#                R_warm_comp = R_warm_comp[Results.tau[time_index] > tau_threshhold]
-#                z_warm_comp = z_warm_comp[Results.tau[time_index] > tau_threshhold]
-#                self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-#                                                   plasma=Results.Scenario.plasma_dict, R_warm_comp=R_warm_comp, z_warm_comp=z_warm_comp)
-#            else:
             EQ_obj = EQData(Results.Scenario.shot)
             EQ_obj.insert_slices_from_ext(time, Results.Scenario.plasma_dict["eq_data"])
             # the matrices in the slices are Fortran ordered - hence transposition necessary
@@ -1126,13 +1081,7 @@ class PlotContainer(wx.Panel):
                     EQ_obj.insert_slices_from_ext(Results.Scenario.time, Results.Scenario.plasma_dict["eq_data"])
                     args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
                     kwargs = {"EQ_obj":EQ_obj, "Rays":rays, "straight_Rays":straight_rays, \
-                              "vessel_bd": Results.Scenario.plasma_dict["vessel_bd"]}
-#                     self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-#                                                        EQ_obj=EQ_obj, Rays=rays, tb_Rays=tb_rays, \
-#                                                        vessel_bd=Results.Scenario.plasma_dict["vessel_bd"])
-#                    else:
-#                        self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-#                                                           Rays=rays, tb_Rays=tb_rays)
+                              "vessel_bd": Results.Scenario.plasma_dict["vessel_bd"], "eq_aspect_ratio":eq_aspect_ratio}
                 except KeyError:
                     print("No TORBEAM rays available")
                     if(alt_model):
@@ -1166,25 +1115,14 @@ class PlotContainer(wx.Panel):
                         # the matrices in the slices are Fortran ordered - hence transposition necessary
                         args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
                         kwargs = {"EQ_obj":EQ_obj, "Rays":rays, "straight_Rays":straight_rays, \
-                                  "vessel_bd": Results.Scenario.plasma_dict["vessel_bd"]}
-#                         self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-#                                                            EQ_obj=EQ_obj, Rays=rays, straight_Rays=straight_rays, \
-#                                                            vessel_bd=Results.Scenario.plasma_dict["vessel_bd"])
-# #                        else:
-#                            self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-#                                                               Rays=rays, straight_Rays=straight_rays, \
-#                                                               EQ_exp=Config.EQ_exp, EQ_diag=Config.EQ_diag, \
-#                                                               EQ_ed=Config.EQ_ed)
+                              "vessel_bd": Results.Scenario.plasma_dict["vessel_bd"], "eq_aspect_ratio":eq_aspect_ratio}
                     else:
                         EQ_obj = EQData(Results.Scenario.shot)
                         EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
                         # the matrices in the slices are Fortran ordered - hence transposition necessary
                         args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
-                        kwargs = {"EQ_obj":EQ_obj, "Rays":rays}
-#                        else:
-#                            self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-#                                                               Rays=rays, EQ_exp=Results.Scenario.EQ_exp, EQ_diag=Results.Scenario.EQ_diag, \
-#                                                               EQ_ed=Results.Scenario.EQ_ed)
+                        kwargs = {"EQ_obj":EQ_obj, "Rays":rays, \
+                                  "vessel_bd": Results.Scenario.plasma_dict["vessel_bd"], "eq_aspect_ratio":eq_aspect_ratio}
             except KeyError:
                 print("No rays available")
                 EQ_obj = EQData(Results.Scenario.shot)

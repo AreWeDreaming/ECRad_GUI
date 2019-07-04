@@ -943,34 +943,6 @@ class ScenarioSelectPanel(wx.Panel):
             self.unused_list.AppendItems(self.unused)
         self.new_data_available = True
 
-#    def OnMakeLUKEdata(self, evt):
-#        if(len(self.used) == 0):
-#            print("No time point used!")
-#            return
-#        time = float(self.used[0])
-#        i_time = np.argmin(np.abs(self.time - time))
-#        try:
-#            self.Config, DiagDict, time_list_box = self.Parent.Parent.NotebookPanel.Notebook.GatherInfo()
-#        except ValueError as e:
-#            print("Failed to parse Configuration")
-#            print("Reason: " + e)
-#            return
-#        make_LUKE_data(self.Config.working_dir, self.Scenario.shot, self.time, i_time, self.Scenario.plasma_dict, \
-#                        self.Config.EQ_exp, self.Config.EQ_diag, self.Config.EQ_ed, self.Scenario.bt_vac_correction)
-#    def OnMakeLUKEMat(self, evt):
-#        if(len(self.used) == 0):
-#            print("No time point used!")
-#            return
-#        times = np.array(self.used, dtype=np.double)
-#        try:
-#            self.Config, DiagDict, time_list_box = self.Parent.Parent.NotebookPanel.Notebook.GatherInfo()
-#        except ValueError as e:
-#            print("Failed to parse Configuration")
-#            print("Reason: " + e)
-#            return
-#        make_LUKE_input_mat(self.Config.working_dir, self.Config.shot, times, IDA_exp=self.Config.IDA_exp, \
-#                            IDA_ed=self.Config.IDA_ed, EQ_exp=self.Config.EQ_exp, EQ_diag=self.Config.EQ_diag, \
-#                            EQ_ed=self.Config.EQ_ed, bt_vac_correction=self.Scenario.bt_vac_correction)
 
     def ChangeCursor(self, event):
         if(globalsettings.Phoenix):
