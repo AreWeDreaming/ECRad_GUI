@@ -291,6 +291,7 @@ class CalibPanel(wx.Panel):
         calib_mat, std_dev_mat, calib, rel_dev, sys_dev = calibrate(self.shot, time, Trad, self.cur_diag, \
                                                                     smoothing)
         if(len(calib) == 0):
+            print("Calibration failed")
             return
 #        except ValueError as e:
 #            print(e)
@@ -305,94 +306,95 @@ class CalibPanel(wx.Panel):
                                                               calib, rel_dev, "Avg. calibration factors for diagn. " + \
                                                               self.cur_diag.name)
         self.canvas.draw()
-        ed = 1
-        filename_out = os.path.join(self.Results.Config.working_dir, "calib_" + str(self.Results.Scenario.shot) + "_" + self.cur_diag.name + "_ed_" + str(ed))
-        while(os.path.exists(filename_out + ".cal")):
-            ed += 1
-            filename_out = os.path.join(self.Results.Config.working_dir, "calib_" + str(self.Results.Scenario.shot) + "_" + self.cur_diag.name + "_ed_" + str(ed))
-        Calib_Log_File = open(filename_out + ".log", "w")
-        Calib_Log_File.write("# " + str(self.Results.Scenario.shot) + os.linesep)
-        if(self.Results.Config.extra_output):
-            for time_index in range(len(self.Results.time[masked_timepoints])):
-                Calib_Log_File.write("time =  " + "{0:1.2f}\t".format(self.Results.time[masked_timepoints][time_index]) + " s" + os.linesep)
-                Calib_Log_File.write("f [Ghz]    rho_cold  c [keV / Vs] R_cold [m] z_cold [m]  R_kin [m]  z_kin [m]        tau" + os.linesep)
-                ch_cnt = len(freq)
-                for ch in range(ch_cnt):
-                    Calib_Log_File.write("{0:3.2f}".format(freq[ch] / 1.e9))
-                    for i in range(3):
-                        Calib_Log_File.write(" ")
-                    Calib_Log_File.write("{0: 1.3e}".format(self.Results.resonance["rhop_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch]))
-                    for i in range(4):
-                        Calib_Log_File.write(" ")
-                    Calib_Log_File.write("{0: 1.3e} ".format(calib_mat[time_index][ch ]))
-                    Calib_Log_File.write("{0: 1.3e} {1: 1.3e} {2: 1.3e} {3: 1.3e} {4: 1.3e}".format(\
-                                        self.Results.resonance["R_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"]== self.cur_diag.name][ch], \
-                                        self.Results.resonance["z_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch], \
-                                        self.Results.resonance["R_warm"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch], \
-                                        self.Results.resonance["z_warm"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch], \
-                                        self.Results.tau[masked_timepoints][time_index][self.Results.Scenario.ray_launch["diag_name"][masked_timepoints][time_index] == self.cur_diag.name][ch]) + os.linesep)
-            Calib_Log_File.flush()
-            Calib_Log_File.close()
-            Calib_File = open(filename_out + ".cal", "w")
-            Calib_File.write("# " + str(self.Results.Scenario.shot) + os.linesep)
-            Calib_File.write("f [Ghz]  c [keV / Vs] rel. std. dev [%] R_cold [m] z_cold [m]  R_kin [m]  z_kin [m]        tau" + os.linesep)
-            for ch in range(ch_cnt):
-                Calib_File.write("{0:3.2f}".format(freq[ch] / 1.e9))
-                Calib_File.write("     {0: 1.3e}         {1: 2.2e} {2: 2.2e} ".format(calib[ch], rel_dev[ch], sys_dev[ch]))
-                Calib_File.write("{0: 1.3e} {1: 1.3e} {2: 1.3e} {3: 1.3e} {4: 1.3e}".format(\
-                                  np.average(self.Results.resonance["R_cold"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
-                                  np.average(self.Results.resonance["z_cold"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
-                                  np.average(self.Results.resonance["R_warm"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
-                                  np.average(self.Results.resonance["z_warm"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
-                                  np.average(self.Results.tau[masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch]) + os.linesep)
-            Calib_File.flush()
-            Calib_File.close()
-        else:
-            for time_index in range(len(self.Results.time[masked_timepoints])):
-                Calib_Log_File.write("time =  " + "{0:1.2f}\t".format(self.Results.time[masked_timepoints][time_index]) + " s" + os.linesep)
-                Calib_Log_File.write("f [Ghz]    rho_cold  c [keV / Vs] R_cold [m] z_cold [m]  R_kin [m]  z_kin [m]        tau" + os.linesep)
-                ch_cnt = len(freq)
-                for ch in range(ch_cnt):
-                    Calib_Log_File.write("{0:3.2f}".format(freq[ch] / 1.e9))
-                    for i in range(3):
-                        Calib_Log_File.write(" ")
-                    Calib_Log_File.write("{0: 1.3e}".format(self.Results.resonance["rhop_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch]))
-                    for i in range(4):
-                        Calib_Log_File.write(" ")
-                    Calib_Log_File.write("{0: 1.3e} ".format(calib_mat[time_index][ch]))
-                    Calib_Log_File.write("{0: 1.3e} {1: 1.3e} {2: 1.3e} {3: 1.3e} {4: 1.3e}".format(\
-                                        self.Results.resonance["R_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch], \
-                                        self.Results.resonance["z_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch], \
-                                        - 1.e0, \
-                                        - 1.e0, \
-                                        self.Results.tau[masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch]) + os.linesep)
-            Calib_Log_File.flush()
-            Calib_Log_File.close()
-            Calib_File = open(filename_out + ".cal", "w")
-            Calib_File.write("# " + str(self.Results.Scenario.shot) + os.linesep)
-            Calib_File.write("f [Ghz]  c [keV / Vs] rel. std. dev [%] sys. dev [%] R_cold [m] z_cold [m]  R_kin [m]  z_kin [m]        tau" + os.linesep)
-            for ch in range(ch_cnt):
-                Calib_File.write("{0:3.2f}".format(freq[ch] / 1.e9))
-                Calib_File.write("     {0: 1.3e}         {1: 2.2e} {2: 2.2e} ".format(calib[ch], rel_dev[ch], sys_dev[ch]))
-                Calib_File.write("{0: 1.3e} {1: 1.3e} {2: 1.3e} {3: 1.3e} {4: 1.3e}".format(\
-                                  np.average(self.Results.resonance["R_cold"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
-                                  np.average(self.Results.resonance["z_cold"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
-                                  - 1.e0, \
-                                  - 1.e0, \
-                                  np.average(self.Results.tau[masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch]) + os.linesep)
-            Calib_File.flush()
-            Calib_File.close()
+# Unnecessary ASCII output        
+#         ed = 1
+#         filename_out = os.path.join(self.Results.Config.working_dir, "calib_" + str(self.Results.Scenario.shot) + "_" + self.cur_diag.name + "_ed_" + str(ed))
+#         while(os.path.exists(filename_out + ".cal")):
+#             ed += 1
+#             filename_out = os.path.join(self.Results.Config.working_dir, "calib_" + str(self.Results.Scenario.shot) + "_" + self.cur_diag.name + "_ed_" + str(ed))
+#         Calib_Log_File = open(filename_out + ".log", "w")
+#         Calib_Log_File.write("# " + str(self.Results.Scenario.shot) + os.linesep)
+#         if(self.Results.Config.extra_output):
+#             for time_index in range(len(self.Results.time[masked_timepoints])):
+#                 Calib_Log_File.write("time =  " + "{0:1.2f}\t".format(self.Results.time[masked_timepoints][time_index]) + " s" + os.linesep)
+#                 Calib_Log_File.write("f [Ghz]    rho_cold  c [keV / Vs] R_cold [m] z_cold [m]  R_kin [m]  z_kin [m]        tau" + os.linesep)
+#                 ch_cnt = len(freq)
+#                 for ch in range(ch_cnt):
+#                     Calib_Log_File.write("{0:3.2f}".format(freq[ch] / 1.e9))
+#                     for i in range(3):
+#                         Calib_Log_File.write(" ")
+#                     Calib_Log_File.write("{0: 1.3e}".format(self.Results.resonance["rhop_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch]))
+#                     for i in range(4):
+#                         Calib_Log_File.write(" ")
+#                     Calib_Log_File.write("{0: 1.3e} ".format(calib_mat[time_index][ch ]))
+#                     Calib_Log_File.write("{0: 1.3e} {1: 1.3e} {2: 1.3e} {3: 1.3e} {4: 1.3e}".format(\
+#                                         self.Results.resonance["R_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"]== self.cur_diag.name][ch], \
+#                                         self.Results.resonance["z_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch], \
+#                                         self.Results.resonance["R_warm"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch], \
+#                                         self.Results.resonance["z_warm"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch], \
+#                                         self.Results.tau[masked_timepoints][time_index][self.Results.Scenario.ray_launch["diag_name"][masked_timepoints][time_index] == self.cur_diag.name][ch]) + os.linesep)
+#             Calib_Log_File.flush()
+#             Calib_Log_File.close()
+#             Calib_File = open(filename_out + ".cal", "w")
+#             Calib_File.write("# " + str(self.Results.Scenario.shot) + os.linesep)
+#             Calib_File.write("f [Ghz]  c [keV / Vs] rel. std. dev [%] R_cold [m] z_cold [m]  R_kin [m]  z_kin [m]        tau" + os.linesep)
+#             for ch in range(ch_cnt):
+#                 Calib_File.write("{0:3.2f}".format(freq[ch] / 1.e9))
+#                 Calib_File.write("     {0: 1.3e}         {1: 2.2e} {2: 2.2e} ".format(calib[ch], rel_dev[ch], sys_dev[ch]))
+#                 Calib_File.write("{0: 1.3e} {1: 1.3e} {2: 1.3e} {3: 1.3e} {4: 1.3e}".format(\
+#                                   np.average(self.Results.resonance["R_cold"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
+#                                   np.average(self.Results.resonance["z_cold"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
+#                                   np.average(self.Results.resonance["R_warm"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
+#                                   np.average(self.Results.resonance["z_warm"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
+#                                   np.average(self.Results.tau[masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch]) + os.linesep)
+#             Calib_File.flush()
+#             Calib_File.close()
+#         else:
+#             for time_index in range(len(self.Results.time[masked_timepoints])):
+#                 Calib_Log_File.write("time =  " + "{0:1.2f}\t".format(self.Results.time[masked_timepoints][time_index]) + " s" + os.linesep)
+#                 Calib_Log_File.write("f [Ghz]    rho_cold  c [keV / Vs] R_cold [m] z_cold [m]  R_kin [m]  z_kin [m]        tau" + os.linesep)
+#                 ch_cnt = len(freq)
+#                 for ch in range(ch_cnt):
+#                     Calib_Log_File.write("{0:3.2f}".format(freq[ch] / 1.e9))
+#                     for i in range(3):
+#                         Calib_Log_File.write(" ")
+#                     Calib_Log_File.write("{0: 1.3e}".format(self.Results.resonance["rhop_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch]))
+#                     for i in range(4):
+#                         Calib_Log_File.write(" ")
+#                     Calib_Log_File.write("{0: 1.3e} ".format(calib_mat[time_index][ch]))
+#                     Calib_Log_File.write("{0: 1.3e} {1: 1.3e} {2: 1.3e} {3: 1.3e} {4: 1.3e}".format(\
+#                                         self.Results.resonance["R_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch], \
+#                                         self.Results.resonance["z_cold"][masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch], \
+#                                         - 1.e0, \
+#                                         - 1.e0, \
+#                                         self.Results.tau[masked_timepoints][time_index][self.Results.Scenario.ray_launch[masked_timepoints][time_index]["diag_name"] == self.cur_diag.name][ch]) + os.linesep)
+#             Calib_Log_File.flush()
+#             Calib_Log_File.close()
+#             Calib_File = open(filename_out + ".cal", "w")
+#             Calib_File.write("# " + str(self.Results.Scenario.shot) + os.linesep)
+#             Calib_File.write("f [Ghz]  c [keV / Vs] rel. std. dev [%] sys. dev [%] R_cold [m] z_cold [m]  R_kin [m]  z_kin [m]        tau" + os.linesep)
+#             for ch in range(ch_cnt):
+#                 Calib_File.write("{0:3.2f}".format(freq[ch] / 1.e9))
+#                 Calib_File.write("     {0: 1.3e}         {1: 2.2e} {2: 2.2e} ".format(calib[ch], rel_dev[ch], sys_dev[ch]))
+#                 Calib_File.write("{0: 1.3e} {1: 1.3e} {2: 1.3e} {3: 1.3e} {4: 1.3e}".format(\
+#                                   np.average(self.Results.resonance["R_cold"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
+#                                   np.average(self.Results.resonance["z_cold"][masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch], \
+#                                   - 1.e0, \
+#                                   - 1.e0, \
+#                                   np.average(self.Results.tau[masked_timepoints], axis=0)[self.Results.Scenario.ray_launch[masked_timepoints][0]["diag_name"] == self.cur_diag.name][ch]) + os.linesep)
+#             Calib_File.flush()
+#             Calib_File.close()
 
     def OnPlotAvg(self, evt):
         if("avg" not in self.plotted_time_points):
-            if(self.cur_diag.diag not in self.Results.calib.keys()):
-                    print("Error: No calibration data available - calibrate first")
-                    return
-            self.plotted_time_points.append("avg")
-            freq = self.Results.Scenario.ray_launch["f"][self.Results.Sceario.ray_launch["diag_name"] == self.diag_tc.GetValue()] * 1.e-9
+            if(self.cur_diag.name not in self.Results.calib.keys()):
+                print("Error: No calibration data available - calibrate first")
+                return
+            freq = self.Results.Scenario.ray_launch[0]["f"][self.Results.Scenario.ray_launch[0]["diag_name"] == self.diag_tc.GetValue()] * 1.e-9
             self.fig, self.fig_extra = self.pc_obj.diag_calib_avg(self.cur_diag, freq, \
-                                       self.Results.calib[self.cur_diag.diag], self.Results.rel_dev[self.cur_diag.diag], \
+                                       self.Results.calib[self.cur_diag.name], self.Results.rel_dev[self.cur_diag.name], \
                                        "avg")
+            self.plotted_time_points.append("avg")
             self.canvas.draw()
             evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
             self.GetEventHandler().ProcessEvent(evt)
@@ -411,12 +413,12 @@ class CalibPanel(wx.Panel):
         for i_sel in sel:
             time = float(self.used_list.GetString(i_sel))
             if(time not in self.plotted_time_points):
-                if(self.cur_diag.diag not in self.Results.calib_mat.keys()):
+                if(self.cur_diag.name not in self.Results.calib_mat.keys()):
                     print("Error: No calibration data available - calibrate first")
                     return
                 self.plotted_time_points.append(time)
                 index = np.argmin(np.abs(self.Results.time - time))
-                freq = self.Results.Scenario.ray_launch["f"][self.Results.Sceario.ray_launch["diag_name"] == self.diag_tc.GetValue()] * 1.e-9
+                freq = self.Results.Scenario.ray_launch[index]["f"][self.Results.Scenario.ray_launch[index]["diag_name"] == self.diag_tc.GetValue()] * 1.e-9
                 self.fig, self.fig_extra = self.pc_obj.diag_calib_slice(self.cur_diag, freq, \
                                            self.Results.calib_mat[self.cur_diag.name][index], self.Results.std_dev_mat[self.cur_diag.name][index], \
                                            "t = {0:2.4f} s".format(self.Results.time[index]))
