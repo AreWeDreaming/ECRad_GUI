@@ -4,12 +4,28 @@ Created on Jul 3, 2019
 @author: sdenk
 '''
 #Module independent of the main GUI which allows the user to easily create ECRad Scenarios from external data
+import os
+import sys
+from glob import glob
+library_list = glob("../*pylib") + glob("../*Pylib")
+found_lib = False
+ECRadPylibFolder = None
+for folder in library_list:
+    if("ECRad" in folder or "ecrad"in folder ):
+        sys.path.append(folder)
+        found_lib = True
+        ECRadPylibFolder = folder
+        break
+if(not found_lib):
+    print("Could not find pylib")
+    print("Important: ECRad_GUI must be launched with its home directory as the current working directory")
+    print("Additionally, the ECRad_Pylib must be in the parent directory of the GUI and must contain one of ECRad, ecrad and Pylib or pylib")
+    exit(-1)
 from GlobalSettings import globalsettings
 from equilibrium_utils import EQDataSlice, special_points, EQDataExt
 from TB_communication import make_mdict_from_TB_files
 import numpy as np
 from scipy.io import savemat
-import os
 from pandas.tests.io.parser import skiprows
 from scipy.interpolate import InterpolatedUnivariateSpline
 
@@ -85,7 +101,35 @@ def make_plasma_mat(filename, plasma_dict):
     mdict["Bz"] = np.array(mdict["Bz"])
     savemat(filename, mdict, appendmat=False)
     
+def make_launch_mat(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X):
+    mdict = {}
+    mdict["launch_f"] = np.array([f])
+    mdict["launch_df"] = np.array([df])
+    mdict["launch_R"] = np.array([R])
+    mdict["launch_phi"] = np.array([phi])
+    mdict["launch_z"] = np.array([z])
+    mdict["launch_pol_ang"] = np.array([theta_pol])
+    mdict["launch_tor_ang"] = np.array([phi_tor])
+    mdict["launch_dist_focus"] = np.array([dist_focus])
+    mdict["launch_width"] = np.array([width])
+    mdict["launch_pol_coeff_X"] = np.array([pol_coeff_X])
+    savemat(filename, mdict, appendmat=False)
+
+def make_test_launch(filename):
+    f = np.array([110.e9, 130.e9])
+    df = np.array([0.2e9, 0.2e9])
+    R = np.array([3.9, 3.9])
+    phi = np.array([1, 1]) # degree
+    z = np.array([0.1, 0.1])
+    theta_pol = np.array([7, 7])
+    phi_tor = np.array([2, 2])
+    dist_focus = np.array([2.3, 2.3])
+    width = np.array([0.2, 0.2])
+    pol_coeff_X = np.array([-1, -1])
+    make_launch_mat(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
+    
 if (__name__ == "__main__"):
-    make_ECRadScenario_from_TB_input(178512, 2.200,"/afs/ipp/u/sdenk/Documentation/Data/DIII-D_TB", "DIIID_input_test.mat")
+    make_test_launch("/afs/ipp/u/sdenk/public/DIII-D_TB/test_launch.mat")
+#     make_ECRadScenario_from_TB_input(178512, 2.200,"/afs/ipp/u/sdenk/Documentation/Data/DIII-D_TB", "DIIID_input_test.mat")
     
     

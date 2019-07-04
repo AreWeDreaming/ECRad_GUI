@@ -4,7 +4,6 @@ import os
 import wx
 import sys
 from glob import glob
-from __builtin__ import True
 library_list = glob("../*pylib") + glob("../*Pylib")
 found_lib = False
 ECRadPylibFolder = None
@@ -183,7 +182,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.KillECRadButton.Disable()
         self.ExporttoMatButton = wx.Button(self, wx.ID_ANY, 'Export to .mat')
         if(globalsettings.Phoenix):
-            self.ExporttoMatButton.SetToolTipString("If this is grayed out there is no (new) data to save!")
+            self.ExporttoMatButton.SetToolTip("If this is grayed out there is no (new) data to save!")
         else:
             self.ExporttoMatButton.SetToolTipString("If this is grayed out there is no (new) data to save!")
         self.ExporttoMatButton.Bind(wx.EVT_BUTTON, self.OnExporttoMat)
