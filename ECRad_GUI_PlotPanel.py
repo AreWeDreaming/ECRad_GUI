@@ -22,7 +22,7 @@ if(globalsettings.Phoenix):
 else:
     from matplotlib.backends.backend_wxagg import NavigationToolbar2Wx
 import numpy as np
-from TB_communication import Ray #make_all_TORBEAM_rays_thread, 
+from TB_communication import Ray, make_TORBEAM_no_data_load
 from ECRad_GUI_Thread import WorkerThread
 from equilibrium_utils import EQDataExt as EQData
 from Diags import Diag
@@ -30,6 +30,8 @@ from ECRad_GUI_Diagnostic import Diagnostic
 from ECRad_Results import ECRadResults
 from BDOP_3D import make_3DBDOP_cut_GUI
 from Diag_efficiency import diag_weight
+from ECRH_Launcher import ECRHLauncher
+from ECRad_GUI_Dialogs import TextEntryDialog
 
 class PlotPanel(wx.Panel):
     def __init__(self, parent):
@@ -218,19 +220,31 @@ class PlotPanel(wx.Panel):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Calculating rays with TORBEAM hold on')
         self.GetEventHandler().ProcessEvent(evt)
-        wt = WorkerThread(make_all_TORBEAM_rays_thread, [self.Results.Config.working_dir, \
-                          self.Results.Scenario.shot, time, self.Results.Scenario.plasma_dict["eq_exp"], \
-                          self.Results.Scenario.plasma_dict["eq_diag"], self.Results.Scenario.plasma_dict["eq_ed"], \
-                          self.Results.ray_launch, self.cur_selected_index, mode, self.Results.Scenario.plasma_dict, \
-                          self, self.Results.Config.bt_vac_correction, self.Results.Config.N_ray])
+        wt = WorkerThread(self.run_TORBEAM_all_channels, [time, self.cur_selected_index, mode])
+        
+    def run_TORBEAM_all_channels(self, args):
+        time = args[0]
+        itime = args[1]
+        mode = args[2]
+        launches = []
+        for ich, f in enumerate(self.Results.Scenario.ray_launch[itime]["f"]):
+            launches.append(ECRHLauncher())
+            launches[-1].inject_ECRad_ray_launch(self.Results.Scenario.ray_launch[itime], ich)
+        make_TORBEAM_no_data_load(self.Results.Config.working_dir, self.Results.Scenario.shot, time, \
+                                  self.Results.Scenario.plasma_dict["rho_prof"], self.Results.Scenario.plasma_dict["Te"], \
+                                  self.Results.Scenario.plasma_dict["ne"], self.Results.Scenario.plasma_dict["eq_data"].R, \
+                                  self.Results.Scenario.plasma_dict["eq_data"].z, self.Results.Scenario.plasma_dict["eq_data"].rhop**2, \
+                                  self.Results.Scenario.plasma_dict["eq_data"].Br, self.Results.Scenario.plasma_dict["eq_data"].Bt, \
+                                  self.Results.Scenario.plasma_dict["eq_data"].Bz, 0.0, 1.0, \
+                                  launches, mode=mode)
 
     def OnThreadFinished(self, evt):
         print("Updating ray information")
         ray_path = os.path.join(self.Results.Config.working_dir, "ecfm_data", "ray")
         if("x" + self.cur_mode_str + "tb" in self.Results.ray.keys()):
             for channel in range(len(self.Results.ray["x" + self.cur_mode_str][self.cur_selected_index])):
-                TBRay_file = np.loadtxt(os.path.join(ray_path, "ray_ch_R{0:04n}tb.dat".format(channel + 1)).replace(",", ""))
-                TBXRay_file = np.loadtxt(os.path.join(ray_path, "ray_ch_x{0:04n}tb.dat".format(channel + 1)).replace(",", ""))
+                TBRay_file = np.loadtxt(os.path.join(ray_path, "Rz_beam_{0:1d}.dat".format(channel + 1)).replace(",", ""))
+                TBXRay_file = np.loadtxt(os.path.join(ray_path, "xy_beam_{0:1d}.dat".format(channel + 1)).replace(",", ""))
                 self.Results.ray["x" + self.cur_mode_str + "tb"][self.cur_selected_index].append(TBXRay_file.T[0] / 100.0)
                 self.Results.ray["y" + self.cur_mode_str + "tb"][self.cur_selected_index].append(TBXRay_file.T[1] / 100.0)
                 self.Results.ray["R" + self.cur_mode_str + "tb"][self.cur_selected_index].append(TBRay_file.T[0] / 100.0)
@@ -1140,7 +1154,50 @@ class PlotContainer(wx.Panel):
                 print("3D Birthplace distribution only available for X-mode at the moment")
                 return
             args = [make_3DBDOP_cut_GUI, Results, self.fig, time, ch + 1]
-            kwargs = {}
+            dist_mat_filename=None
+            wave_mat_filename=None
+            ECRH_freq = 105.e9
+            LoadDistributionDlg = wx.MessageDialog(self, "Do you want to load a distribution for the plot?", style=wx.YES_NO)
+            if(LoadDistributionDlg.ShowModal() == wx.ID_YES):
+                dlg = wx.FileDialog(self, message="Choose a file with a distribution ", \
+                                    defaultDir=Results.Config.working_dir, \
+                                    wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+                                    style=wx.FD_OPEN)
+                if(dlg.ShowModal() == wx.ID_OK):
+                    dist_mat_filename = dlg.GetPath()
+                    dlg.Destroy()
+                    LoadWavesDlg = wx.MessageDialog(self, "Do you want to load wabes for the plot?", style=wx.YES_NO)
+                    if(LoadWavesDlg.ShowModal() == wx.ID_YES):
+                        dlg = wx.FileDialog(self, message="Choose a file with a distribution ", \
+                                            defaultDir=Results.Config.working_dir, \
+                                            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+                                            style=wx.FD_OPEN)
+                        if(dlg.ShowModal() == wx.ID_OK):
+                            wave_mat_filename = dlg.GetPath()
+                            dlg.Destroy()
+                            ECRHFreqDlg = TextEntryDialog(self, "Specify gyrotron frequency", "105.e9")
+                            if(ECRHFreqDlg.ShowModal() == wx.ID_OK):
+                                try:
+                                    ECRH_freq =  float(ECRHFreqDlg.val)
+                                    ECRHFreqDlg.Destroy()
+                                except ValueError:
+                                    ECRHFreqDlg.Destroy()
+                                    print("Could not convert " + ECRHFreqDlg.val + " to float - aborting!")
+                                    return False
+                            else:
+                                ECRHFreqDlg.Destroy()
+                                print("Aborted")
+                                return False
+                        else:
+                            dlg.Destroy()
+                            print("Aborted")
+                            return False
+                    LoadWavesDlg.Destroy()
+                else:
+                    print("Aborted")
+                    return False
+            LoadDistributionDlg.Destroy()
+            kwargs ={"dist":"Re", "wave_mat_filename":wave_mat_filename, "dist_mat_filename":dist_mat_filename, "ECRH_freq":ECRH_freq}
 #             try:
 #                 self.fig = make_3DBDOP_cut_GUI(Results, self.fig, time, ch)
 #             except ValueError as e:

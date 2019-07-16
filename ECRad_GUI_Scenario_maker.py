@@ -25,7 +25,7 @@ from GlobalSettings import globalsettings
 from equilibrium_utils import EQDataSlice, special_points, EQDataExt
 from TB_communication import make_mdict_from_TB_files
 import numpy as np
-from scipy.io import savemat
+from scipy.io import savemat,loadmat
 from pandas.tests.io.parser import skiprows
 from scipy.interpolate import InterpolatedUnivariateSpline
 
@@ -114,6 +114,7 @@ def make_launch_mat(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, 
     mdict["launch_width"] = np.array([width])
     mdict["launch_pol_coeff_X"] = np.array([pol_coeff_X])
     savemat(filename, mdict, appendmat=False)
+    
 
 def make_test_launch(filename):
     f = np.array([110.e9, 130.e9])

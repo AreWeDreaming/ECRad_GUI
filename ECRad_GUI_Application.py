@@ -4,6 +4,7 @@ import os
 import wx
 import sys
 from glob import glob
+from ECRad_GUI_Thread import WorkerThread
 library_list = glob("../*pylib") + glob("../*Pylib")
 found_lib = False
 ECRadPylibFolder = None
@@ -31,6 +32,7 @@ from ECRad_GUI_LaunchPanel import LaunchPanel
 from ECRad_GUI_ScenarioPanel import ScenarioSelectPanel
 from ECRad_GUI_Config_Panel import ConfigPanel
 from ECRad_GUI_Calibration_Suite import CalibPanel, CalibEvolutionPanel
+from ECRad_GUI_Dialogs import Select_GENE_timepoints_dlg
 # import  wx.lib.scrolledpanel as ScrolledPanel
 import numpy as np
 from signal import signal, SIGTERM
@@ -161,12 +163,14 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.ECRad_pid = None
         self.stop_current_evaluation = False
         self.Results = ECRadResults()
+        self.Bind(EVT_MAKE_ECRAD, self.OnProcessTimeStep)
         self.Bind(wx.EVT_END_PROCESS, self.OnProcessEnded)
         self.Bind(EVT_NEXT_TIME_STEP, self.OnNextTimeStep)
         self.Bind(EVT_UPDATE_CONFIG, self.OnConfigLoaded)
         self.Bind(EVT_UPDATE_DATA, self.OnUpdate)
         self.Bind(EVT_LOCK_EXPORT, self.OnLockExport)
         self.Bind(wx.EVT_IDLE, self.OnIdle)
+        self.Bind(EVT_GENE_DATA_LOADED, self.OnGeneLoaded)
         self.SetSizer(self.sizer)
         self.SetSize((400, 400))
         self.SetMinSize((400, 400))
@@ -362,7 +366,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.GetEventHandler().ProcessEvent(evt)
             return
         if(self.Results.Config.dstf == "Re"):
-            fileDialog=wx.FileDialog(self, "Selectr file with distribution data", \
+            fileDialog=wx.FileDialog(self, "Selectr file with bounce averaged distribution data", \
                                                  defaultDir = self.Results.Config.working_dir, \
                                                  wildcard="matlab files (*.mat)|*.mat",
                                                  style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
@@ -373,12 +377,81 @@ class Main_Panel(scrolled.ScrolledPanel):
                 pathname = fileDialog.GetPath()
                 self.Results.Scenario.load_dist_obj(pathname)
                 fileDialog.Destroy()
+        elif(self.Results.Config.dstf in ["Ge", "GB"]):
+            if(len(self.Results.Scenario.plasma_dict["time"]) != 1):
+                print("For GENE distributions please select only one time point, i.e. the time point of the gene calcuation")
+                evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+                evt.SetStatus('')
+                self.GetEventHandler().ProcessEvent(evt)
+                return
+            fileDialog=wx.FileDialog(self, "Selectr file with GENE distribution data", \
+                                                 defaultDir = self.Results.Config.working_dir, \
+                                                 wildcard="hdf5 files (*.h5)|*.h5",
+                                                 style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+            if(fileDialog.ShowModal() == wx.ID_CANCEL):
+                print("Launch aborted")
+                return
+            else:
+                pathname = fileDialog.GetPath()
+                wt = WorkerThread(self.LoadGeneData, [pathname])
+                fileDialog.Destroy()
         self.Results.Config.autosave()
         self.Results.Scenario.autosave()
-        self.ProgressBar.SetRange(len(self.Results.Scenario.plasma_dict["time"]))
-        self.ProcessTimeStep()
-
-    def ProcessTimeStep(self):
+        if(self.Results.Config.dstf not in ["Ge", "GB"]):
+            self.ProgressBar.SetRange(len(self.Results.Scenario.plasma_dict["time"]))
+            evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
+            wx.PostEvent(self, evt)
+            
+    def LoadGeneData(self, args):
+        pathname = args[0]
+        evt = GENEDataEvt(Unbound_EVT_GENE_DATA_LOADED, wx.ID_ANY)
+        if(self.Results.Scenario.load_GENE_obj(pathname, self.Results.Config.dstf)):
+            evt.set_state(0)
+        else:
+            evt.set_state(-1)
+        wx.PostEvent(self, evt)
+     
+    def OnGeneLoaded(self, evt):
+        if(evt.state == 0):
+            gene_dlg = Select_GENE_timepoints_dlg(self, self.Results.Scenario.GENE_obj.time)
+            if(gene_dlg.ShowModal() == wx.ID_OK):
+                if(len(gene_dlg.used) == 0):
+                    print("No time point selected")
+                    evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+                    evt.SetStatus('')
+                    self.GetEventHandler().ProcessEvent(evt)
+                    return
+                if(not self.Results.Scenario.integrate_GeneData(np.asarray(gene_dlg.used, dtype=np.float) * 1.e-3)):
+                    print("GENE object not properly initialized - this is most likely due to a bug in the GUI")
+                    evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+                    evt.SetStatus('')
+                    self.GetEventHandler().ProcessEvent(evt)
+                    return
+                evt_out_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
+                evt_out_2.SetResults(self.Results)
+                wx.PostEvent(self.scenario_select_panel, evt_out_2)
+                gene_dlg.Destroy()
+                self.TimeBox.Clear()
+                for time in self.Results.Scenario.plasma_dict["time"]:
+                    self.TimeBox.Append("{0:1.5f}".format(time))
+                self.ProgressBar.SetRange(len(self.Results.Scenario.plasma_dict["time"]))
+                evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
+                wx.PostEvent(self, evt)
+            else:
+                print("Aborted")
+                evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+                evt.SetStatus('')
+                self.GetEventHandler().ProcessEvent(evt)
+                return
+        else:
+            print("Error when loading GENE data - see above")
+            evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+            evt.SetStatus('')
+            self.GetEventHandler().ProcessEvent(evt)
+            return
+            
+            
+    def OnProcessTimeStep(self, evt):
         if(os.path.isfile(os.path.join(self.Results.Config.working_dir, "ECRad.out"))):
             os.remove(os.path.join(self.Results.Config.working_dir, "ECRad.out"))
         if(os.path.isfile(os.path.join(self.Results.Config.working_dir, "ECRad.err"))):
@@ -416,7 +489,7 @@ class Main_Panel(scrolled.ScrolledPanel):
 #            ticket_manager_pid = wx.Execute("echo $KRB5CCNAME", \
 #                                       wx.EXEC_SYNC, ticket_manager)
         self.ECRad_pid = wx.Execute(self.InvokeECRad, \
-                                   wx.EXEC_ASYNC, self.ECRad_process)
+                                    wx.EXEC_ASYNC, self.ECRad_process)
         self.ECRad_running = True
         if(self.Results.Config.parallel and not self.Results.Config.batch):
             while(not wx.Process.Exists(self.ECRad_process.GetPid())):
@@ -488,7 +561,8 @@ class Main_Panel(scrolled.ScrolledPanel):
 
     def OnNextTimeStep(self, evt):
         if(not self.stop_current_evaluation):
-            self.ProcessTimeStep()
+            evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
+            wx.PostEvent(self, evt)
         else:
             self.Scenario.plasma_dict["time"] = self.Scenario.plasma_dict["time"][0:self.index]  # shorten time array in case of early termination
             self.Results.time = self.Results.time[0:self.index]

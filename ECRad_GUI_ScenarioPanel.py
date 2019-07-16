@@ -255,6 +255,7 @@ class ScenarioSelectPanel(wx.Panel):
     def OnUpdate(self, evt):
         self.Results = evt.Results
         self.Scenario = evt.Results.Scenario
+        self.Config = evt.Results.Config
         diag_id_list = []
         self.pc_obj.reset(False)
         self.canvas.draw()

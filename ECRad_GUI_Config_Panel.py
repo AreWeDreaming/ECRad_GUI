@@ -70,8 +70,6 @@ class ConfigPanel(wx.Panel):
         self.grid_list[-1].Add(self.wall_time_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
         self.vmem_tc = simple_label_tc(self, "virtual memory [MB]", Config.vmem, "integer")
         self.grid_list[-1].Add(self.vmem_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
-        self.max_points_svec_tc = simple_label_tc(self, "Max points on LOS", Config.max_points_svec, "integer")
-        self.grid_list[-1].Add(self.max_points_svec_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
         self.sizer.Add(self.grid_list[-1], 0, wx.ALL | wx.LEFT, 5)
         self.lines.append(wx.StaticLine(self, wx.ID_ANY))
         self.sizer.Add(self.lines[-1], 0, wx.ALL | wx.EXPAND, 5)
@@ -88,6 +86,8 @@ class ConfigPanel(wx.Panel):
         self.grid_list[-1].Add(self.R_shift_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
         self.z_shift_tc = simple_label_tc(self, "z shift [m]", Config.z_shift, "real")
         self.grid_list[-1].Add(self.z_shift_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
+        self.max_points_svec_tc = simple_label_tc(self, "Max points on LOS", Config.max_points_svec, "integer")
+        self.grid_list[-1].Add(self.max_points_svec_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
         self.sizer.Add(self.grid_list[-1], 0, wx.ALL | wx.LEFT, 5)
 
     def UpdateConfig(self, Config):
