@@ -1157,6 +1157,7 @@ class PlotContainer(wx.Panel):
             dist_mat_filename=None
             wave_mat_filename=None
             ECRH_freq = 105.e9
+            dist = "Th"
             LoadDistributionDlg = wx.MessageDialog(self, "Do you want to load a distribution for the plot?", style=wx.YES_NO)
             if(LoadDistributionDlg.ShowModal() == wx.ID_YES):
                 dlg = wx.FileDialog(self, message="Choose a file with a distribution ", \
@@ -1165,6 +1166,7 @@ class PlotContainer(wx.Panel):
                                     style=wx.FD_OPEN)
                 if(dlg.ShowModal() == wx.ID_OK):
                     dist_mat_filename = dlg.GetPath()
+                    dist = "Re"
                     dlg.Destroy()
                     LoadWavesDlg = wx.MessageDialog(self, "Do you want to load wabes for the plot?", style=wx.YES_NO)
                     if(LoadWavesDlg.ShowModal() == wx.ID_YES):
@@ -1197,7 +1199,7 @@ class PlotContainer(wx.Panel):
                     print("Aborted")
                     return False
             LoadDistributionDlg.Destroy()
-            kwargs ={"dist":"Re", "wave_mat_filename":wave_mat_filename, "dist_mat_filename":dist_mat_filename, "ECRH_freq":ECRH_freq}
+            kwargs ={"dist":dist, "wave_mat_filename":wave_mat_filename, "dist_mat_filename":dist_mat_filename, "ECRH_freq":ECRH_freq}
 #             try:
 #                 self.fig = make_3DBDOP_cut_GUI(Results, self.fig, time, ch)
 #             except ValueError as e:
