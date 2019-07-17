@@ -35,7 +35,7 @@ class Diagnostic:
                              self.stat_unc[timeindex], self.sys_unc[timeindex], self.is_prof)
         
 class TimeSlice:
-    def __init__(self, name, rhop, val, stat_unc, sys_unc, is_prof, max_unc=0.5):
+    def __init__(self, name, rhop, val, stat_unc, sys_unc, is_prof):
         self.name = name
         self.rhop = rhop
         self.val = val
@@ -47,8 +47,7 @@ class TimeSlice:
         if(stat_unc is None and sys_unc is None):
             self.unc = None
         else:
-            mask = self.val * max_unc > np.abs(self.unc)
-            self.unc = self.unc[mask]
-            self.rhop = self.rhop[mask]
-            self.val = self.val[mask]
+            self.unc = self.unc
+            self.rhop = self.rhop
+            self.val = self.val
         

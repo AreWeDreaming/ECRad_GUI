@@ -41,6 +41,7 @@ class PlotPanel(wx.Panel):
         self.SetSizer(self.sizer)
         self.controlplotsizer = wx.BoxSizer(wx.VERTICAL)
         self.Results = None
+        self.smoothing_time = 1.e-3
         self.FigureControlPanel = FigureBook(self)
         self.Bind(EVT_UPDATE_DATA, self.OnUpdate)
         self.Bind(EVT_THREAD_FINISHED, self.OnThreadFinished)
@@ -92,9 +93,11 @@ class PlotPanel(wx.Panel):
         self.mode_cb = simple_label_cb(self, "X-mode", True)
         self.controlgrid.Add(self.mode_cb, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.alt_model_cb = simple_label_cb(self, "show both models", True)
+        self.use_warm_res_cb = simple_label_cb(self, "Use warm resonance", False)
         self.tau_threshhold_tc = simple_label_tc(self, "lower boundary for tau", 0.0, "real")
         self.eq_aspect_ratio_cb = simple_label_cb(self, "Equal aspect ratio", True)
         self.controlgrid.Add(self.alt_model_cb, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
+        self.controlgrid.Add(self.use_warm_res_cb, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid.Add(self.AddPlotButton, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid.Add(self.ClearButton, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid.Add(self.MakeTorbeamRaysButton, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
@@ -115,6 +118,8 @@ class PlotPanel(wx.Panel):
             self.diag_box_sizer.Add(self.diag_text, 0, wx.ALL | wx.TOP, 5)
             self.diag_box = wx.ListBox(self, wx.ID_ANY, style=wx.LB_MULTIPLE, size=(100,100))
             self.diag_box_sizer.Add(self.diag_box, 0, wx.ALL | wx.EXPAND, 5)
+            self.time_smooth_tc = simple_label_tc(self, "smoothing time [ms]", 1.0, "real")
+            self.diag_box_sizer.Add(self.time_smooth_tc, 0, wx.ALL | wx.EXPAND, 5)
         self.load_other_results_button = wx.Button(self, wx.ID_ANY, "Load other results")
         self.load_other_results_button.Bind(wx.EVT_BUTTON, self.OnLoadOtherResults)
         self.diag_box_sizer.Add(self.load_other_results_button, 0, wx.ALL | wx.EXPAND, 5)
@@ -171,12 +176,20 @@ class PlotPanel(wx.Panel):
             time = float(self.time_choice.GetStringSelection())
             itime = np.argmin(np.abs(self.Results.time - time))
             ch = int(self.ch_choice.GetStringSelection()) - 1
-            res = self.Results.resonance["rhop_cold"][itime][ch]
-            diag_name = self.Results.Scenario.ray_launch[itime]["diag_name"][ch]
-            if(globalsettings.Phoenix):
-                self.ch_choice.SetToolTip(r"{0:s}: rhopol = {1:1.3f}".format(diag_name, res))
+            warm = False
+            if(self.Results.Config.extra_output and self.use_warm_res_cb.GetValue()):
+                warm = True
+                res = self.Results.resonance["rhop_warm"][itime][ch]
             else:
-                self.ch_choice.SetToolTipString(r"{0:s}: rhopol = {1:1.3f}".format(diag_name, res))
+                res = self.Results.resonance["rhop_cold"][itime][ch]
+            diag_name = self.Results.Scenario.ray_launch[itime]["diag_name"][ch]
+            res_type = "(cold)"
+            if(warm):
+                res_type = "(warm)"
+            if(globalsettings.Phoenix):
+                self.ch_choice.SetToolTip(r"{0:s}: rhopol {1:s} = {2:1.3f}".format(diag_name, res_type, res))
+            else:
+                self.ch_choice.SetToolTipString(r"{0:s}: rhopol {1:s} = = {2:1.3f}".format(diag_name, res_type, res))
 
     def OnPlot(self, evt):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
@@ -190,6 +203,7 @@ class PlotPanel(wx.Panel):
         ch = int(self.ch_choice.GetStringSelection()) - 1  # index - not channel number
         mode = self.mode_cb.GetValue()
         alt_model = self.alt_model_cb.GetValue()
+        warm_res = self.use_warm_res_cb.GetValue() 
         tau_threshhold = self.tau_threshhold_tc.GetValue()
         eq_aspect_ratio = self.eq_aspect_ratio_cb.GetValue()
         if(globalsettings.AUG):
@@ -197,7 +211,9 @@ class PlotPanel(wx.Panel):
         else:
             diag_data_selected = np.array([] )
         compare_data_selected = np.array(self.other_result_box.GetItems())[self.other_result_box.GetSelections()]
-        self.FigureControlPanel.AddPlot(plot_type, self.Results.Config, self.Results, self.diag_data, diag_data_selected, self.compare_data, compare_data_selected, time, ch, mode, alt_model, tau_threshhold, eq_aspect_ratio)
+        self.FigureControlPanel.AddPlot(plot_type, self.Results.Config, self.Results, self.diag_data, \
+                                        diag_data_selected, self.compare_data, compare_data_selected, \
+                                        time, ch, mode, alt_model, warm_res, tau_threshhold, eq_aspect_ratio)
         self.Layout()
 
     def OnMakeTORBEAMRays(self, evt):
@@ -311,6 +327,7 @@ class PlotPanel(wx.Panel):
             mdict = None
             return
         else:
+            self.smoothing_time = self.time_smooth_tc.GetValue() * 1.e-3
             diag_dict = {} # Important here we use Diag.diag as identified and not Diag.name
             # Transfer the individual entriesof used_diag:dig into diag_dict
             for key in self.Results.Scenario.used_diags_dict.keys():
@@ -330,7 +347,6 @@ class PlotPanel(wx.Panel):
         avail_diag_list.sort()
         diag_select_dialog = DiagSelectDialog(self, avail_diag_list)
         if(diag_select_dialog.ShowModal() == True):
-            print()
             for key in diag_dict.keys():
                 if(key not in diag_select_dialog.used_list.GetItems()):
                     del(diag_dict[key])
@@ -341,12 +357,12 @@ class PlotPanel(wx.Panel):
                 if(diag_dict[key].name in ["CTA", "CTC", "IEC", "ECN", "ECO", "ECI"] and \
                    key not in self.Results.calib.keys()):
                     # Uncalibrated diagnostic and no calibration in result file -> Ask user to load data
-                    if wx.MessageBox("No calibration data for " + key + "\n Load calibration from file?", "Load calibration?",
+                    if wx.MessageBox("No calibration data for " + diag_dict[key].name + "\n Load calibration from file?", "Load calibration?",
                                      wx.ICON_QUESTION | wx.YES_NO, self) == wx.NO:
                         del(diag_dict[key])
                         continue
                     while True:
-                        fileDialog=wx.FileDialog(self, "Open file with calibration for " + key, \
+                        fileDialog=wx.FileDialog(self, "Open file with calibration for " + diag_dict[key].name, \
                                                  defaultDir = self.Results.Config.working_dir, \
                                                  wildcard="matlab files (*.mat)|*.mat",
                                                  style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
@@ -367,13 +383,13 @@ class PlotPanel(wx.Panel):
                                     del(diag_dict[key])
                                     break
                             try:
-                                self.Results.calib[key] = result_with_calib.calib[key]
-                                self.Results.rel_dev[key] = result_with_calib.rel_dev[key]
-                                self.Results.sys_dev[key] = result_with_calib.sys_dev[key]
+                                self.Results.calib[diag_dict[key].name] = result_with_calib.calib[diag_dict[key].name]
+                                self.Results.rel_dev[diag_dict[key].name] = result_with_calib.rel_dev[diag_dict[key].name]
+                                self.Results.sys_dev[diag_dict[key].name] = result_with_calib.sys_dev[diag_dict[key].name]
                                 break
                             except KeyError:
                                 print("No calib for selected")
-                                if wx.MessageBox("No calibration for " + key + " in selected file\n Select other file?", "Different file?",
+                                if wx.MessageBox("No calibration for " + diag_dict[key].name + " in selected file\n Select other file?", "Different file?",
                                      wx.ICON_QUESTION | wx.YES_NO, self) == wx.NO:
                                     del(diag_dict[key])
                                     break
@@ -409,7 +425,7 @@ class PlotPanel(wx.Panel):
                     sys_dev_calib=Results.sys_dev[diag_dict[key].name]
                     unc, prof = get_data_calib(diag_dict[key], shot=Results.Scenario.shot, time = Results.time, ext_resonances = ext_resonances,
                                                calib=calib, std_dev_calib=rel_dev_calib * np.abs(calib) / 1.e2, \
-                                               sys_dev_calib=sys_dev_calib)
+                                               sys_dev_calib=sys_dev_calib, t_smooth = self.smoothing_time)
                     temp_diag_data[diag_dict[key].name] = Diagnostic(diag_dict[key])
                     temp_diag_data[diag_dict[key].name].insert_data(prof[0], prof[1], unc[0], unc[1])
                 elif(key in ["CEC", "RMD"]):
@@ -417,10 +433,11 @@ class PlotPanel(wx.Panel):
                         unc, prof = get_data_calib(diag_dict[key], shot=Results.Scenario.shot, time = Results.time, \
                                                    eq_exp=Results.Scenario.EQ_exp, \
                                                    eq_diag=Results.Scenario.EQ_diag, 
-                                                   eq_ed=Results.Scenario.EQ_ed)
+                                                   eq_ed=Results.Scenario.EQ_ed, t_smooth = self.smoothing_time)
                         
                     else:
-                        unc, prof = get_data_calib(diag_dict[key], shot=Results.Scenario.shot, time = Results.time, ext_resonances = ext_resonances)
+                        unc, prof = get_data_calib(diag_dict[key], shot=Results.Scenario.shot, time = Results.time, \
+                                                   ext_resonances = ext_resonances, t_smooth = self.smoothing_time)
                     temp_diag_data[diag_dict[key].name] = Diagnostic(diag_dict[key])
                     temp_diag_data[diag_dict[key].name].insert_data(prof[0], prof[1], unc[0], unc[1])
                 elif(key is "IDA"):
@@ -556,9 +573,11 @@ class FigureBook(wx.Notebook):
         wx.Notebook.__init__(self, parent, wx.ID_ANY)
         self.FigureList = []
 
-    def AddPlot(self, plot_type, Config, Results,  diag_data, diag_data_selected, other_results, other_results_selected, time, ch, mode, alt_model, tau_threshhold, eq_aspect_ratio):
+    def AddPlot(self, plot_type, Config, Results,  diag_data, diag_data_selected, other_results,  \
+                other_results_selected, time, ch, mode, alt_model, use_warm_res, tau_threshhold, eq_aspect_ratio):
         self.FigureList.append(PlotContainer(self))
-        if(self.FigureList[-1].Plot(plot_type, Config, Results, diag_data, diag_data_selected, other_results, other_results_selected, time, ch, mode, alt_model, tau_threshhold, eq_aspect_ratio)):
+        if(self.FigureList[-1].Plot(plot_type, Config, Results, diag_data, diag_data_selected, other_results, \
+                                    other_results_selected, time, ch, mode, alt_model, use_warm_res, tau_threshhold, eq_aspect_ratio)):
             if(plot_type == "Trad" or plot_type == "Rz_Res"):
                 self.AddPage(self.FigureList[-1], plot_type + " t = {0:2.3f} s".format(time))
             else:
@@ -613,7 +632,8 @@ class PlotContainer(wx.Panel):
         # self.sizer.Add(self.fig_H_sizer, 0, wx.ALL | wx.EXPAND , 5)
         self.pc_obj = plotting_core(self.fig, title=False)
 
-    def Plot(self, plot_type, Config, Results, diag_data, diag_data_selected, other_results, other_results_selected, time, ch, mode, alt_model, tau_threshhold, eq_aspect_ratio):
+    def Plot(self, plot_type, Config, Results, diag_data, diag_data_selected, other_results, other_results_selected, time, ch, \
+             mode, alt_model, use_warm_res, tau_threshhold, eq_aspect_ratio):
         self.pc_obj.reset(True)
         if(len(Results.time) == 0):
             print("No time points! - Did you select new IDA timepoints?")
@@ -798,19 +818,24 @@ class PlotContainer(wx.Panel):
                 return False
             if(Results.resonance["R_cold"][time_index][ch] < 0.0):
                 print("ECRad did not find a cold resonance for this channel. Cut-off?")
-                s_cold = None
-                R_cold = None
-                z_cold = None
+                s_res = None
+                R_res = None
+                z_res = None
             else:
-                s_cold = Results.resonance["R_cold"][time_index][ch]
-                R_cold = Results.resonance["R_cold"][time_index][ch]
-                z_cold = Results.resonance["z_cold"][time_index][ch]
+                if(Results.Config.extra_output and use_warm_res):
+                    s_res = Results.resonance["R_warm"][time_index][ch]
+                    R_res = Results.resonance["R_warm"][time_index][ch]
+                    z_res = Results.resonance["z_warm"][time_index][ch]
+                else:
+                    s_res = Results.resonance["R_cold"][time_index][ch]
+                    R_res = Results.resonance["R_cold"][time_index][ch]
+                    z_res = Results.resonance["z_cold"][time_index][ch]
             EQ_obj = EQData(Results.Scenario.shot)
             EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
             # the matrices in the slices are Fortran ordered - hence transposition necessary
             args = [self.pc_obj.plot_ray, Results.Scenario.shot, time, rays]
-            kwargs = {"index":time_index, "Eq_Slice":EQ_obj.GetSlice(time), "H":False, "R_cold":R_cold, \
-                      "z_cold":z_cold, "s_cold":s_cold, "straight":straight, "eq_aspect_ratio":eq_aspect_ratio, \
+            kwargs = {"index":time_index, "Eq_Slice":EQ_obj.GetSlice(time), "H":False, "R_res":R_res, \
+                      "z_res":z_res, "s_res":s_res, "straight":straight, "eq_aspect_ratio":eq_aspect_ratio, \
                       "R_other_list":R_other_list, "z_other_list":z_other_list, "x_other_list":x_other_list, \
                       "y_other_list":y_other_list, "label_list":label_list, "vessel_bd":Results.Scenario.plasma_dict["vessel_bd"]}
 #             self.fig = self.pc_obj.plot_ray(Results.Scenario.shot, time, rays, index=time_index, \
@@ -844,7 +869,12 @@ class PlotContainer(wx.Panel):
             else:
                 multiple_models = False
                 label_list = None
-            rhop = Results.resonance["rhop_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
+            warm = False
+            if(Results.Config.extra_output and use_warm_res):
+                rhop = Results.resonance["rhop_warm"][time_index][Results.tau[time_index] >= tau_threshhold]
+                warm = True
+            else:
+                rhop = Results.resonance["rhop_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
             if(len(rhop) == 0):
                 print("No channels have an optical depth below the currently selected threshold!")
                 return False
@@ -877,6 +907,9 @@ class PlotContainer(wx.Panel):
             diagdict = {}
             for diag_name in diag_data_selected:
                 diagdict[diag_name]=diag_data[diag_name].getSlice(time_index)
+                if(warm and diag_name in Results.Scenario.used_diags_dict.keys()):
+                    # Overwrite
+                    diagdict[diag_name].rhop = Results.resonance["rhop_warm"][time_index][Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name]
             rhop_Te= Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
             Te = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
@@ -890,7 +923,10 @@ class PlotContainer(wx.Panel):
 #                                              Config.dstf, alt_model, multiple_models=multiple_models, \
 #                                              label_list=label_list)
         elif(plot_type == "Transmisivity" or plot_type == "tau"):
-            rhop = Results.resonance["rhop_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
+            if(Results.Config.extra_output and use_warm_res):
+                rhop = Results.resonance["rhop_warm"][time_index][Results.tau[time_index] >= tau_threshhold]
+            else:
+                rhop = Results.resonance["rhop_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
             if(len(rhop) == 0):
                 print("No channels have an optical depth below the currently selected threshold!")
                 return False
@@ -922,12 +958,20 @@ class PlotContainer(wx.Panel):
             diagdict = {}
             for diag_name in diag_data_selected:
                 diagdict[diag_name]=diag_data[diag_name].getSlice(time_index)
+                if(warm and diag_name in Results.Scenario.used_diags_dict.keys()):
+                    # Overwrite rhop with warm rhops
+                    diagdict[diag_name].rhop = Results.resonance["rhop_warm"][time_index][Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name]
             rhop_Te = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
             Te = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             diag_names = Results.Scenario.ray_launch[time_index]["diag_name"][Results.tau[time_index] >= tau_threshhold]
+            warm = False
             if(mode):
                 # X-mode
-                rhop = Results.resonance["rhop_cold"][time_index][Results.Xtau[time_index] >= tau_threshhold]
+                if(Results.Config.extra_output and use_warm_res):
+                    rhop = Results.resonance["rhop_warm"][time_index][Results.Xtau[time_index] >= tau_threshhold]
+                    warm = True
+                else:
+                    rhop = Results.resonance["rhop_cold"][time_index][Results.Xtau[time_index]>= tau_threshhold]
                 Trad = Results.XTrad[time_index][Results.Xtau[time_index] >= tau_threshhold]
                 X_mode_frac = Results.X_mode_frac[time_index][Results.Xtau[time_index] >= tau_threshhold]
                 Trad_comp = Results.XTrad_comp[time_index][Results.Xtau[time_index] >= tau_threshhold]
@@ -935,7 +979,11 @@ class PlotContainer(wx.Panel):
 
             else:
                 # O-mode
-                rhop = Results.resonance["rhop_cold"][time_index][Results.Otau[time_index] >= tau_threshhold]
+                if(Results.Config.extra_output and use_warm_res):
+                    rhop = Results.resonance["rhop_warm"][time_index][Results.Otau[time_index] >= tau_threshhold]
+                    warm = True
+                else:
+                    rhop = Results.resonance["rhop_cold"][time_index][Results.Otau[time_index]>= tau_threshhold]
                 Trad = Results.OTrad[time_index][Results.Otau[time_index] >= tau_threshhold]
                 Trad_comp = Results.OTrad_comp[time_index][Results.Otau[time_index] >= tau_threshhold]
                 X_mode_frac = Results.X_mode_frac[time_index][Results.Otau[time_index] >= tau_threshhold]
@@ -960,12 +1008,18 @@ class PlotContainer(wx.Panel):
                 return
             if(mode):
                 # X-mode
-                rhop = Results.resonance["rhop_cold"][time_index][Results.Xtau[time_index] >= tau_threshhold]
+                if(Results.Config.extra_output and use_warm_res):
+                    rhop = Results.resonance["rhop_warm"][time_index][Results.Xtau[time_index] >= tau_threshhold]
+                else:
+                    rhop = Results.resonance["rhop_cold"][time_index][Results.Xtau[time_index]>= tau_threshhold]
                 tau = Results.Xtau[time_index][Results.Xtau[time_index] >= tau_threshhold]
                 tau_comp = Results.Xtau_comp[time_index][Results.Xtau[time_index] >= tau_threshhold]
             else:
                 # O-mode
-                rhop = Results.resonance["rhop_cold"][time_index][Results.Otau[time_index] >= tau_threshhold]
+                if(Results.Config.extra_output and use_warm_res):
+                    rhop = Results.resonance["rhop_warm"][time_index][Results.Otau[time_index] >= tau_threshhold]
+                else:
+                    rhop = Results.resonance["rhop_cold"][time_index][Results.Ottau[time_index]>= tau_threshhold]
                 tau = Results.Otau[time_index][Results.Otau[time_index] >= tau_threshhold]
                 tau_comp = Results.Otau_comp[time_index][Results.Otau[time_index] >= tau_threshhold]
             use_tau = False
@@ -999,13 +1053,16 @@ class PlotContainer(wx.Panel):
                 rhop = Results.BPD["rhopO"][time_index][ch]
                 D = Results.BPD["BPDO"][time_index][ch]
                 D_comp = Results.BPD["BPD_secondO"][time_index][ch]
-            rhop_cold = Results.resonance["rhop_cold"][time_index][ch]
+            if(Results.Config.extra_output and use_warm_res):
+                rhop_res = Results.resonance["rhop_warm"][time_index][ch]
+            else:
+                rhop_res = Results.resonance["rhop_cold"][time_index][ch]
             EQ_obj = EQData(Results.Scenario.shot)
             EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
             R_axis, z_axis = EQ_obj.get_axis(time)
             if(Results.resonance["R_cold"][time_index][ch] < R_axis):
-                rhop_cold *= -1.0
-            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_cold]
+                rhop_res *= -1.0
+            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_res]
             kwargs = {}
 #             self.fig = self.pc_obj.plot_BPD(time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_cold)
         elif(plot_type == "Rz res."):
