@@ -345,7 +345,7 @@ class PlotPanel(wx.Panel):
             return
         else:
             self.smoothing_time = self.time_smooth_tc.GetValue() * 1.e-3
-            self.use_std_dev = self.use_std_dev_rb.GetValue()
+            self.use_std_err = self.use_std_err_rb.GetValue()
             diag_dict = {} # Important here we use Diag.diag as identified and not Diag.name
             # Transfer the individual entriesof used_diag:dig into diag_dict
             for key in self.Results.Scenario.used_diags_dict.keys():
@@ -443,7 +443,7 @@ class PlotPanel(wx.Panel):
                     sys_dev_calib=Results.sys_dev[diag_dict[key].name]
                     unc, prof = get_data_calib(diag_dict[key], shot=Results.Scenario.shot, time = Results.time, ext_resonances = ext_resonances,
                                                calib=calib, std_dev_calib=rel_dev_calib * np.abs(calib) / 1.e2, \
-                                               sys_dev_calib=sys_dev_calib, t_smooth = self.smoothing_time, use_std_dev=self.use_std_dev)
+                                               sys_dev_calib=sys_dev_calib, t_smooth = self.smoothing_time, use_std_err=self.use_std_err)
                     temp_diag_data[diag_dict[key].name] = Diagnostic(diag_dict[key])
                     temp_diag_data[diag_dict[key].name].insert_data(prof[0], prof[1], unc[0], unc[1])
                 elif(key in ["CEC", "RMD"]):
@@ -451,11 +451,11 @@ class PlotPanel(wx.Panel):
                         unc, prof = get_data_calib(diag_dict[key], shot=Results.Scenario.shot, time = Results.time, \
                                                    eq_exp=Results.Scenario.EQ_exp, \
                                                    eq_diag=Results.Scenario.EQ_diag, 
-                                                   eq_ed=Results.Scenario.EQ_ed, t_smooth = self.smoothing_time, use_std_dev=self.use_std_dev)
+                                                   eq_ed=Results.Scenario.EQ_ed, t_smooth = self.smoothing_time, use_std_err=self.use_std_err)
                         
                     else:
                         unc, prof = get_data_calib(diag_dict[key], shot=Results.Scenario.shot, time = Results.time, \
-                                                   ext_resonances = ext_resonances, t_smooth = self.smoothing_time, use_std_dev=self.use_std_dev)
+                                                   ext_resonances = ext_resonances, t_smooth = self.smoothing_time, use_std_err=self.use_std_err)
                     temp_diag_data[diag_dict[key].name] = Diagnostic(diag_dict[key])
                     temp_diag_data[diag_dict[key].name].insert_data(prof[0], prof[1], unc[0], unc[1])
                 elif(key is "IDA"):
@@ -548,7 +548,8 @@ class PlotPanel(wx.Panel):
                     if(plot_type == "Trad"):
                         temp_compare_data[plot_type][label] = {}
                         x, y = result.extract_field(plot_type)
-                        temp_compare_data[plot_type][label]["x"] = x
+                        temp_compare_data[plot_type][label]["x"] = x[0]
+                        temp_compare_data[plot_type][label]["x_2nd"] = x[1]
                         temp_compare_data[plot_type][label]["y"] = y
                         temp_compare_data[plot_type][label]["time"] = result.time
                         diag_mask = []
@@ -915,7 +916,10 @@ class PlotContainer(wx.Panel):
                     if(entry not in other_results_selected):
                         continue
                     itime = np.argmin(np.abs(other_results["Trad"][entry]["time"] - time))
-                    rhop_list.append(other_results["Trad"][entry]["x"][itime])
+                    if(warm):
+                        rhop_list.append(other_results["Trad"][entry]["x_2nd"][itime])
+                    else:
+                        rhop_list.append(other_results["Trad"][entry]["x"][itime])
                     Trad_list.append(other_results["Trad"][entry]["y"][itime])
                     diag_name_list.append(other_results["Trad"][entry]["diag_mask"][itime])
                     label_list.append(entry)

@@ -27,7 +27,7 @@ class Diagnostic:
         elif(self.stat_unc is None and self.sys_unc is not None):
             return TimeSlice(self.Diag.name, self.rhop[timeindex], self.val[timeindex], \
                              None, self.sys_unc[timeindex], self.is_prof)
-        elif(self.stat_unc  is not None and self.sys_unc is None):
+        elif(self.stat_unc is not None and self.sys_unc is None):
             return TimeSlice(self.Diag.name, self.rhop[timeindex], self.val[timeindex], \
                              self.stat_unc[timeindex], None, self.is_prof)
         else:
@@ -37,17 +37,17 @@ class Diagnostic:
 class TimeSlice:
     def __init__(self, name, rhop, val, stat_unc, sys_unc, is_prof):
         self.name = name
-        self.rhop = rhop
-        self.val = val
+        self.rhop = np.copy(rhop)
+        self.val = np.copy(val)
         self.is_prof = is_prof
         if(stat_unc is not None):
-            self.unc = stat_unc
+            self.unc = np.copy(stat_unc)
         if(sys_unc is not None):
-            self.unc += sys_unc
+            self.unc += np.copy(sys_unc)
         if(stat_unc is None and sys_unc is None):
             self.unc = None
         else:
-            self.unc = self.unc
-            self.rhop = self.rhop
-            self.val = self.val
+            self.unc = np.copy(self.unc)
+            self.rhop = np.copy(self.rhop)
+            self.val = np.copy(self.val)
         
