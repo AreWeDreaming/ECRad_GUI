@@ -80,7 +80,7 @@ class simple_label_tc(wx.Panel):
                                         label_text[i + 1:len(label_text)]
                     break
         self.label = wx.StaticText(self, wx.ID_ANY, label_text, \
-                    style=wx.ALIGN_CENTER)
+                                   style=wx.ALIGN_CENTER_HORIZONTAL)
         self.label.Wrap(160)
         self.tc = wx.TextCtrl(self, wx.ID_ANY, str(self.value))
         if(tooltip is not None):
@@ -91,7 +91,7 @@ class simple_label_tc(wx.Panel):
         self.tc.Bind(wx.EVT_KILL_FOCUS, self.OnKillFocus)
         self.tc.Bind(wx.EVT_TEXT, self.OnNewValByUser)
         self.sizer.Add(self.label, 0, \
-            wx.ALIGN_CENTER_HORIZONTAL| wx.ALL | wx.EXPAND, 5)
+                       wx.ALIGN_CENTER_HORIZONTAL| wx.ALL | wx.EXPAND, 5)
         self.sizer.Add(self.tc, 0, \
             wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
         if(len(label_text) < 25):

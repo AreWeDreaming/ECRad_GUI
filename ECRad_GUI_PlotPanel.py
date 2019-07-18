@@ -120,6 +120,8 @@ class PlotPanel(wx.Panel):
             self.diag_box_sizer.Add(self.diag_box, 0, wx.ALL | wx.EXPAND, 5)
             self.time_smooth_tc = simple_label_tc(self, "smoothing time [ms]", 1.0, "real")
             self.diag_box_sizer.Add(self.time_smooth_tc, 0, wx.ALL | wx.EXPAND, 5)
+            self.max_unc_tc = simple_label_tc(self, "Remove channels with uncertainty/data >", 0.5, "real")
+            self.diag_box_sizer.Add(self.max_unc_tc, 0, wx.ALL | wx.EXPAND, 5)
         self.load_other_results_button = wx.Button(self, wx.ID_ANY, "Load other results")
         self.load_other_results_button.Bind(wx.EVT_BUTTON, self.OnLoadOtherResults)
         self.diag_box_sizer.Add(self.load_other_results_button, 0, wx.ALL | wx.EXPAND, 5)
@@ -204,6 +206,7 @@ class PlotPanel(wx.Panel):
         mode = self.mode_cb.GetValue()
         alt_model = self.alt_model_cb.GetValue()
         warm_res = self.use_warm_res_cb.GetValue() 
+        max_unc = self.max_unc_tc.GetValue()
         tau_threshhold = self.tau_threshhold_tc.GetValue()
         eq_aspect_ratio = self.eq_aspect_ratio_cb.GetValue()
         if(globalsettings.AUG):
@@ -213,7 +216,7 @@ class PlotPanel(wx.Panel):
         compare_data_selected = np.array(self.other_result_box.GetItems())[self.other_result_box.GetSelections()]
         self.FigureControlPanel.AddPlot(plot_type, self.Results.Config, self.Results, self.diag_data, \
                                         diag_data_selected, self.compare_data, compare_data_selected, \
-                                        time, ch, mode, alt_model, warm_res, tau_threshhold, eq_aspect_ratio)
+                                        time, ch, mode, alt_model, warm_res, max_unc, tau_threshhold, eq_aspect_ratio)
         self.Layout()
 
     def OnMakeTORBEAMRays(self, evt):
@@ -574,10 +577,10 @@ class FigureBook(wx.Notebook):
         self.FigureList = []
 
     def AddPlot(self, plot_type, Config, Results,  diag_data, diag_data_selected, other_results,  \
-                other_results_selected, time, ch, mode, alt_model, use_warm_res, tau_threshhold, eq_aspect_ratio):
+                other_results_selected, time, ch, mode, alt_model, use_warm_res, max_unc, tau_threshhold, eq_aspect_ratio):
         self.FigureList.append(PlotContainer(self))
         if(self.FigureList[-1].Plot(plot_type, Config, Results, diag_data, diag_data_selected, other_results, \
-                                    other_results_selected, time, ch, mode, alt_model, use_warm_res, tau_threshhold, eq_aspect_ratio)):
+                                    other_results_selected, time, ch, mode, alt_model, use_warm_res, max_unc, tau_threshhold, eq_aspect_ratio)):
             if(plot_type == "Trad" or plot_type == "Rz_Res"):
                 self.AddPage(self.FigureList[-1], plot_type + " t = {0:2.3f} s".format(time))
             else:
@@ -633,8 +636,8 @@ class PlotContainer(wx.Panel):
         self.pc_obj = plotting_core(self.fig, title=False)
 
     def Plot(self, plot_type, Config, Results, diag_data, diag_data_selected, other_results, other_results_selected, time, ch, \
-             mode, alt_model, use_warm_res, tau_threshhold, eq_aspect_ratio):
-        self.pc_obj.reset(True)
+             mode, alt_model, use_warm_res, max_unc, tau_threshhold, eq_aspect_ratio):
+        self.pc_obj.reset(False)
         if(len(Results.time) == 0):
             print("No time points! - Did you select new IDA timepoints?")
             return
@@ -918,6 +921,7 @@ class PlotContainer(wx.Panel):
             kwargs = {}
             kwargs["multiple_models"] = multiple_models
             kwargs["label_list"] = label_list
+            kwargs["max_unc"] = max_unc
 #             self.fig = self.pc_obj.plot_Trad(time, rhop, Trad, Trad_comp, \
 #                                              rhop_Te, Te, diagdict, diag_names, \
 #                                              Config.dstf, alt_model, multiple_models=multiple_models, \
@@ -994,6 +998,7 @@ class PlotContainer(wx.Panel):
             kwargs = {}
             kwargs["X_mode_fraction"] = X_mode_frac
             kwargs["X_mode_fraction_comp"] = X_mode_frac_comp
+            kwargs["max_unc"] = max_unc
         elif(plot_type == "Transmisivity mode" or plot_type == "tau mode"):
             if(Config.considered_modes != 3):
                 print("This plot is only sensitble if both X and O mode are considered")
@@ -1273,15 +1278,20 @@ class PlotContainer(wx.Panel):
 #             except ValueError as e:
 #                 print(e)
 #                 return False
+        args.insert(0,time)
+        args.insert(0,Results.Scenario.shot)
         wt = WorkerThread(self.plot_threading, args, kwargs)
         return True
 
     def plot_threading(self, args, kwargs):
-        self.fig = args[0](*args[1:], **kwargs)
-        evt = wx.PyCommandEvent(Unbound_EVT_DONE_PLOTTING, self.GetId())
+        self.fig = args[2](*args[3:], **kwargs)
+        evt = UpdatePlotEvent(Unbound_EVT_DONE_PLOTTING, self.GetId())
+        evt.set_shot_time(args[0], args[1])
         wx.PostEvent(self, evt)
         
     def OnDonePlotting(self, evt):
+        self.fig.get_axes()[-1].text(0.7, 1.02,  r" \# {0:d}, $t = $ {1:1.3f} s".format(evt.shot, evt.time),\
+                                    transform=self.fig.get_axes()[0].transAxes)
         self.canvas.draw()
         evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
         wx.PostEvent(self, evt)
