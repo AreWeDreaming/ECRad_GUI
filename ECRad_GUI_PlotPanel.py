@@ -120,8 +120,18 @@ class PlotPanel(wx.Panel):
             self.diag_box_sizer.Add(self.diag_box, 0, wx.ALL | wx.EXPAND, 5)
             self.time_smooth_tc = simple_label_tc(self, "smoothing time [ms]", 1.0, "real")
             self.diag_box_sizer.Add(self.time_smooth_tc, 0, wx.ALL | wx.EXPAND, 5)
+            self.err_rb_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            self.use_std_dev_rb = wx.RadioButton(self, wx.ID_ANY, "Std. dev. for errorbar")
+            self.use_std_err_rb = wx.RadioButton(self, wx.ID_ANY, "Std. err. for errorbar")
+            self.use_std_dev_rb.SetValue(True)
+            self.err_rb_sizer.Add(self.use_std_dev_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+            self.err_rb_sizer.Add(self.use_std_err_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+            self.diag_box_sizer.Add(self.err_rb_sizer, 0, wx.ALL | wx.EXPAND, 5)
             self.max_unc_tc = simple_label_tc(self, "Remove channels with uncertainty/data >", 0.5, "real")
             self.diag_box_sizer.Add(self.max_unc_tc, 0, wx.ALL | wx.EXPAND, 5)
+            self.clear_diags_button = wx.Button(self, wx.ID_ANY, "Unload diags")
+            self.clear_diags_button.Bind(wx.EVT_BUTTON, self.OnClearDiags)
+            self.diag_box_sizer.Add(self.clear_diags_button, 0, wx.ALL | wx.EXPAND, 5)
         self.load_other_results_button = wx.Button(self, wx.ID_ANY, "Load other results")
         self.load_other_results_button.Bind(wx.EVT_BUTTON, self.OnLoadOtherResults)
         self.diag_box_sizer.Add(self.load_other_results_button, 0, wx.ALL | wx.EXPAND, 5)
@@ -168,10 +178,14 @@ class PlotPanel(wx.Panel):
             self.ch_choice.AppendItems(np.array(range(1, len(self.Results.Trad.T) + 1)).astype("|S4"))
             self.ch_choice.Select(0)
             if(globalsettings.AUG):
-                self.diag_data = {}
-                self.diag_box.Clear()
                 self.load_diag_data_button.Enable()
+                self.OnClearDiags(None)
             self.load_other_results_button.Enable()
+
+    def OnClearDiags(self, evt):
+        self.diag_data = {}
+        self.diag_box.Clear()
+        
 
     def OnUpdateChtooltip(self, evt):
         if(len(self.Results.time) > 0):
@@ -331,6 +345,7 @@ class PlotPanel(wx.Panel):
             return
         else:
             self.smoothing_time = self.time_smooth_tc.GetValue() * 1.e-3
+            self.use_std_dev = self.use_std_dev_rb.GetValue()
             diag_dict = {} # Important here we use Diag.diag as identified and not Diag.name
             # Transfer the individual entriesof used_diag:dig into diag_dict
             for key in self.Results.Scenario.used_diags_dict.keys():
@@ -428,7 +443,7 @@ class PlotPanel(wx.Panel):
                     sys_dev_calib=Results.sys_dev[diag_dict[key].name]
                     unc, prof = get_data_calib(diag_dict[key], shot=Results.Scenario.shot, time = Results.time, ext_resonances = ext_resonances,
                                                calib=calib, std_dev_calib=rel_dev_calib * np.abs(calib) / 1.e2, \
-                                               sys_dev_calib=sys_dev_calib, t_smooth = self.smoothing_time)
+                                               sys_dev_calib=sys_dev_calib, t_smooth = self.smoothing_time, use_std_dev=self.use_std_dev)
                     temp_diag_data[diag_dict[key].name] = Diagnostic(diag_dict[key])
                     temp_diag_data[diag_dict[key].name].insert_data(prof[0], prof[1], unc[0], unc[1])
                 elif(key in ["CEC", "RMD"]):
@@ -436,11 +451,11 @@ class PlotPanel(wx.Panel):
                         unc, prof = get_data_calib(diag_dict[key], shot=Results.Scenario.shot, time = Results.time, \
                                                    eq_exp=Results.Scenario.EQ_exp, \
                                                    eq_diag=Results.Scenario.EQ_diag, 
-                                                   eq_ed=Results.Scenario.EQ_ed, t_smooth = self.smoothing_time)
+                                                   eq_ed=Results.Scenario.EQ_ed, t_smooth = self.smoothing_time, use_std_dev=self.use_std_dev)
                         
                     else:
                         unc, prof = get_data_calib(diag_dict[key], shot=Results.Scenario.shot, time = Results.time, \
-                                                   ext_resonances = ext_resonances, t_smooth = self.smoothing_time)
+                                                   ext_resonances = ext_resonances, t_smooth = self.smoothing_time, use_std_dev=self.use_std_dev)
                     temp_diag_data[diag_dict[key].name] = Diagnostic(diag_dict[key])
                     temp_diag_data[diag_dict[key].name].insert_data(prof[0], prof[1], unc[0], unc[1])
                 elif(key is "IDA"):
@@ -1290,7 +1305,7 @@ class PlotContainer(wx.Panel):
         wx.PostEvent(self, evt)
         
     def OnDonePlotting(self, evt):
-        self.fig.get_axes()[-1].text(0.7, 1.02,  r" \# {0:d}, $t = $ {1:1.3f} s".format(evt.shot, evt.time),\
+        self.fig.get_axes()[0].text(0.05, 1.02,  r" \# {0:d}, $t = $ {1:1.3f} s".format(evt.shot, evt.time),\
                                     transform=self.fig.get_axes()[0].transAxes)
         self.canvas.draw()
         evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
