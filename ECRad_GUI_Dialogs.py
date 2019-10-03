@@ -113,3 +113,29 @@ class TextEntryDialog(wx.Dialog):
         self.val = self.val_tc.GetValue()
         self.EndModal(wx.ID_OK)
         
+# class ECRHFreqAndHarmonicDlg(wx.Dialog):
+#     def __init__(self, parent, message, default_val = ""):
+#         wx.Dialog.__init__(self, parent, wx.ID_ANY)
+#         self.sizer = wx.BoxSizer(wx.VERTICAL)
+#         self.entry_sizer = wx.BoxSizer(wx.HORIZONTAL)
+#         self.label = wx.StaticText(self, wx.ID_ANY, message)
+#         self.val_tc = wx.TextCtrl(self, wx.ID_ANY, default_val)
+#         self.sizer.Add(self.label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+#         self.sizer.Add(self.val_tc, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+#         self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
+#         self.FinishButton = wx.Button(self, wx.ID_ANY, 'Accept')
+#         self.Bind(wx.EVT_BUTTON, self.EvtAccept, self.FinishButton)
+#         self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
+#         self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
+#         self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+#         self.ButtonSizer.Add(self.FinishButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+#         self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
+#                                     wx.ALIGN_CENTER_HORIZONTAL, 5)
+#         self.SetSizer(self.sizer)
+#         self.SetClientSize(self.GetEffectiveMinSize())
+        
+        
+        
+        
+        
+        

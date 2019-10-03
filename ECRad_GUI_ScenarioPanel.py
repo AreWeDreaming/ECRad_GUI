@@ -4,6 +4,7 @@ Created on Mar 21, 2019
 @author: sdenk
 '''
 from GlobalSettings import globalsettings
+import os
 import wx
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
 from wxEvents import *
@@ -313,7 +314,7 @@ class ScenarioSelectPanel(wx.Panel):
         try:
             self.plasma_dict = load_IDA_data(self.Scenario.shot, \
                                 None, self.Scenario.IDA_exp, self.Scenario.IDA_ed)
-            vessel_bd = np.loadtxt(vessel_bd_file, skiprows=1)
+            vessel_bd = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
             self.plasma_dict["vessel_bd"] = []
             self.plasma_dict["vessel_bd"].append(vessel_bd.T[0])
             self.plasma_dict["vessel_bd"].append(vessel_bd.T[1])
