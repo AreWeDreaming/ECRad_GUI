@@ -540,11 +540,11 @@ class PlotPanel(wx.Panel):
                     if(result.from_mat_file(path) == False):
                         print("Failed to load file at " + path)
                         continue
+                    label = os.path.basename(path)
+                    label = label.replace("_", " ")
                     if(hasattr(result, "comment")):
-                        label = result.comment
-                    else:
-                        label = os.path.basename(path)
-                        label = label.replace("_", " ")
+                        if(len(result.comment) > 0):
+                            label = result.comment
                     if(plot_type == "Trad"):
                         temp_compare_data[plot_type][label] = {}
                         x, y = result.extract_field(plot_type)
