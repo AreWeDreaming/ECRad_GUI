@@ -7,6 +7,7 @@ Created on Jul 3, 2019
 import os
 import sys
 from glob import glob
+from ECRad_Scenario import ECRadScenario
 library_list = glob("../*pylib") + glob("../*Pylib")
 found_lib = False
 ECRadPylibFolder = None
@@ -26,8 +27,8 @@ from equilibrium_utils import EQDataSlice, special_points, EQDataExt
 from TB_communication import make_mdict_from_TB_files
 import numpy as np
 from scipy.io import savemat,loadmat
-from pandas.tests.io.parser import skiprows
 from scipy.interpolate import InterpolatedUnivariateSpline
+from Diags import EXT_diag
 
 
 if(globalsettings.AUG):
@@ -41,6 +42,7 @@ if(globalsettings.AUG):
         for time in times:
             plasma_dict["eq_data"].append(EQ_obj.GetSlice(time))
         make_plasma_mat(filename, plasma_dict)
+    
 
 def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     plasma_dict = {}
@@ -67,11 +69,12 @@ def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     plasma_dict["ne"] *= 1.e19
     plasma_dict["Te"] *= 1.e3
     plasma_dict["eq_data"] = [EQObj.GetSlice(time)]
+    plasma_dict["prof_reference"] = "rhop_prof"
     make_plasma_mat(os.path.join(path, mat_out_name), plasma_dict)
 
 def make_plasma_mat(filename, plasma_dict):
     mdict = {}
-    for key in plasma_dict.keys():
+    for key in plasma_dict:
         if(key !="eq_data"):
             mdict[key] = plasma_dict[key]
     mdict["Psi_sep"] = []
@@ -115,6 +118,71 @@ def make_launch_mat(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, 
     mdict["launch_pol_coeff_X"] = np.array([pol_coeff_X])
     savemat(filename, mdict, appendmat=False)
     
+def make_launch_from_ray_launch(filename_in, filename_out):
+    launch = np.loadtxt(filename_in, skiprows=1)
+    f = launch.T[0]
+    df = launch.T[1]
+    R = launch.T[2]
+    phi = launch.T[3] # degree
+    z = launch.T[4]
+    theta_pol = launch.T[6]
+    phi_tor = launch.T[5]
+    dist_focus = launch.T[8]
+    width = launch.T[7]
+    pol_coeff_X = launch.T[9]
+    make_launch_mat(filename_out, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
+
+def make_W7X_Scenario(ScenarioName, shot, time, folder, \
+                      ray_launch_file, wall_filename, ECE_freqs=None, B_scale=1.0):
+    Scenario = ECRadScenario(noLoad=True)
+    profs = np.loadtxt(os.path.join(folder, "plasma_profiles.txt"), skiprows=3)
+    if(len(profs.T[0]) > 40):
+        Scenario.plasma_dict["rhot_prof"] = [profs.T[0]]
+        Scenario.plasma_dict["Te"] = [profs.T[2] * 1.e3]
+        Scenario.plasma_dict["ne"] = [profs.T[1]]
+    else:
+        rho = np.linspace(profs.T[0][0], profs.T[0][-1], 200)
+        profs.T[1][profs.T[1] <= 0.0] = 20.e-3 # room temperature
+        profs.T[2][profs.T[2] <= 0.0] = 1.e17 # arbitray
+        Te_spl = InterpolatedUnivariateSpline(profs.T[0], np.log(profs.T[1]))
+        ne_spl = InterpolatedUnivariateSpline(profs.T[0], np.log(profs.T[2]))
+        Scenario.plasma_dict["rhot_prof"] = [rho]
+        Scenario.plasma_dict["Te"] = [np.exp(Te_spl(rho)) * 1.e3]
+        Scenario.plasma_dict["ne"] = [np.exp(ne_spl(rho)) * 1.e20]
+    Scenario.shot = shot
+    Scenario.IDA_exp = "W7X"
+    Scenario.IDA_ed = -1
+    Scenario.EQ_diag = "VMEC"
+    Scenario.EQ_exp = "W7X"
+    Scenario.EQ_ed = -1
+    Scenario.plasma_dict["time"] = [time]
+    Scenario.use3Dscen.used = True
+    Scenario.use3Dscen.equilibrium_file = os.path.join(folder, "VMEC.txt")
+    Scenario.use3Dscen.equilibrium_type = "VMEC"
+    Scenario.use3Dscen.vessel_filename = wall_filename
+    Scenario.use3Dscen.B_ref = B_scale
+    if(not ScenarioName.endswith(".mat")):
+        ScenarioName = ScenarioName + ".mat"
+    ext_diag = EXT_diag("EXT")
+    ext_diag.set_from_mat(ray_launch_file)
+    if(ECE_freqs is not None):
+        ext_diag.f = np.loadtxt(ECE_freqs) #skiprows=12 * 1.e9
+        ext_diag.N_ch = len(ext_diag.f)
+        for key in ["df", "R", "phi", "z", "theta_pol", "phi_tor", \
+                      "dist_focus", "width", "pol_coeff_X"]:
+            temp_val = np.zeros(ext_diag.N_ch)
+            temp_val[:] =  getattr(ext_diag, key)[0]
+            setattr(ext_diag, key, temp_val)
+    ext_diag.theta_pol[:] = 6.4913006098335915 # Launch params for W7X ECE
+    ext_diag.phi_tor[:] = 9.828001340036531# # Launch params for W7X ECE
+    Scenario.avail_diags_dict.update({"EXT":  ext_diag})
+    Scenario.used_diags_dict.update({"EXT":  ext_diag})
+    Scenario.ray_launch = []
+    Scenario.ray_launch.append(ext_diag.get_launch())
+    Scenario.use3Dscen.used = True
+    Scenario.data_source = "Ext"
+    Scenario.to_mat_file(ScenarioName)
+    
 
 def make_test_launch(filename):
     f = np.array([110.e9, 130.e9])
@@ -130,7 +198,17 @@ def make_test_launch(filename):
     make_launch_mat(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
     
 if (__name__ == "__main__"):
-    make_test_launch("/afs/ipp/u/sdenk/public/DIII-D_TB/test_launch.mat")
+#     make_W7X_Scenario("/tokp/work/sdenk/ECRad/20181009043_michelson_tor", 20181009043, 2.15, "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/example/plasma_profiles.txt", \
+#                       "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/example/oliford-20181009.043-t_2.150s-fi_0_0.050.txt", "VMEC", "/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat", \
+#                       "/tokp/work/sdenk/ECRad/W7X_wall_SI.dat", "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/freq_michelson")
+    make_W7X_Scenario("/tokp/work/sdenk/ECRad/20181009043002_2_15", 20181009043002, 2.15, "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/Travis_ECRad_Benchmark/20181009.043.002_2_15s", \
+                      "/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat", \
+                      "/tokp/work/sdenk/ECRad/W7X_wall_SI.dat", \
+                      B_scale = 0.9391666666666667)#, ECE_freqs="/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/freq_michelson")
+#     make_W7X_Scenario("/tokp/work/sdenk/ECRad/AUG_32934", 32934, 3.298, "/tokp/work/sdenk/ECRad/32934_3298_plasma_profiles.txt", \
+#                       "/tokp/work/sdenk/ECRad/g32934_03298", "EFIT", "/tokp/work/sdenk/ECRad/ECRad_32934_ECE_ed5.mat", "/tokp/work/sdenk/ECRad/AUG_pseudo_3D_wall.dat")
+#     make_launch_from_ray_launch("/tokp/work/sdenk/ECRad/ray_launch_W7_X.dat","/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat")
+#     make_test_launch("/afs/ipp/u/sdenk/public/DIII-D_TB/test_launch.mat")
 #     make_ECRadScenario_from_TB_input(178512, 2.200,"/afs/ipp/u/sdenk/Documentation/Data/DIII-D_TB", "DIIID_input_test.mat")
     
     
