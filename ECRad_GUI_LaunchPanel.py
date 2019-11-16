@@ -25,18 +25,19 @@ class LaunchPanel(wx.Panel):
         self.grid = wx.GridSizer(0, 10, 0, 0)
         self.diag_cb_dict = od()
         self.working_dir = working_dir
-        for Diagkey in Scenario.avail_diags_dict.keys():
+        for Diagkey in Scenario.avail_diags_dict:
             self.diag_cb_dict.update({Diagkey :simple_label_cb(self.diag_select_panel, Diagkey, False)})
             self.grid.Add(self.diag_cb_dict[Diagkey], 0, \
                           wx.TOP | wx.ALL, 5)
-        for Diagkey in Scenario.used_diags_dict.keys():
-            self.diag_cb_dict[Diagkey].SetValue(True)
+        for Diagkey in Scenario.used_diags_dict:
+            if(Diagkey in self.diag_cb_dict):
+                self.diag_cb_dict[Diagkey].SetValue(True)
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.diag_config_sizer = wx.BoxSizer(wx.VERTICAL)
         self.diag_select_panel.sizer.Add(self.grid, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         self.load_launch_panel = wx.Panel(self, wx.ID_ANY, style=wx.SUNKEN_BORDER)
         self.load_launch_panel.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.load_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from ECRad result")
+        self.load_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from ECRad result/scenario")
         self.load_from_old_button.Bind(wx.EVT_BUTTON, self.LoadLaunch)
         self.load_launch_panel.sizer.Add(self.load_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
         self.gen_ext_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Generate Ext launch from ECRad result")
@@ -61,7 +62,7 @@ class LaunchPanel(wx.Panel):
     def GetCurScenario(self):
         Scenario = ECRadScenario(noLoad=True)
         Scenario.avail_diags_dict = self.Notebook.UpdateDiagDict(Scenario.avail_diags_dict)
-        for Diagkey in self.diag_cb_dict.keys():
+        for Diagkey in self.diag_cb_dict:
             if(self.diag_cb_dict[Diagkey].GetValue()):
                 Scenario.used_diags_dict.update({Diagkey : Scenario.avail_diags_dict[Diagkey]})
         return Scenario
@@ -70,10 +71,10 @@ class LaunchPanel(wx.Panel):
         Scenario.diags_set = False
         Scenario.avail_diags_dict = self.Notebook.UpdateDiagDict(Scenario.avail_diags_dict)
         Scenario.used_diags_dict = od()
-        for Diagkey in self.diag_cb_dict.keys():
+        for Diagkey in self.diag_cb_dict:
             if(self.diag_cb_dict[Diagkey].GetValue()):
                 Scenario.used_diags_dict.update({Diagkey : Scenario.avail_diags_dict[Diagkey]})
-        if(len(Scenario.used_diags_dict.keys()) == 0):
+        if(len(Scenario.used_diags_dict) == 0):
             print("No diagnostics Selected")
             return Scenario
         if(len(Scenario.plasma_dict["time"]) == 0):
@@ -81,7 +82,7 @@ class LaunchPanel(wx.Panel):
             return Scenario
         gy_dict = {}
         ECI_dict = {}
-        for diag_key in Scenario.used_diags_dict.keys():
+        for diag_key in Scenario.used_diags_dict:
             if("CT" in diag_key or "IEC" == diag_key):
                 import get_ECRH_config
                 new_gy = get_ECRH_config.get_ECRH_viewing_angles(Scenario.shot, \
@@ -115,10 +116,11 @@ class LaunchPanel(wx.Panel):
         return Scenario
 
     def SetScenario(self, Scenario, working_dir):
+        self.new_data_available = True
         self.working_dir = working_dir
-        for Diagkey in self.diag_cb_dict.keys():
+        for Diagkey in self.diag_cb_dict:
             self.diag_cb_dict[Diagkey].SetValue(False)
-            if(Diagkey in Scenario.used_diags_dict.keys()):
+            if(Diagkey in Scenario.used_diags_dict):
                 self.diag_cb_dict[Diagkey].SetValue(True)
         self.Notebook.DistributeInfo(Scenario)
         
@@ -130,9 +132,9 @@ class LaunchPanel(wx.Panel):
             style=wx.FD_OPEN)
         if(dlg.ShowModal() == wx.ID_OK):
             path = dlg.GetPath()
-            NewSceario = ECRadScenario(noLoad=True)
-            NewSceario.from_mat(path_in=path, load_plasma_dict=False)
-            self.SetScenario(NewSceario, os.path.dirname(path))     
+            NewScenario = ECRadScenario(noLoad=True)
+            NewScenario.from_mat(path_in=path, load_plasma_dict=False)
+            self.SetScenario(NewScenario, os.path.dirname(path))
 
     def GenExtFromOld(self, evt):
         dlg = wx.FileDialog(\
@@ -177,7 +179,9 @@ class LaunchPanel(wx.Panel):
 
     def UpdateNeeded(self):
         check_list = []
-        for Diagkey in self.diag_cb_dict.keys():
+        if(self.new_data_available):
+            return True
+        for Diagkey in self.diag_cb_dict:
             if(self.diag_cb_dict[Diagkey].CheckForNewValue()):
                 return True
             if(self.diag_cb_dict[Diagkey].GetValue()):
@@ -194,7 +198,7 @@ class Diag_Notebook(wx.Choicebook):
 
     def Spawn_Pages(self, DiagDict) :
         self.varsize = (0, 0)
-        for diag in DiagDict.keys():
+        for diag in DiagDict:
             self.PageDict.update({diag : Diag_Page(self, DiagDict[diag])})
             pagename = diag
             if(len(pagename) > 10 and ' ' in pagename):
@@ -213,14 +217,17 @@ class Diag_Notebook(wx.Choicebook):
             self.AddPage(self.PageDict[diag], pagename)
 
     def UpdateDiagDict(self, DiagDict):
-        for diag in self.PageDict.keys():
+        for diag in self.PageDict:
             DiagDict[diag] = self.PageDict[diag].RetrieveDiag()
         return DiagDict
 
     def DistributeInfo(self, Scenario):
-        for diag in self.PageDict.keys():
-            if(self.PageDict[diag].name in Scenario.avail_diags_dict.keys()):
+        for diag in self.PageDict:
+            if(self.PageDict[diag].name in Scenario.used_diags_dict):
+                self.PageDict[diag].DepositDiag(Scenario.used_diags_dict[self.PageDict[diag].name])
+            else:
                 self.PageDict[diag].DepositDiag(Scenario.avail_diags_dict[self.PageDict[diag].name])
+                
 
     def CheckForNewValues(self, check_list):
         for diag in check_list:
@@ -266,7 +273,7 @@ class Diag_Panel(wx.Panel):
         for attribute in Diag_obj.properties:
             if(Diag_obj.data_types_dict[attribute] != "bool"):
                 scale = None
-                if(attribute in Diag_obj.scale_dict.keys()):
+                if(attribute in Diag_obj.scale_dict):
                     scale = Diag_obj.scale_dict[attribute]
                 self.widget_dict[attribute] = simple_label_tc(self, Diag_obj.descriptions_dict[attribute], \
                                                               getattr(Diag_obj, attribute), \
@@ -314,7 +321,7 @@ class ExtDiagPanel(Diag_Panel):
         self.grid_sizer.Add(self.widget_dict["N_ch"], 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.channel_ctrl_sizer = wx.BoxSizer(wx.VERTICAL)
         self.channel_select_ch = wx.Choice(self, wx.ID_ANY)
-        self.channel_select_ch.AppendItems(np.array(range(1, N_ch + 1), dtype="|S3").tolist())
+        self.channel_select_ch.AppendItems(np.array(range(1, N_ch + 1), dtype="|U3").tolist())
         self.channel_select_ch.SetSelection(self.selected_channel)
         self.channel_select_ch.Bind(wx.EVT_CHOICE, self.OnNewChannelSelected)
         self.channel_ctrl_sizer.Add(self.channel_select_ch, 0, wx.EXPAND | wx.ALL, 5)
@@ -327,7 +334,7 @@ class ExtDiagPanel(Diag_Panel):
                 continue
             if(Diag_obj.data_types_dict[attribute] != "bool"):
                 scale = None
-                if(attribute in Diag_obj.scale_dict.keys()):
+                if(attribute in Diag_obj.scale_dict):
                     scale = Diag_obj.scale_dict[attribute]
                 self.widget_dict[attribute] = simple_label_tc(self, Diag_obj.descriptions_dict[attribute], \
                                                               getattr(Diag_obj, attribute)[self.selected_channel], \
@@ -366,7 +373,7 @@ class ExtDiagPanel(Diag_Panel):
                 setattr(self.Diag, attribute, new_vals)
         setattr(self.Diag, "N_ch", N_ch)
         self.channel_select_ch.Clear()
-        self.channel_select_ch.AppendItems(np.array(range(1, N_ch + 1), dtype="|S3").tolist())
+        self.channel_select_ch.AppendItems(np.array(range(1, N_ch + 1), dtype="|U3").tolist())
         self.channel_select_ch.Select(self.selected_channel)  # note not channel number but channel index, i.e. ch no. 1 -> 0
         self.NewValues = True
 
@@ -390,7 +397,7 @@ class ExtDiagPanel(Diag_Panel):
 
     def SetDiag(self, Diag):
         self.channel_select_ch.Clear()
-        self.channel_select_ch.AppendItems(np.array(range(1, Diag.N_ch + 1), dtype="|S3").tolist())
+        self.channel_select_ch.AppendItems(np.array(range(1, Diag.N_ch + 1), dtype="|U3").tolist())
         self.channel_select_ch.SetSelection(0)
         self.Diag = Diag
         self.widget_dict["N_ch"].SetValue(self.Diag.N_ch)

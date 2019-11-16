@@ -158,10 +158,10 @@ class PlotPanel(wx.Panel):
     def OnNewPlotChoice(self, evt):
         plot_type = self.plot_choice.GetStringSelection()
         self.other_result_box.Clear()
-        if(plot_type in  self.compare_data.keys()):        
-            other_results = self.compare_data[plot_type].keys()
-        elif(plot_type=="Ray" and "RayXRz" in self.compare_data.keys()):
-            other_results = self.compare_data["RayXRz"].keys()
+        if(plot_type in  self.compare_data):        
+            other_results = self.compare_data[plot_type]
+        elif(plot_type=="Ray" and "RayXRz" in self.compare_data):
+            other_results = self.compare_data["RayXRz"]
         else:
             return
         other_results.sort()
@@ -172,10 +172,10 @@ class PlotPanel(wx.Panel):
         self.Results = evt.Results
         if(len(self.Results.time) > 0):
             self.time_choice.Clear()
-            self.time_choice.AppendItems(self.Results.time.astype("|S7"))
+            self.time_choice.AppendItems(self.Results.time.astype("|U7"))
             self.time_choice.Select(0)
             self.ch_choice.Clear()
-            self.ch_choice.AppendItems(np.array(range(1, len(self.Results.Trad.T) + 1)).astype("|S4"))
+            self.ch_choice.AppendItems(np.array(range(1, len(self.Results.Trad.T) + 1)).astype("|U4"))
             self.ch_choice.Select(0)
             if(globalsettings.AUG):
                 self.load_diag_data_button.Enable()
@@ -274,7 +274,7 @@ class PlotPanel(wx.Panel):
     def OnThreadFinished(self, evt):
         print("Updating ray information")
         ray_path = os.path.join(self.Results.Config.working_dir, "ecfm_data", "ray")
-        if("x" + self.cur_mode_str + "tb" in self.Results.ray.keys()):
+        if("x" + self.cur_mode_str + "tb" in self.Results.ray):
             for channel in range(len(self.Results.ray["x" + self.cur_mode_str][self.cur_selected_index])):
                 TBRay_file = np.loadtxt(os.path.join(ray_path, "Rz_beam_{0:1d}.dat".format(channel + 1)).replace(",", ""))
                 TBXRay_file = np.loadtxt(os.path.join(ray_path, "xy_beam_{0:1d}.dat".format(channel + 1)).replace(",", ""))
@@ -348,11 +348,11 @@ class PlotPanel(wx.Panel):
             self.use_std_err = self.use_std_err_rb.GetValue()
             diag_dict = {} # Important here we use Diag.diag as identified and not Diag.name
             # Transfer the individual entriesof used_diag:dig into diag_dict
-            for key in self.Results.Scenario.used_diags_dict.keys():
+            for key in self.Results.Scenario.used_diags_dict:
                 if(shotfile_exists(self.Results.Scenario.shot, self.Results.Scenario.used_diags_dict[key])):
                     diag_dict[self.Results.Scenario.used_diags_dict[key].diag] = self.Results.Scenario.used_diags_dict[key]
             for key in AUG_profile_diags:
-                if(key in diag_dict.keys()):
+                if(key in diag_dict):
                     continue # Already got it
                 if(key == "IDA"):
                     # Use the currently used Scenario for IDA
@@ -361,19 +361,19 @@ class PlotPanel(wx.Panel):
                     diag = Diag(key, "AUGD", key, 0)
                 if(shotfile_exists(self.Results.Scenario.shot, diag)):
                     diag_dict[key] = diag
-        avail_diag_list = diag_dict.keys()
+        avail_diag_list = list(diag_dict)
         avail_diag_list.sort()
         diag_select_dialog = DiagSelectDialog(self, avail_diag_list)
         if(diag_select_dialog.ShowModal() == True):
-            for key in diag_dict.keys():
+            for key in list(diag_dict):
                 if(key not in diag_select_dialog.used_list.GetItems()):
                     del(diag_dict[key])
             diag_select_dialog.Destroy()
-            if(len(diag_dict.keys()) == 0):
+            if(len(diag_dict) == 0):
                 return
-            for key in diag_dict.keys():
+            for key in diag_dict:
                 if(diag_dict[key].name in ["CTA", "CTC", "IEC", "ECN", "ECO", "ECI"] and \
-                   key not in self.Results.calib.keys()):
+                   key not in self.Results.calib):
                     # Uncalibrated diagnostic and no calibration in result file -> Ask user to load data
                     if wx.MessageBox("No calibration data for " + diag_dict[key].name + "\n Load calibration from file?", "Load calibration?",
                                      wx.ICON_QUESTION | wx.YES_NO, self) == wx.NO:
@@ -413,7 +413,7 @@ class PlotPanel(wx.Panel):
                                     break
                                 else:
                                     continue
-            if(len(diag_dict.keys()) == 0):
+            if(len(diag_dict) == 0):
                 return
             print("Now loading diag data -- this will take a moment")
             wt = WorkerThread(self.get_diag_data, [self.Results, diag_dict])
@@ -427,8 +427,8 @@ class PlotPanel(wx.Panel):
         diag_dict = args[1]
         temp_diag_data = {}
         try:
-            for key in diag_dict.keys():
-                if(diag_dict[key].name in Results.Scenario.used_diags_dict.keys()):
+            for key in diag_dict:
+                if(diag_dict[key].name in Results.Scenario.used_diags_dict):
                     ext_resonances = []
                     for itime in range(len(Results.time)):
                         diag_mask = Results.Scenario.ray_launch[itime]["diag_name"] == diag_dict[key].name
@@ -436,7 +436,7 @@ class PlotPanel(wx.Panel):
                     ext_resonances = np.array(ext_resonances)
                 else:
                     ext_resonances = None
-                if(diag_dict[key].name in Results.calib.keys()):
+                if(diag_dict[key].name in Results.calib):
                     #Cross calibrated diagnostic
                     calib = Results.calib[diag_dict[key].name]
                     rel_dev_calib= Results.rel_dev[diag_dict[key].name] # Percent!!
@@ -468,9 +468,9 @@ class PlotPanel(wx.Panel):
                     temp_diag_data["ECE model in IDA"].insert_data( IDA_dict["ECE_rhop"], IDA_dict["ECE_mod"] * 1.e-3, 
                                                                                     None, None)
                     temp_diag_data["IDA Te lower unc."] = Diagnostic(diag_dict[key],is_prof=True)
-                    temp_diag_data["IDA Te lower unc."].insert_data( IDA_dict["rhop_prof"], IDA_dict["Te_up"] * 1.e-3, None, None)
+                    temp_diag_data["IDA Te lower unc."].insert_data( IDA_dict[IDA_dict["prof_reference"]], IDA_dict["Te_up"] * 1.e-3, None, None)
                     temp_diag_data["IDA Te upper unc."] = Diagnostic(diag_dict[key],is_prof=True)
-                    temp_diag_data["IDA Te upper unc."].insert_data(IDA_dict["rhop_prof"], IDA_dict["Te_low"] * 1.e-3, None, None)
+                    temp_diag_data["IDA Te upper unc."].insert_data(IDA_dict[IDA_dict["prof_reference"]], IDA_dict["Te_low"] * 1.e-3, None, None)
                 elif(key is "VTA"):
                     unc, prof = get_Thomson_data(Results.Scenario.shot, Results.time, diag_dict[key], \
                                      Te=True, edge=True, \
@@ -496,10 +496,10 @@ class PlotPanel(wx.Panel):
         wx.PostEvent(self, evt_out)
     
     def OnDiagDataLoaded(self, evt):
-        for key in evt.DiagData.keys():
+        for key in evt.DiagData:
             self.diag_data[key] = evt.DiagData[key]
         self.diag_box.Clear() 
-        self.diag_box.AppendItems(self.diag_data.keys())
+        self.diag_box.AppendItems(list(self.diag_data))
         self.load_diag_data_button.Enable()
     
     def OnLoadOtherResults(self, evt):
@@ -571,18 +571,18 @@ class PlotPanel(wx.Panel):
         wx.PostEvent(self, evt_out)
 
     def OnOtherResultsLoaded(self, evt):
-        for key in evt.Data.keys():
-            if(key not in self.compare_data.keys()):
+        for key in evt.Data:
+            if(key not in self.compare_data):
                 self.compare_data[key] = {}
-            for entry in evt.Data[key].keys():
+            for entry in evt.Data[key]:
                 self.compare_data[key][entry] = evt.Data[key][entry]
         plot_type = self.plot_choice.GetStringSelection()
         self.other_result_box.Clear()
-        resultlist = []
-        if(plot_type in  evt.Data.keys()):
-            resultlist = self.compare_data[plot_type].keys()
-        elif(plot_type == "Ray" and "RayXRz" in evt.Data.keys()):
-            resultlist = self.compare_data["RayXRz"].keys()
+        if(plot_type in  evt.Data):
+            resultlist = self.compare_data[plot_type]
+        elif(plot_type == "Ray" and "RayXRz" in evt.Data):
+            resultlist = self.compare_data["RayXRz"]
+        resultlist = list(resultlist)
         resultlist.sort()
         self.other_result_box.AppendItems(resultlist)
         self.load_other_results_button.Enable()
@@ -678,7 +678,7 @@ class PlotContainer(wx.Panel):
             z_other_list = []
             x_other_list = []
             y_other_list = []
-            if(len(other_results_selected) > 0 and "RayXRz" in other_results.keys()):
+            if(len(other_results_selected) > 0 and "RayXRz" in other_results):
                 multiple_models = True
                 if(hasattr(Results, "comment")):
                     label = Results.comment
@@ -689,7 +689,7 @@ class PlotContainer(wx.Panel):
                 multiple_models = False
                 label_list = None
             if(multiple_models):
-                for entry in other_results["RayXRz"].keys():
+                for entry in other_results["RayXRz"]:
                     if(entry not in other_results_selected):
                         continue
                     itime = np.argmin(np.abs(other_results["Ray"+mode_str + "Rz"][entry]["time"] - time))
@@ -753,7 +753,7 @@ class PlotContainer(wx.Panel):
                         rays.append(cur_ray)
                 except KeyError:
                     print("No TORBEAM rays found")
-#                     print("Availabe keys", Results.ray.keys())
+#                     print("Availabe keys", Results.ray)
                     rays = []
                     straight = True
                     if(alt_model):
@@ -875,7 +875,7 @@ class PlotContainer(wx.Panel):
             args = [self.pc_obj.B_plot, Results, time_index, ch, mode_str, Results.Scenario.ray_launch, Results.Config.N_ray]
             kwargs = {}
         elif(plot_type == "Trad"):
-            if(len(other_results_selected) > 0 and "Trad" in other_results.keys()):
+            if(len(other_results_selected) > 0 and "Trad" in other_results):
                 rhop_list = []
                 Trad_list = []
                 diag_name_list = []
@@ -889,30 +889,31 @@ class PlotContainer(wx.Panel):
                 multiple_models = False
                 label_list = None
             warm = False
+            tau_mask = Results.tau[time_index] >= tau_threshhold
             if(Results.Config.extra_output and use_warm_res):
-                rhop = Results.resonance["rhop_warm"][time_index][Results.tau[time_index] >= tau_threshhold]
+                rhop = Results.resonance["rhop_warm"][time_index][tau_mask]
                 warm = True
             else:
-                rhop = Results.resonance["rhop_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
+                rhop = Results.resonance["rhop_cold"][time_index][tau_mask]
             if(len(rhop) == 0):
                 print("No channels have an optical depth below the currently selected threshold!")
                 return False
-            Trad = Results.Trad[time_index][Results.tau[time_index] >= tau_threshhold]
+            Trad = Results.Trad[time_index][tau_mask]
             if(alt_model):
                 if(Results.Config.extra_output):
-                    Trad_comp = Results.Trad_comp[time_index][Results.tau[time_index] >= tau_threshhold]
+                    Trad_comp = Results.Trad_comp[time_index][tau_mask]
                 else:
                     Trad_comp = []
                     print("Secondary model was deactivated during the run.")
                     print("To enable it, activate extra outout und rerun ECRad!")
             else:
                 Trad_comp = []
-            diag_names = Results.Scenario.ray_launch[time_index]["diag_name"][Results.tau[time_index] >= tau_threshhold]
+            diag_names = Results.Scenario.ray_launch[time_index]["diag_name"][tau_mask]
             if(multiple_models):
                 rhop_list.append(np.copy(rhop))
                 Trad_list.append(np.copy(Trad))
                 diag_name_list.append(diag_names)
-                for entry in other_results["Trad"].keys():
+                for entry in other_results["Trad"]:
                     if(entry not in other_results_selected):
                         continue
                     itime = np.argmin(np.abs(other_results["Trad"][entry]["time"] - time))
@@ -928,11 +929,17 @@ class PlotContainer(wx.Panel):
                 diag_names = diag_name_list
             diagdict = {}
             for diag_name in diag_data_selected:
-                diagdict[diag_name]=diag_data[diag_name].getSlice(time_index)
-                if(warm and diag_name in Results.Scenario.used_diags_dict.keys()):
-                    # Overwrite
-                    diagdict[diag_name].rhop = Results.resonance["rhop_warm"][time_index][Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name]
-            rhop_Te= Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
+                diagdict[diag_name] = diag_data[diag_name].getSlice(time_index)
+                if(diag_name in Results.Scenario.used_diags_dict):
+                    tau_mask_diag = tau_mask[Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name]
+                    diagdict[diag_name].Trad = diagdict[diag_name].val[tau_mask_diag]
+                    diagdict[diag_name].unc = diagdict[diag_name].unc[tau_mask_diag]
+                    if(warm and diag_name in Results.Scenario.used_diags_dict):
+                        # Overwrite
+                        diagdict[diag_name].rhop = Results.resonance["rhop_warm"][time_index][Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name][tau_mask_diag]
+                    else:
+                        diagdict[diag_name].rhop = diagdict[diag_name].rhop[tau_mask_diag]
+            rhop_Te= Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
             Te = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
                                          rhop_Te, Te,  diagdict, diag_names, \
@@ -958,7 +965,7 @@ class PlotContainer(wx.Panel):
                 tau_comp = Results.tau_comp[time_index][Results.tau[time_index] >= tau_threshhold]
             else:
                 tau_comp = None
-            rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
+            rhop_IDA = Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
             Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             use_tau = False
             if(plot_type == "tau"):
@@ -978,39 +985,46 @@ class PlotContainer(wx.Panel):
                 print("No information on the individual X and O mode fractions availabe")
                 print("This information was not stored in the result files previously, please rerun ECRad")
                 return
-            diagdict = {}
-            for diag_name in diag_data_selected:
-                diagdict[diag_name]=diag_data[diag_name].getSlice(time_index)
-                if(warm and diag_name in Results.Scenario.used_diags_dict.keys()):
-                    # Overwrite rhop with warm rhops
-                    diagdict[diag_name].rhop = Results.resonance["rhop_warm"][time_index][Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name]
-            rhop_Te = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
+            rhop_Te = Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
             Te = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
-            diag_names = Results.Scenario.ray_launch[time_index]["diag_name"][Results.tau[time_index] >= tau_threshhold]
             warm = False
             if(mode):
                 # X-mode
+                tau_mask = Results.Xtau[time_index] >= tau_threshhold
                 if(Results.Config.extra_output and use_warm_res):
-                    rhop = Results.resonance["rhop_warm"][time_index][Results.Xtau[time_index] >= tau_threshhold]
+                    rhop = Results.resonance["rhop_warm"][time_index][tau_mask]
                     warm = True
                 else:
-                    rhop = Results.resonance["rhop_cold"][time_index][Results.Xtau[time_index]>= tau_threshhold]
-                Trad = Results.XTrad[time_index][Results.Xtau[time_index] >= tau_threshhold]
-                X_mode_frac = Results.X_mode_frac[time_index][Results.Xtau[time_index] >= tau_threshhold]
-                Trad_comp = Results.XTrad_comp[time_index][Results.Xtau[time_index] >= tau_threshhold]
-                X_mode_frac_comp = Results.X_mode_frac_comp[time_index][Results.Xtau[time_index] >= tau_threshhold]
-
+                    rhop = Results.resonance["rhop_cold"][time_index][tau_mask]
+                Trad = Results.XTrad[time_index][tau_mask]
+                X_mode_frac = Results.X_mode_frac[time_index][tau_mask]
+                Trad_comp = Results.XTrad_comp[time_index][tau_mask]
+                X_mode_frac_comp = Results.X_mode_frac_comp[time_index][tau_mask]
             else:
                 # O-mode
+                tau_mask = Results.Otau[time_index] >= tau_threshhold
                 if(Results.Config.extra_output and use_warm_res):
-                    rhop = Results.resonance["rhop_warm"][time_index][Results.Otau[time_index] >= tau_threshhold]
+                    rhop = Results.resonance["rhop_warm"][time_index][tau_mask]
                     warm = True
                 else:
-                    rhop = Results.resonance["rhop_cold"][time_index][Results.Otau[time_index]>= tau_threshhold]
-                Trad = Results.OTrad[time_index][Results.Otau[time_index] >= tau_threshhold]
-                Trad_comp = Results.OTrad_comp[time_index][Results.Otau[time_index] >= tau_threshhold]
-                X_mode_frac = Results.X_mode_frac[time_index][Results.Otau[time_index] >= tau_threshhold]
-                X_mode_frac_comp = Results.X_mode_frac_comp[time_index][Results.Otau[time_index] >= tau_threshhold]
+                    rhop = Results.resonance["rhop_cold"][time_index][tau_mask]
+                Trad = Results.OTrad[time_index][tau_mask]
+                Trad_comp = Results.OTrad_comp[time_index][tau_mask]
+                X_mode_frac = Results.X_mode_frac[time_index][tau_mask]
+                X_mode_frac_comp = Results.X_mode_frac_comp[time_index][tau_mask]
+            diag_names = Results.Scenario.ray_launch[time_index]["diag_name"][tau_mask]
+            diagdict = {}
+            for diag_name in diag_data_selected:
+                diagdict[diag_name] = diag_data[diag_name].getSlice(time_index)
+                if(diag_name in Results.Scenario.used_diags_dict):
+                    tau_mask_diag = tau_mask[Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name]
+                    diagdict[diag_name].val = diagdict[diag_name].val[tau_mask_diag]
+                    diagdict[diag_name].unc = diagdict[diag_name].unc[tau_mask_diag]
+                    if(warm and diag_name in Results.Scenario.used_diags_dict):
+                        # Overwrite
+                        diagdict[diag_name].rhop = Results.resonance["rhop_warm"][time_index][Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name][tau_mask_diag]
+                    else:
+                        diagdict[diag_name].rhop = diagdict[diag_name].rhop[tau_mask_diag]
             args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
                                          rhop_Te, Te,  diagdict, diag_names, \
                                          Config.dstf, alt_model]
@@ -1047,9 +1061,9 @@ class PlotContainer(wx.Panel):
                 tau = Results.Otau[time_index][Results.Otau[time_index] >= tau_threshhold]
                 tau_comp = Results.Otau_comp[time_index][Results.Otau[time_index] >= tau_threshhold]
             use_tau = False
-            if("tau" is plot_type):
+            if("tau" in plot_type):
                 use_tau = True
-            rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
+            rhop_IDA = Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
             Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             args = [self.pc_obj.plot_tau, time, rhop, \
                     tau, tau_comp, rhop_IDA, Te_IDA, \
@@ -1061,7 +1075,7 @@ class PlotContainer(wx.Panel):
                 print("Rerun ECRad with 'extra output' set to True")
                 return
             # R = Results.los["R" + mode_str][time_index][ch]
-            rhop_IDA = Results.Scenario.plasma_dict["rhop_prof"][time_index] * Results.Scenario.Te_rhop_scale
+            rhop_IDA = Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
             Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             if(mode):
                 if(len(Results.BPD["rhopX"]) == 0):
@@ -1083,9 +1097,12 @@ class PlotContainer(wx.Panel):
                 rhop_res = Results.resonance["rhop_cold"][time_index][ch]
             EQ_obj = EQData(Results.Scenario.shot)
             EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
-            R_axis, z_axis = EQ_obj.get_axis(time)
-            if(Results.resonance["R_cold"][time_index][ch] < R_axis):
-                rhop_res *= -1.0
+            try:
+                R_axis, z_axis = EQ_obj.get_axis(time)
+                if(Results.resonance["R_cold"][time_index][ch] < R_axis):
+                    rhop_res *= -1.0
+            except:
+                print("Failed to get equilibrium information")
             args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_res]
             kwargs = {}
 #             self.fig = self.pc_obj.plot_BPD(time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_cold)

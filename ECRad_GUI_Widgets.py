@@ -131,7 +131,10 @@ class simple_label_tc(wx.Panel):
         elif(self.value_type == 'real'):
             if(self.scale is not None):
                 self.value *= self.scale
-            self.tc.SetValue("{0:f}".format(self.value).replace(',', ''))
+            if(self.value < 1.e-4 or self.value > 1.e5):
+                self.tc.SetValue("{0:1.5e}".format(self.value).replace(',', ''))
+            else:
+                self.tc.SetValue("{0:4.5f}".format(self.value).replace(',', ''))
         elif(self.value_type == 'integer'):
             self.tc.SetValue("{0:d}".format(int(self.value)).replace(',', ''))
         self.old_val = self.tc.GetValue()

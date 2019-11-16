@@ -5,12 +5,14 @@ Created on Jul 15, 2019
 '''
 import wx
 import numpy as np
+from ECRad_GUI_Widgets import simple_label_cb, simple_label_tc
+import os
 # Only contains the GENE time select window for now
 class Select_GENE_timepoints_dlg(wx.Dialog):
     def __init__(self, parent, time_points):
         wx.Dialog.__init__(self, parent, wx.ID_ANY)
         self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.used = list(np.asarray(time_points * 1.e-3, dtype="|S7"))
+        self.used = list(np.asarray(time_points * 1.e-3, dtype="|U7"))
         self.unused = []
         self.select_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.used_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -111,6 +113,65 @@ class TextEntryDialog(wx.Dialog):
 
     def EvtAccept(self, Event):
         self.val = self.val_tc.GetValue()
+        self.EndModal(wx.ID_OK)
+        
+class Use3DConfigDialog(wx.Dialog):
+    def __init__(self, parent, use3Dscen, working_dir):
+        wx.Dialog.__init__(self, parent, wx.ID_ANY)
+        self.use3Dscen = use3Dscen
+        self.working_dir  = working_dir
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.grid = wx.GridSizer(0,4,0,0)
+        self.widgets = {}
+        for key in use3Dscen.attribute_list:
+            if(use3Dscen.type_dict[key] == "bool"):
+                self.widgets[key] = simple_label_cb(self,key.replace("_", " "), getattr(use3Dscen,key))
+            else:
+                self.widgets[key] = simple_label_tc(self,key.replace("_", " "), getattr(use3Dscen,key),use3Dscen.type_dict[key])
+            self.grid.Add(self.widgets[key], 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
+        self.sizer.Add(self.grid, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.FinishButton = wx.Button(self, wx.ID_ANY, 'Accept')
+        self.Bind(wx.EVT_BUTTON, self.EvtAccept, self.FinishButton)
+        self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
+        self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
+        self.select_equ_file_button = wx.Button(self, wx.ID_ANY, "Select equilibrium file")
+        self.select_equ_file_button.Bind(wx.EVT_BUTTON, self.OnSelectEquFile)
+        self.sizer.Add(self.select_equ_file_button, 1, wx.EXPAND | wx.ALL, 5)
+        self.select_vessel_file_button = wx.Button(self, wx.ID_ANY, "Select vessel file")
+        self.select_vessel_file_button.Bind(wx.EVT_BUTTON, self.OnSelectVesselFile)
+        self.sizer.Add(self.select_vessel_file_button, 1, wx.EXPAND | wx.ALL, 5)
+        self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.ButtonSizer.Add(self.FinishButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
+                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.SetSizer(self.sizer)
+        self.SetClientSize(self.GetEffectiveMinSize())
+        
+    def OnSelectEquFile(self, evt):
+        file_dlg = wx.FileDialog(self, message="Chose 3D equilibrium file", \
+                                 defaultDir=self.working_dir,style=wx.FD_OPEN)
+        if(file_dlg.ShowModal() == wx.ID_OK):
+            self.widgets["equilibrium_file"].SetValue(file_dlg.GetPath())
+            if(os.path.basename(self.widgets["equilibrium_file"].GetValue()).startswith("g")):
+                self.widgets["equilibrium_type"].SetValue("EFIT")
+            else:
+                self.widgets["equilibrium_type"].SetValue("VMEC")
+        file_dlg.Destroy()
+        
+    def OnSelectVesselFile(self, evt):
+        file_dlg = wx.FileDialog(self, message="Chose 3D wall file", \
+                                 defaultDir=self.working_dir,style=wx.FD_OPEN)
+        if(file_dlg.ShowModal() == wx.ID_OK):
+            self.widgets["vessel_filename"].SetValue(file_dlg.GetPath())
+        file_dlg.Destroy()
+
+    def EvtClose(self, Event):
+        self.EndModal(wx.ID_ABORT)
+
+    def EvtAccept(self, Event):
+        for key in self.use3Dscen.attribute_list:
+            setattr(self.use3Dscen,key,self.widgets[key].GetValue())
         self.EndModal(wx.ID_OK)
         
 # class ECRHFreqAndHarmonicDlg(wx.Dialog):

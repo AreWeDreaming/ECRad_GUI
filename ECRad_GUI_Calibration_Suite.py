@@ -164,15 +164,15 @@ class CalibPanel(wx.Panel):
         self.Results = evt.Results
         self.shot = self.Results.Scenario.shot
         self.time = self.Results.time
-        if(len(self.Results.Scenario.used_diags_dict.keys()) > 0 and len(self.time) > 0):
+        if(len(list(self.Results.Scenario.used_diags_dict)) > 0 and len(self.time) > 0):
             self.calib_diag_dict = {}
-            if(self.last_used_diag_name in self.Results.Scenario.used_diags_dict.keys()):
+            if(self.last_used_diag_name in self.Results.Scenario.used_diags_dict):
                 self.last_used_diag_name = None
             self.diag_select_choice.Clear()
-            for key in self.Results.Scenario.used_diags_dict.keys():
+            for key in self.Results.Scenario.used_diags_dict:
                 self.diag_select_choice.Append(self.Results.Scenario.used_diags_dict[key].name)
                 self.calib_diag_dict[key] = deepcopy(self.Results.Scenario.used_diags_dict[key])
-            self.used = list(self.time.astype("|S7"))
+            self.used = list(self.time.astype("|U7"))
             self.unused = []
             self.used_list.Clear()
             if(len(self.used) > 0):
@@ -184,34 +184,36 @@ class CalibPanel(wx.Panel):
             self.OnNewDiagSelected(None)
 
     def UpdateCalib_diag_dict(self):
-        self.calib_diag_dict[self.last_used_diag_name].diag = self.diag_tc.GetValue()
-        self.calib_diag_dict[self.last_used_diag_name].exp = self.exp_tc.GetValue()
-        self.calib_diag_dict[self.last_used_diag_name].ed = self.ed_tc.GetValue()
-        self.calib_diag_dict[self.last_used_diag_name].t_smooth = self.smoothing_tc.GetValue() * 1.e-3
-        self.calib_diag_dict[self.last_used_diag_name].mode_filter = self.mode_filter_cb.GetValue()
-        self.calib_diag_dict[self.last_used_diag_name].mode_width = self.mode_width_tc.GetValue()
-        self.calib_diag_dict[self.last_used_diag_name].freq_cut_off = self.freq_cut_off_tc.GetValue()
+        if(self.last_used_diag_name in self.calib_diag_dict):
+            self.calib_diag_dict[self.last_used_diag_name].diag = self.diag_tc.GetValue()
+            self.calib_diag_dict[self.last_used_diag_name].exp = self.exp_tc.GetValue()
+            self.calib_diag_dict[self.last_used_diag_name].ed = self.ed_tc.GetValue()
+            self.calib_diag_dict[self.last_used_diag_name].t_smooth = self.smoothing_tc.GetValue() * 1.e-3
+            self.calib_diag_dict[self.last_used_diag_name].mode_filter = self.mode_filter_cb.GetValue()
+            self.calib_diag_dict[self.last_used_diag_name].mode_width = self.mode_width_tc.GetValue()
+            self.calib_diag_dict[self.last_used_diag_name].freq_cut_off = self.freq_cut_off_tc.GetValue()
 
     def OnNewDiagSelected(self, evt):
         if(self.Results is None):
             return
-        if(len(self.Results.Scenario.used_diags_dict.keys())==0):
+        if(len(list(self.Results.Scenario.used_diags_dict))==0):
             return
         if(self.last_used_diag_name == self.diag_select_choice.GetStringSelection()):
             return
         if(self.last_used_diag_name is not None):
             self.UpdateCalib_diag_dict()
         self.last_used_diag_name = self.diag_select_choice.GetStringSelection()
-        self.diag_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].diag )
-        self.exp_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].exp)
-        self.ed_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].ed)
-        self.smoothing_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].t_smooth * 1.e3)
-        self.mode_filter_cb.SetValue(self.calib_diag_dict[self.last_used_diag_name].mode_filter)
-        self.mode_width_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].mode_width)
-        self.freq_cut_off_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].freq_cut_off)
-        if(self.last_used_diag_name in self.Results.masked_time_points.keys()):
-            self.used = list(self.time[self.Results.masked_time_points[self.last_used_diag_name]].astype("|S7"))
-            self.unused = list(self.time[self.Results.masked_time_points[self.last_used_diag_name] == False].astype("|S7"))
+        if(hasattr(self.calib_diag_dict[self.last_used_diag_name], "diag")):
+            self.diag_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].diag )
+            self.exp_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].exp)
+            self.ed_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].ed)
+            self.smoothing_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].t_smooth * 1.e3)
+            self.mode_filter_cb.SetValue(self.calib_diag_dict[self.last_used_diag_name].mode_filter)
+            self.mode_width_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].mode_width)
+            self.freq_cut_off_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].freq_cut_off)
+        if(self.last_used_diag_name in list(self.Results.masked_time_points)):
+            self.used = list(self.time[self.Results.masked_time_points[self.last_used_diag_name]].astype("|U7"))
+            self.unused = list(self.time[self.Results.masked_time_points[self.last_used_diag_name] == False].astype("|U7"))
             self.used_list.Clear()
             if(len(self.used) > 0):
                 self.used_list.AppendItems(self.used)
@@ -276,7 +278,7 @@ class CalibPanel(wx.Panel):
             return
         self.cur_diag=None #  Diag in self.Results.Scenario.used_diags_dict that corresponds to the currently select diagnostic
         try:
-            for key in self.Results.Scenario.used_diags_dict.keys():
+            for key in list(self.Results.Scenario.used_diags_dict):
                 if(key == self.last_used_diag_name):
                     self.cur_diag = self.Results.Scenario.used_diags_dict[key]
                 elif(self.overwrite_diag_cb.GetValue() and key == "EXT"):
@@ -290,7 +292,7 @@ class CalibPanel(wx.Panel):
             return
         if(self.cur_diag is None):
             print("Could not find any data for {0:s} in current ECRad data set".format(self.calib_diag_dict[self.last_used_diag_name].name))
-            print("Available diagnostics are", self.Results.Scenario.used_diags_dict.keys())
+            print("Available diagnostics are", list(self.Results.Scenario.used_diags_dict))
             return
         if(self.calib_diag_dict[self.last_used_diag_name].exp != self.cur_diag.exp):
             print("Warning experiment of diagnostic not consistent with ECRad configuration")
@@ -298,7 +300,7 @@ class CalibPanel(wx.Panel):
         if(self.calib_diag_dict[self.last_used_diag_name].ed != self.cur_diag.ed):
             print("Warning edition of diagnostic not consistent with ECRad configuration")
             print("Proceeding anyways")
-        if(self.cur_diag.name in self.Results.calib.keys()):
+        if(self.cur_diag.name in list(self.Results.calib)):
             print("Calibration already done")
             print("Deleting old calibration and proceeding")
             del(self.Results.calib[key])
@@ -433,7 +435,7 @@ class CalibPanel(wx.Panel):
 
     def OnPlotAvg(self, evt):
         if("avg" not in self.plotted_time_points):
-            if(self.cur_diag.name not in self.Results.calib.keys()):
+            if(self.cur_diag.name not in list(self.Results.calib)):
                 print("Error: No calibration data available - calibrate first")
                 return
             freq = self.Results.Scenario.ray_launch[0]["f"][self.Results.Scenario.ray_launch[0]["diag_name"] == self.last_used_diag_name] * 1.e-9
@@ -459,7 +461,7 @@ class CalibPanel(wx.Panel):
         for i_sel in sel:
             time = float(self.used_list.GetString(i_sel))
             if(time not in self.plotted_time_points):
-                if(self.cur_diag.name not in self.Results.calib_mat.keys()):
+                if(self.cur_diag.name not in list(self.Results.calib_mat)):
                     print("Error: No calibration data available - calibrate first")
                     return
                 self.plotted_time_points.append(time)
@@ -479,7 +481,7 @@ class CalibPanel(wx.Panel):
         for i_sel in sel:
             time = float(self.unused_list.GetString(i_sel))
             if(time not in self.plotted_time_points):
-                if(self.cur_diag.diag not in self.Results.calib_mat.keys()):
+                if(self.cur_diag.diag not in list(self.Results.calib_mat)):
                     print("Error: No calibration data available - calibrate first")
                     return
                 self.plotted_time_points.append(time)
@@ -650,9 +652,9 @@ class CalibEvolutionPanel(wx.Panel):
                 if(new_results[-1].from_mat_file(path) == False):
                     print("Failed to load file at " + path)
                     continue
-                if(self.diagnostic not in new_results[-1].calib.keys()):
+                if(self.diagnostic not in list(new_results[-1].calib)):
                     print("No calibration for " + self.diagnostic + " in " + path)
-                    print("Available Calibrations: ", new_results[-1].calib.keys())
+                    print("Available Calibrations: ", list(new_results[-1].calib))
                     del(new_results[-1])
                     continue
                 if(len(new_results[-1].time[new_results[-1].masked_time_points[self.diagnostic]]) < 2):
@@ -681,7 +683,7 @@ class CalibEvolutionPanel(wx.Panel):
                 except KeyError:
                     print("Warning!! # {0:d} edition {1:d} does not have a calibration for the selected diagnostic".format(\
                                       self.ECRad_result_list[ishot].Scenario.shot, self.ECRad_result_list[ishot].edition))
-                    print("Available diagnostics: ", self.ECRad_result_list[ishot].calib.keys())
+                    print("Available diagnostics: ", list(self.ECRad_result_list[ishot].calib))
                     return
                 if(self.ch_cnt == 0):
                     while(self.ch_cnt == 0):

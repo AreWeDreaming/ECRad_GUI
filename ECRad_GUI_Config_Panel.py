@@ -58,6 +58,8 @@ class ConfigPanel(wx.Panel):
         self.grid_list.append(wx.GridSizer(0, columns, 0, 0))
         self.working_dir_tc = simple_label_tc(self, "Working dir.", Config.working_dir, "string")
         self.grid_list[-1].Add(self.working_dir_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
+        self.scratch_dir_tc = simple_label_tc(self, "Sratch dir.", Config.scratch_dir, "string")
+        self.grid_list[-1].Add(self.scratch_dir_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
         self.debug_cb = simple_label_cb(self, "Debug", Config.debug)
         self.grid_list[-1].Add(self.debug_cb, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
         self.batch_cb = simple_label_cb(self, "Batch", Config.batch)
@@ -94,10 +96,22 @@ class ConfigPanel(wx.Panel):
         Config.working_dir = self.working_dir_tc.GetValue()
         if(not Config.working_dir.endswith(os.path.sep)):
             Config.working_dir += os.path.sep
+        Config.scratch_dir = self.scratch_dir_tc.GetValue()
+        if(not Config.scratch_dir.endswith(os.path.sep)):
+            Config.scratch_dir += os.path.sep
         if(not os.path.isdir(Config.working_dir)):
             print("Selected working directory does not exist - please create it")
             print("Chosen directory: " + Config.working_dir)
             raise IOError("Please specify an existing directory as working directory")
+        if(not os.path.isdir(Config.scratch_dir)):
+            print("Selected scratch directory does not exist")
+            print("Attempting to creat it")
+            try:
+                os.mkdir(Config.scratch_dir)
+            except IOError as e:
+                print("Failed to create scratch dir, because ")
+                print(e)
+                raise IOError("Please specify an existing directory as scratch directory")
         Config.dstf = self.dstf_tc.GetValue()
         Config.extra_output = self.output_cb.GetValue()
         Config.debug = self.debug_cb.GetValue()
@@ -125,6 +139,7 @@ class ConfigPanel(wx.Panel):
 
     def SetConfig(self, Config):
         self.working_dir_tc.SetValue(Config.working_dir)
+        self.scratch_dir_tc.SetValue(Config.scratch_dir)
         self.dstf_tc.SetValue(Config.dstf)
         self.output_cb.SetValue(Config.extra_output)
         self.debug_cb.SetValue(Config.debug)

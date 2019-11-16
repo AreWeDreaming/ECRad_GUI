@@ -228,7 +228,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.diag_box_sizer = wx.BoxSizer(wx.VERTICAL)
         self.diag_box_label = wx.StaticText(self, wx.ID_ANY, "Diagnostics")
         self.DiagBox = wx.ListBox(self, wx.ID_ANY, size=(100, 100))
-        for diag_key in self.Results.Scenario.used_diags_dict.keys():
+        for diag_key in list(self.Results.Scenario.used_diags_dict):
             self.DiagBox.Append(diag_key)
         self.diag_box_sizer.Add(self.diag_box_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL , 5)
         self.diag_box_sizer.Add(self.DiagBox, 1, wx.ALL | wx.EXPAND , 5)
@@ -309,7 +309,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             print("Please select a valid distribution function identifier.")
             return
         # Sets time points and stores plasma data in Scenario
-        if(self.scenario_select_panel.UpdateNeeded() or not  self.Results.Scenario.plasma_set):
+        if(self.scenario_select_panel.UpdateNeeded() or not self.Results.Scenario.plasma_set):
             try:
                 self.Results.Scenario = self.scenario_select_panel.LoadScenario(self.Results.Scenario, self.Results.Config, None)
                 if(not self.Results.Scenario.plasma_set):
@@ -344,14 +344,14 @@ class Main_Panel(scrolled.ScrolledPanel):
                 self.GetEventHandler().ProcessEvent(evt)
                 return
             self.DiagBox.Clear()
-            for diag in self.Results.Scenario.used_diags_dict.keys():
+            for diag in list(self.Results.Scenario.used_diags_dict):
                 self.DiagBox.Append(diag)
         self.stop_current_evaluation = False
         self.index = 0
         old_comment = self.Results.comment
         self.Results.reset()
         self.Results.comment = old_comment # Keep the comment
-        if(len(self.Results.Scenario.used_diags_dict.keys()) == 0):
+        if(len(list(self.Results.Scenario.used_diags_dict)) == 0):
             print("No diagnostics selected")
             print("Run aborted")
             evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
@@ -492,9 +492,9 @@ class Main_Panel(scrolled.ScrolledPanel):
                                     wx.EXEC_ASYNC, self.ECRad_process)
         self.ECRad_running = True
         if(self.Results.Config.parallel and not self.Results.Config.batch):
-            while(not wx.Process.Exists(self.ECRad_process.GetPid())):
+            while(not wx.Process.Exists(self.ECRad_pid)):
                 sleep(0.25)
-            os.system("renice -n 10 -p " + "{0:d}".format(self.ECRad_process.GetPid()))
+            os.system("renice -n 10 -p " + "{0:d}".format(self.ECRad_process.GetPid()) + " >/dev/null 2>&1")
         self.KillECRadButton.Enable()
 #        print InvokeECRad + EOLCHART
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
@@ -505,7 +505,7 @@ class Main_Panel(scrolled.ScrolledPanel):
     def OnUpdate(self, evt):
         self.Results = evt.Results
         self.DiagBox.Clear()
-        for diag_key in self.Results.Scenario.used_diags_dict.keys():
+        for diag_key in list(self.Results.Scenario.used_diags_dict):
             self.DiagBox.Append(diag_key)
         self.TimeBox.Clear()
         for time in self.Results.Scenario.plasma_dict["time"]:
@@ -520,7 +520,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.Results = ECRadResults()
         self.Results.from_mat_file(evt.filename)
         self.DiagBox.Clear()
-        for diag_key in self.Results.Scenario.used_diags_dict.keys():
+        for diag_key in self.Results.Scenario.used_diags_dict:
             self.DiagBox.Append(diag_key)
         self.TimeBox.Clear()
         for time in self.Results.Scenario.plasma_dict["time"]:
@@ -638,10 +638,18 @@ class Main_Panel(scrolled.ScrolledPanel):
             print("Skipping current time point {0:1.4f} and continuing".format(self.Results.Scenario.plasma_dict["time"][self.index]))
             self.Results.Scenario.plasma_dict["time"] = np.delete(self.Results.Scenario.plasma_dict["time"], self.index)
             if(len(np.shape(self.Results.Scenario.plasma_dict["Te"][self.index])) == 1):
-                self.Results.Scenario.plasma_dict["rhop_prof"] = np.delete(self.Results.Scenario.plasma_dict["rhop_prof"], self.index)
+                try:
+                    self.Results.Scenario.plasma_dict["rhop_prof"] = np.delete(self.Results.Scenario.plasma_dict["rhop_prof"], self.index)
+                except Exception:
+                    print("No rhop profile information")
+                try:
+                    self.Results.Scenario.plasma_dict["rhot_prof"] = np.delete(self.Results.Scenario.plasma_dict["rhot_prof"], self.index)
+                except Exception:
+                    print("No rhot profile information")
             self.Results.Scenario.plasma_dict["Te"] = np.delete(self.Results.Scenario.plasma_dict["Te"], self.index)
             self.Results.Scenario.plasma_dict["ne"] = np.delete(self.Results.Scenario.plasma_dict["ne"], self.index)
-            self.Results.Scenario.plasma_dict["eq_data"] = np.delete(self.Results.Scenario.plasma_dict["eq_data"], self.index)
+            if(not self.Results.Scenario.use3Dscen.used):
+                self.Results.Scenario.plasma_dict["eq_data"] = np.delete(self.Results.Scenario.plasma_dict["eq_data"], self.index)
             self.Results.Scenario.ray_launch = np.delete(self.Results.Scenario.ray_launch, self.index)
         except IndexError as e:
             print("Error parsing results of ECRad")
@@ -675,8 +683,9 @@ class Main_Panel(scrolled.ScrolledPanel):
                 self.StartECRadButton.Enable()
                 return
             for key in self.Results.Scenario.plasma_dict:
-                if(key != "vessel_bd"):
-                    self.Results.Scenario.plasma_dict[key] = self.Results.Scenario.plasma_dict[key][0:self.index]  # shorten time array in case of early termination
+                if(key != "vessel_bd" and key != "prof_reference"):
+                    if(self.Results.Scenario.plasma_dict[key] is not None):
+                        self.Results.Scenario.plasma_dict[key] = self.Results.Scenario.plasma_dict[key][0:self.index]  # shorten time array in case of early termination
             self.Results.time = np.copy(self.Results.Scenario.plasma_dict["time"])
             self.TimeBox.Clear()
             for t in self.Results.time:
