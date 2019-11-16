@@ -30,7 +30,8 @@ class LaunchPanel(wx.Panel):
             self.grid.Add(self.diag_cb_dict[Diagkey], 0, \
                           wx.TOP | wx.ALL, 5)
         for Diagkey in Scenario.used_diags_dict:
-            self.diag_cb_dict[Diagkey].SetValue(True)
+            if(Diagkey in self.diag_cb_dict):
+                self.diag_cb_dict[Diagkey].SetValue(True)
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.diag_config_sizer = wx.BoxSizer(wx.VERTICAL)
         self.diag_select_panel.sizer.Add(self.grid, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
