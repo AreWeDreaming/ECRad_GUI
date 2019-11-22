@@ -59,6 +59,7 @@ class PlotPanel(wx.Panel):
         self.plot_choice.Append("Transmisivity mode")
         self.plot_choice.Append("tau mode")
         self.plot_choice.Append("BPD")
+        self.plot_choice.Append("BPD mode")
         self.plot_choice.Append("Ray")
         self.plot_choice.Append("Frequencies")
         # self.plot_choice.Append("Ray_H_N")
@@ -96,6 +97,8 @@ class PlotPanel(wx.Panel):
         self.use_warm_res_cb = simple_label_cb(self, "Use warm resonance", False)
         self.tau_threshhold_tc = simple_label_tc(self, "lower boundary for tau", 0.0, "real")
         self.eq_aspect_ratio_cb = simple_label_cb(self, "Equal aspect ratio", True)
+        self.figure_width_tc = simple_label_tc(self, "Figure width", 12.0, "real")
+        self.figure_height_tc = simple_label_tc(self, "Figure height", 8.5, "real")
         self.controlgrid.Add(self.alt_model_cb, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid.Add(self.use_warm_res_cb, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid.Add(self.AddPlotButton, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
@@ -103,6 +106,8 @@ class PlotPanel(wx.Panel):
         self.controlgrid.Add(self.MakeTorbeamRaysButton, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid2.Add(self.tau_threshhold_tc, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid2.Add(self.eq_aspect_ratio_cb, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
+        self.controlgrid2.Add(self.figure_width_tc, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
+        self.controlgrid2.Add(self.figure_height_tc, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlplotsizer.Add(self.controlgrid, 0, \
                                     wx.LEFT | wx.ALL , 10)
         self.controlplotsizer.Add(self.controlgrid2, 0, \
@@ -223,6 +228,8 @@ class PlotPanel(wx.Panel):
         max_unc = self.max_unc_tc.GetValue()
         tau_threshhold = self.tau_threshhold_tc.GetValue()
         eq_aspect_ratio = self.eq_aspect_ratio_cb.GetValue()
+        figure_width = self.figure_width_tc.GetValue()
+        figure_height = self.figure_height_tc.GetValue()
         if(globalsettings.AUG):
             diag_data_selected = np.array(self.diag_box.GetItems())[self.diag_box.GetSelections()]
         else:
@@ -230,7 +237,8 @@ class PlotPanel(wx.Panel):
         compare_data_selected = np.array(self.other_result_box.GetItems())[self.other_result_box.GetSelections()]
         self.FigureControlPanel.AddPlot(plot_type, self.Results.Config, self.Results, self.diag_data, \
                                         diag_data_selected, self.compare_data, compare_data_selected, \
-                                        time, ch, mode, alt_model, warm_res, max_unc, tau_threshhold, eq_aspect_ratio)
+                                        time, ch, mode, alt_model, warm_res, max_unc, tau_threshhold, \
+                                        eq_aspect_ratio, figure_width, figure_height)
         self.Layout()
 
     def OnMakeTORBEAMRays(self, evt):
@@ -473,17 +481,19 @@ class PlotPanel(wx.Panel):
                     temp_diag_data["IDA Te upper unc."].insert_data(IDA_dict[IDA_dict["prof_reference"]], IDA_dict["Te_low"] * 1.e-3, None, None)
                 elif(key is "VTA"):
                     unc, prof = get_Thomson_data(Results.Scenario.shot, Results.time, diag_dict[key], \
-                                     Te=True, edge=True, \
-                                     EQ_exp=Results.Scenario.EQ_exp, \
-                                     EQ_diag=Results.Scenario.EQ_diag, 
-                                     EQ_ed=Results.Scenario.EQ_ed)
+                                                 Te=True, edge=True, \
+                                                 EQ_exp=Results.Scenario.EQ_exp, \
+                                                 EQ_diag=Results.Scenario.EQ_diag, 
+                                                 EQ_ed=Results.Scenario.EQ_ed, \
+                                                 smoothing=self.smoothing_time)
                     temp_diag_data["TS edge"] = Diagnostic(diag_dict[key])
                     temp_diag_data["TS edge"].insert_data(prof[0], prof[1] * 1.e-3, unc * 1.e-3, None)
                     unc, prof = get_Thomson_data(Results.Scenario.shot, Results.time, diag_dict[key], \
                                      Te=True, core=True, \
                                      EQ_exp=Results.Scenario.EQ_exp, \
                                      EQ_diag=Results.Scenario.EQ_diag, 
-                                     EQ_ed=Results.Scenario.EQ_ed)
+                                     EQ_ed=Results.Scenario.EQ_ed, \
+                                     smoothing=self.smoothing_time)
                     temp_diag_data["TS core"] = Diagnostic(diag_dict[key])
                     temp_diag_data["TS core"].insert_data(prof[0], prof[1] * 1.e-3, unc * 1.e-3, None)
                 else:
@@ -593,10 +603,12 @@ class FigureBook(wx.Notebook):
         self.FigureList = []
 
     def AddPlot(self, plot_type, Config, Results,  diag_data, diag_data_selected, other_results,  \
-                other_results_selected, time, ch, mode, alt_model, use_warm_res, max_unc, tau_threshhold, eq_aspect_ratio):
-        self.FigureList.append(PlotContainer(self))
+                other_results_selected, time, ch, mode, alt_model, use_warm_res, max_unc, tau_threshhold, eq_aspect_ratio, \
+                figure_width, figure_height):
+        self.FigureList.append(PlotContainer(self, figure_width, figure_height))
         if(self.FigureList[-1].Plot(plot_type, Config, Results, diag_data, diag_data_selected, other_results, \
-                                    other_results_selected, time, ch, mode, alt_model, use_warm_res, max_unc, tau_threshhold, eq_aspect_ratio)):
+                                    other_results_selected, time, ch, mode, alt_model, use_warm_res, max_unc, \
+                                    tau_threshhold, eq_aspect_ratio)):
             if(plot_type == "Trad" or plot_type == "Rz_Res"):
                 self.AddPage(self.FigureList[-1], plot_type + " t = {0:2.3f} s".format(time))
             else:
@@ -614,12 +626,12 @@ class FigureBook(wx.Notebook):
 
 
 class PlotContainer(wx.Panel):
-    def __init__(self, parent):
+    def __init__(self, parent, figure_width = 12.0, figure_height = 8.5):
         wx.Panel.__init__(self, parent, wx.ID_ANY)
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.SetSizer(self.sizer)
         self.fig_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.fig = plt.figure(figsize=(12.0, 8.5), tight_layout=True, frameon=False)
+        self.fig = plt.figure(figsize=(figure_width, figure_height), tight_layout=True, frameon=False)
         self.fig.clf()
         self.canvas = FigureCanvas(self, -1, self.fig)
         self.canvas.mpl_connect('motion_notify_event', self.UpdateCoords)
@@ -932,7 +944,7 @@ class PlotContainer(wx.Panel):
                 diagdict[diag_name] = diag_data[diag_name].getSlice(time_index)
                 if(diag_name in Results.Scenario.used_diags_dict):
                     tau_mask_diag = tau_mask[Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name]
-                    diagdict[diag_name].Trad = diagdict[diag_name].val[tau_mask_diag]
+                    diagdict[diag_name].val = diagdict[diag_name].val[tau_mask_diag]
                     diagdict[diag_name].unc = diagdict[diag_name].unc[tau_mask_diag]
                     if(warm and diag_name in Results.Scenario.used_diags_dict):
                         # Overwrite
@@ -1014,6 +1026,7 @@ class PlotContainer(wx.Panel):
                 X_mode_frac_comp = Results.X_mode_frac_comp[time_index][tau_mask]
             diag_names = Results.Scenario.ray_launch[time_index]["diag_name"][tau_mask]
             diagdict = {}
+            diags_included = False
             for diag_name in diag_data_selected:
                 diagdict[diag_name] = diag_data[diag_name].getSlice(time_index)
                 if(diag_name in Results.Scenario.used_diags_dict):
@@ -1025,6 +1038,16 @@ class PlotContainer(wx.Panel):
                         diagdict[diag_name].rhop = Results.resonance["rhop_warm"][time_index][Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name][tau_mask_diag]
                     else:
                         diagdict[diag_name].rhop = diagdict[diag_name].rhop[tau_mask_diag]
+                    diags_included = True
+            if(diags_included):
+                print("Displaced Trad is multiplied with polarizer efficiency")
+                print("Deselect diagnostics to show Trad without polarizer")
+                if(mode):
+                    Trad *= X_mode_frac
+                    Trad_comp *= X_mode_frac_comp
+                else:
+                    Trad *= (1.0 - X_mode_frac)
+                    Trad_comp *= (1.0 - X_mode_frac_comp)
             args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
                                          rhop_Te, Te,  diagdict, diag_names, \
                                          Config.dstf, alt_model]
@@ -1057,7 +1080,7 @@ class PlotContainer(wx.Panel):
                 if(Results.Config.extra_output and use_warm_res):
                     rhop = Results.resonance["rhop_warm"][time_index][Results.Otau[time_index] >= tau_threshhold]
                 else:
-                    rhop = Results.resonance["rhop_cold"][time_index][Results.Ottau[time_index]>= tau_threshhold]
+                    rhop = Results.resonance["rhop_cold"][time_index][Results.Otau[time_index]>= tau_threshhold]
                 tau = Results.Otau[time_index][Results.Otau[time_index] >= tau_threshhold]
                 tau_comp = Results.Otau_comp[time_index][Results.Otau[time_index] >= tau_threshhold]
             use_tau = False
@@ -1070,6 +1093,41 @@ class PlotContainer(wx.Panel):
                     Config.dstf, alt_model, use_tau]
             kwargs = {}
         elif(plot_type == "BPD"):
+            if(not Config.extra_output):
+                print("Birthplace distribution was not computed")
+                print("Rerun ECRad with 'extra output' set to True")
+                return
+            # R = Results.los["R" + mode_str][time_index][ch]
+            rhop_IDA = Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
+            Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
+            if(len(Results.BPD["rhopX"]) > 0):
+                rhop = Results.BPD["rhopX"][time_index][ch]
+                D = np.copy(Results.BPD["BPDX"][time_index][ch])
+                D_comp = np.copy(Results.BPD["BPD_secondX"][time_index][ch])
+            if(len(Results.BPD["rhopO"]) > 0):
+                if(len(Results.BPD["rhopX"]) > 0):
+                    D = D * Results.X_mode_frac[time_index][ch] + (1.0 - Results.X_mode_frac[time_index][ch]) * Results.BPD["BPDO"][time_index][ch]
+                    D_comp = D_comp * Results.X_mode_frac[time_index][ch] + (1.0 - Results.X_mode_frac[time_index][ch]) * Results.BPD["BPDO"][time_index][ch]
+                else:
+                    rhop = Results.BPD["rhopO"][time_index][ch]
+                    D = np.copy(Results.BPD["BPDO"][time_index][ch])
+                    D_comp = np.copy(Results.BPD["BPD_secondO"][time_index][ch])
+            if(Results.Config.extra_output and use_warm_res):
+                rhop_res = Results.resonance["rhop_warm"][time_index][ch]
+            else:
+                rhop_res = Results.resonance["rhop_cold"][time_index][ch]
+            EQ_obj = EQData(Results.Scenario.shot)
+            EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
+            try:
+                R_axis, z_axis = EQ_obj.get_axis(time)
+                if(Results.resonance["R_cold"][time_index][ch] < R_axis):
+                    rhop_res *= -1.0
+            except:
+                print("Failed to get equilibrium information")
+            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_res]
+            kwargs = {}
+#             self.fig = self.pc_obj.plot_BPD(time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_cold)
+        elif(plot_type == "BPD mode"):
             if(not Config.extra_output):
                 print("Birthplace distribution was not computed")
                 print("Rerun ECRad with 'extra output' set to True")
