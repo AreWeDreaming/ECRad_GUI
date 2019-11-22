@@ -166,7 +166,7 @@ def make_W7X_Scenario(ScenarioName, shot, time, folder, \
     ext_diag = EXT_diag("EXT")
     ext_diag.set_from_mat(ray_launch_file)
     if(ECE_freqs is not None):
-        ext_diag.f = np.loadtxt(ECE_freqs) #skiprows=12 * 1.e9
+        ext_diag.f = np.loadtxt(ECE_freqs, skiprows=1).T[2] * 1.e9 #skiprows=12
         ext_diag.N_ch = len(ext_diag.f)
         for key in ["df", "R", "phi", "z", "theta_pol", "phi_tor", \
                       "dist_focus", "width", "pol_coeff_X"]:
@@ -201,10 +201,11 @@ if (__name__ == "__main__"):
 #     make_W7X_Scenario("/tokp/work/sdenk/ECRad/20181009043_michelson_tor", 20181009043, 2.15, "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/example/plasma_profiles.txt", \
 #                       "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/example/oliford-20181009.043-t_2.150s-fi_0_0.050.txt", "VMEC", "/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat", \
 #                       "/tokp/work/sdenk/ECRad/W7X_wall_SI.dat", "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/freq_michelson")
-    make_W7X_Scenario("/tokp/work/sdenk/ECRad/20181009043002_2_15", 20181009043002, 2.15, "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/Travis_ECRad_Benchmark/20181009.043.002_2_15s", \
+    make_W7X_Scenario("/tokp/work/sdenk/ECRad/20181009043002_5_00_mich", 20181009043002, 5.00, "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/Travis_ECRad_Benchmark/20181009.043.002_5_00s_Mich", \
                       "/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat", \
                       "/tokp/work/sdenk/ECRad/W7X_wall_SI.dat", \
-                      B_scale = 0.9391666666666667)#, ECE_freqs="/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/freq_michelson")
+                      B_scale = 0.9391666666666667, \
+                      ECE_freqs="/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/Travis_ECRad_Benchmark/20181009.043.002_5_00s_Mich/results_0/ECE_spectrum_parsed")#, ECE_freqs="/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/freq_michelson")
 #     make_W7X_Scenario("/tokp/work/sdenk/ECRad/AUG_32934", 32934, 3.298, "/tokp/work/sdenk/ECRad/32934_3298_plasma_profiles.txt", \
 #                       "/tokp/work/sdenk/ECRad/g32934_03298", "EFIT", "/tokp/work/sdenk/ECRad/ECRad_32934_ECE_ed5.mat", "/tokp/work/sdenk/ECRad/AUG_pseudo_3D_wall.dat")
 #     make_launch_from_ray_launch("/tokp/work/sdenk/ECRad/ray_launch_W7_X.dat","/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat")

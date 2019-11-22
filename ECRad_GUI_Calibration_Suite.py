@@ -277,6 +277,7 @@ class CalibPanel(wx.Panel):
             print("No time points designated for calibration --  aborting")
             return
         self.cur_diag=None #  Diag in self.Results.Scenario.used_diags_dict that corresponds to the currently select diagnostic
+        self.last_used_diag_name = self.diag_select_choice.GetStringSelection()
         try:
             for key in list(self.Results.Scenario.used_diags_dict):
                 if(key == self.last_used_diag_name):
@@ -303,12 +304,12 @@ class CalibPanel(wx.Panel):
         if(self.cur_diag.name in list(self.Results.calib)):
             print("Calibration already done")
             print("Deleting old calibration and proceeding")
-            del(self.Results.calib[key])
-            del(self.Results.calib_mat[key])
-            del(self.Results.std_dev_mat[key])
-            del(self.Results.rel_dev[key])
-            del(self.Results.sys_dev[key])
-            del(self.Results.masked_time_points[key])
+            del(self.Results.calib[self.cur_diag.name])
+            del(self.Results.calib_mat[self.cur_diag.name])
+            del(self.Results.std_dev_mat[self.cur_diag.name])
+            del(self.Results.rel_dev[self.cur_diag.name])
+            del(self.Results.sys_dev[self.cur_diag.name])
+            del(self.Results.masked_time_points[self.cur_diag.name])
         masked_timepoints = np.zeros(len(self.Results.time), np.bool)
         masked_timepoints[:] = True
         self.delta_t = 0.5 * np.mean(self.Results.time[1:len(self.Results.time)] - \
@@ -715,7 +716,7 @@ class CalibEvolutionPanel(wx.Panel):
                 for i in range(len(self.shotlist)):
                     self.used.append(self.shotlist[i] + "_ed_" + self.editionlist[i])
                 self.used_list.AppendItems(self.used)
-                self.ch_ch.AppendItems(map(str, range(1, self.ch_cnt + 1)))
+                self.ch_ch.AppendItems(list(map(str, range(1, self.ch_cnt + 1))))
             else:
                 for new_result in new_results:
                     new_result_replaced_old = False
@@ -775,7 +776,7 @@ class CalibEvolutionPanel(wx.Panel):
         if(ch < 0):
             print("Error!!: No channel selected")
             return
-        if(globalsettings.AUG and len(used_results) == 1):
+        if(globalsettings.AUG):
             cur_result = used_results[0]
             from shotfile_handling_AUG import get_shot_heating
             heating_array = get_shot_heating(cur_result.Scenario.shot)
@@ -787,7 +788,7 @@ class CalibEvolutionPanel(wx.Panel):
             time_ne, ne = moving_average(cur_result.time[cur_result.masked_time_points[self.diagnostic]], ne, 6.e-2)
             self.fig = self.pc_obj.calib_evolution(self.diagnostic, ch, used_results, heating_array, time_ne, ne)
         else:
-            self.fig = self.pc_obj.calib_evolution(self.diagnostic, ch)
+            self.fig = self.pc_obj.calib_evolution(self.diagnostic, ch, used_results)
         self.canvas.draw()
         evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
         self.GetEventHandler().ProcessEvent(evt)
