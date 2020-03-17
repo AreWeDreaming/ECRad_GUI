@@ -272,11 +272,12 @@ class PlotPanel(wx.Panel):
             launches.append(ECRHLauncher())
             launches[-1].inject_ECRad_ray_launch(self.Results.Scenario.ray_launch[itime], ich)
         make_TORBEAM_no_data_load(self.Results.Config.working_dir, self.Results.Scenario.shot, time, \
-                                  self.Results.Scenario.plasma_dict["rho_prof"], self.Results.Scenario.plasma_dict["Te"], \
-                                  self.Results.Scenario.plasma_dict["ne"], self.Results.Scenario.plasma_dict["eq_data"].R, \
-                                  self.Results.Scenario.plasma_dict["eq_data"].z, self.Results.Scenario.plasma_dict["eq_data"].rhop**2, \
-                                  self.Results.Scenario.plasma_dict["eq_data"].Br, self.Results.Scenario.plasma_dict["eq_data"].Bt, \
-                                  self.Results.Scenario.plasma_dict["eq_data"].Bz, 0.0, 1.0, \
+                                  self.Results.Scenario.plasma_dict[self.Results.Scenario.plasma_dict["prof_reference"]][itime], \
+                                  self.Results.Scenario.plasma_dict["Te"][itime], \
+                                  self.Results.Scenario.plasma_dict["ne"][itime], self.Results.Scenario.plasma_dict["eq_data"][itime].R, \
+                                  self.Results.Scenario.plasma_dict["eq_data"][itime].z, self.Results.Scenario.plasma_dict["eq_data"][itime].rhop**2, \
+                                  self.Results.Scenario.plasma_dict["eq_data"][itime].Br, self.Results.Scenario.plasma_dict["eq_data"][itime].Bt, \
+                                  self.Results.Scenario.plasma_dict["eq_data"][itime].Bz, 0.0, 1.0, \
                                   launches, mode=mode)
 
     def OnThreadFinished(self, evt):
@@ -469,16 +470,20 @@ class PlotPanel(wx.Panel):
                 elif(key is "IDA"):
                     IDA_dict = load_IDA_data(Results.Scenario.shot, timepoints= Results.time, \
                                              exp=self.Results.Scenario.IDA_exp, ed=self.Results.Scenario.IDA_ed)
-                    temp_diag_data["ECE data in IDA"] = Diagnostic(diag_dict[key])
-                    temp_diag_data["ECE data in IDA"].insert_data( IDA_dict["ECE_dat_rhop"], IDA_dict["ECE_dat"] * 1.e-3, 
-                                                                                    IDA_dict["ECE_unc"] * 1.e-3, np.zeros(IDA_dict["ECE_dat_rhop"].shape))
-                    temp_diag_data["ECE model in IDA"] = Diagnostic(diag_dict[key])
-                    temp_diag_data["ECE model in IDA"].insert_data( IDA_dict["ECE_rhop"], IDA_dict["ECE_mod"] * 1.e-3, 
-                                                                                    None, None)
                     temp_diag_data["IDA Te lower unc."] = Diagnostic(diag_dict[key],is_prof=True)
                     temp_diag_data["IDA Te lower unc."].insert_data( IDA_dict[IDA_dict["prof_reference"]], IDA_dict["Te_up"] * 1.e-3, None, None)
                     temp_diag_data["IDA Te upper unc."] = Diagnostic(diag_dict[key],is_prof=True)
                     temp_diag_data["IDA Te upper unc."].insert_data(IDA_dict[IDA_dict["prof_reference"]], IDA_dict["Te_low"] * 1.e-3, None, None)
+                    try:
+                        temp_diag_data["ECE data in IDA"] = Diagnostic(diag_dict[key])
+                        temp_diag_data["ECE data in IDA"].insert_data( IDA_dict["ECE_dat_rhop"], IDA_dict["ECE_dat"] * 1.e-3, 
+                                                                                        IDA_dict["ECE_unc"] * 1.e-3, np.zeros(IDA_dict["ECE_dat_rhop"].shape))
+                        temp_diag_data["ECE model in IDA"] = Diagnostic(diag_dict[key])
+                        temp_diag_data["ECE model in IDA"].insert_data( IDA_dict["ECE_rhop"], IDA_dict["ECE_mod"] * 1.e-3, 
+                                                                                    None, None)
+                    except Exception:
+                        del(temp_diag_data["ECE data in IDA"])
+                        print("Failed to get IDA ECE data due to python 3 problems with dd")
                 elif(key is "VTA"):
                     unc, prof = get_Thomson_data(Results.Scenario.shot, Results.time, diag_dict[key], \
                                                  Te=True, edge=True, \
@@ -562,6 +567,8 @@ class PlotPanel(wx.Panel):
                         temp_compare_data[plot_type][label]["x_2nd"] = x[1]
                         temp_compare_data[plot_type][label]["y"] = y
                         temp_compare_data[plot_type][label]["time"] = result.time
+                        temp_compare_data[plot_type][label]["profx"] = result.Scenario.plasma_dict[result.Scenario.plasma_dict["prof_reference"]] * result.Scenario.Te_rhop_scale
+                        temp_compare_data[plot_type][label]["profy"] = result.Scenario.plasma_dict["Te"] * result.Scenario.Te_scale / 1.e3
                         diag_mask = []
                         for itime in range(len(result.Scenario.plasma_dict["time"])):
                             diag_mask.append(result.Scenario.ray_launch[itime]["diag_name"])
@@ -903,24 +910,34 @@ class PlotContainer(wx.Panel):
             warm = False
             tau_mask = Results.tau[time_index] >= tau_threshhold
             if(Results.Config.extra_output and use_warm_res):
-                rhop = Results.resonance["rhop_warm"][time_index][tau_mask]
+                rhop = Results.resonance["rhop_warm"][time_index]
                 warm = True
             else:
-                rhop = Results.resonance["rhop_cold"][time_index][tau_mask]
+                rhop = Results.resonance["rhop_cold"][time_index]
             if(len(rhop) == 0):
                 print("No channels have an optical depth below the currently selected threshold!")
                 return False
-            Trad = Results.Trad[time_index][tau_mask]
             if(alt_model):
                 if(Results.Config.extra_output):
-                    Trad_comp = Results.Trad_comp[time_index][tau_mask]
+                    Trad_comp = Results.Trad_comp[time_index]
                 else:
                     Trad_comp = []
                     print("Secondary model was deactivated during the run.")
                     print("To enable it, activate extra outout und rerun ECRad!")
             else:
                 Trad_comp = []
-            diag_names = Results.Scenario.ray_launch[time_index]["diag_name"][tau_mask]
+            Trad = Results.Trad[time_index]
+            diag_names = Results.Scenario.ray_launch[time_index]["diag_name"]
+            if(multiple_models):
+                print("Multiple models do not support tau filtering -> disabling tau filtering.")
+            else:
+                Trad = Results.Trad[time_index][tau_mask]
+                rhop = rhop[tau_mask]
+                if(alt_model):
+                    Trad_comp=Trad_comp[tau_mask]
+                diag_names = diag_names[tau_mask]
+            rhop_Te= [Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale]
+            Te = [Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3]
             if(multiple_models):
                 rhop_list.append(np.copy(rhop))
                 Trad_list.append(np.copy(Trad))
@@ -936,6 +953,9 @@ class PlotContainer(wx.Panel):
                     Trad_list.append(other_results["Trad"][entry]["y"][itime])
                     diag_name_list.append(other_results["Trad"][entry]["diag_mask"][itime])
                     label_list.append(entry)
+                    if("profx" in other_results["Trad"][entry]):
+                        rhop_Te.append(other_results["Trad"][entry]["profx"][itime])
+                        Te.append(other_results["Trad"][entry]["profy"][itime])
                 rhop = rhop_list
                 Trad = Trad_list
                 diag_names = diag_name_list
@@ -951,8 +971,6 @@ class PlotContainer(wx.Panel):
                         diagdict[diag_name].rhop = Results.resonance["rhop_warm"][time_index][Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name][tau_mask_diag]
                     else:
                         diagdict[diag_name].rhop = diagdict[diag_name].rhop[tau_mask_diag]
-            rhop_Te= Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
-            Te = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
                                          rhop_Te, Te,  diagdict, diag_names, \
                                              Config.dstf, alt_model]
