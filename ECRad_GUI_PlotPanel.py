@@ -12,6 +12,7 @@ from wxEvents import *
 from plotting_configuration import *
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from plotting_core import plotting_core
+from wx import PyCommandEvent
 if(globalsettings.AUG):
     from shotfile_handling_AUG import shotfile_exists, get_data_calib, AUG_profile_diags,\
                                       load_IDA_data, get_Thomson_data
@@ -249,19 +250,19 @@ class PlotPanel(wx.Panel):
         except AttributeError:
             print("No .mat loaded")
             return
-        time = float(self.time_choice.GetStringSelection())
+        self.time = float(self.time_choice.GetStringSelection())
         if(self.mode_cb.GetValue()):
             mode = -1
             self.cur_mode_str = "X"
         else:
             mode = +1
             self.cur_mode_str = "O"
-        self.cur_selected_index = np.argmin(np.abs(self.Results.time - time))
+        self.cur_selected_index = np.argmin(np.abs(self.Results.time - self.time))
         print("Calculating rays with TORBEAM hold on")
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Calculating rays with TORBEAM hold on')
         self.GetEventHandler().ProcessEvent(evt)
-        wt = WorkerThread(self.run_TORBEAM_all_channels, [time, self.cur_selected_index, mode])
+        wt = WorkerThread(self.run_TORBEAM_all_channels, [self.time, self.cur_selected_index, mode])
         
     def run_TORBEAM_all_channels(self, args):
         time = args[0]
@@ -279,14 +280,16 @@ class PlotPanel(wx.Panel):
                                   self.Results.Scenario.plasma_dict["eq_data"][itime].Br, self.Results.Scenario.plasma_dict["eq_data"][itime].Bt, \
                                   self.Results.Scenario.plasma_dict["eq_data"][itime].Bz, 0.0, 1.0, \
                                   launches, mode=mode)
+        evt_out = wx.PyCommandEvent(Unbound_EVT_THREAD_FINISHED, self.GetId())
+        wx.PostEvent(self, evt_out)
 
     def OnThreadFinished(self, evt):
         print("Updating ray information")
-        ray_path = os.path.join(self.Results.Config.working_dir, "ecfm_data", "ray")
+        ray_path = os.path.join(self.Results.Config.working_dir, "{0:d}_{1:1.3f}_rays".format(self.Results.Scenario.shot, self.time))
         if("x" + self.cur_mode_str + "tb" in self.Results.ray):
             for channel in range(len(self.Results.ray["x" + self.cur_mode_str][self.cur_selected_index])):
-                TBRay_file = np.loadtxt(os.path.join(ray_path, "Rz_beam_{0:1d}.dat".format(channel + 1)).replace(",", ""))
-                TBXRay_file = np.loadtxt(os.path.join(ray_path, "xy_beam_{0:1d}.dat".format(channel + 1)).replace(",", ""))
+                TBRay_file = np.loadtxt(os.path.join(ray_path, "Rz_beam_{0:1d}.dat".format(channel + 1)))
+                TBXRay_file = np.loadtxt(os.path.join(ray_path, "xy_beam_{0:1d}.dat".format(channel + 1)))
                 self.Results.ray["x" + self.cur_mode_str + "tb"][self.cur_selected_index].append(TBXRay_file.T[0] / 100.0)
                 self.Results.ray["y" + self.cur_mode_str + "tb"][self.cur_selected_index].append(TBXRay_file.T[1] / 100.0)
                 self.Results.ray["R" + self.cur_mode_str + "tb"][self.cur_selected_index].append(TBRay_file.T[0] / 100.0)
@@ -327,8 +330,8 @@ class PlotPanel(wx.Panel):
                 self.Results.ray["z" + self.cur_mode_str + "tbp2"].append([])
                 if(i == self.cur_selected_index):
                     for channel in range(len(self.Results.ray["x" + self.cur_mode_str][i])):
-                        TBRay_file = np.loadtxt(os.path.join(ray_path, "ray_ch_R{0:04n}tb.dat".format(channel + 1)).replace(",", ""))
-                        TBXRay_file = np.loadtxt(os.path.join(ray_path, "ray_ch_x{0:04n}tb.dat".format(channel + 1)).replace(",", ""))
+                        TBRay_file = np.loadtxt(os.path.join(ray_path, "Rz_beam_{0:1d}.dat".format(channel + 1)))
+                        TBXRay_file = np.loadtxt(os.path.join(ray_path, "xy_beam_{0:1d}.dat".format(channel + 1)))
                         self.Results.ray["x" + self.cur_mode_str + "tb"][i].append(TBXRay_file.T[0] / 100.0)
                         self.Results.ray["y" + self.cur_mode_str + "tb"][i].append(TBXRay_file.T[1] / 100.0)
                         self.Results.ray["R" + self.cur_mode_str + "tb"][i].append(TBRay_file.T[0] / 100.0)
@@ -635,9 +638,9 @@ class FigureBook(wx.Notebook):
 class PlotContainer(wx.Panel):
     def __init__(self, parent, figure_width = 12.0, figure_height = 8.5):
         wx.Panel.__init__(self, parent, wx.ID_ANY)
-        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self.sizer)
-        self.fig_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.ctrl_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.fig = plt.figure(figsize=(figure_width, figure_height), tight_layout=True, frameon=False)
         self.fig.clf()
         self.canvas = FigureCanvas(self, -1, self.fig)
@@ -647,10 +650,31 @@ class PlotContainer(wx.Panel):
         fw, th = self.plot_toolbar.GetSize().Get()
         self.plot_toolbar.SetSize(wx.Size(fw, th))
         self.plot_toolbar.Realize()
-        self.fig_sizer.Add(self.plot_toolbar, 0, wx.ALL | \
-                wx.LEFT , 5)
-        self.fig_sizer.Add(self.canvas, 0, wx.ALL | \
-                wx.EXPAND , 5)
+        self.ctrl_sizer.Add(self.plot_toolbar, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.lower_lim_tc = simple_label_tc(self, "lower limit", 0.0, "real")
+        self.upper_lim_tc = simple_label_tc(self, "upper limit", 0.0, "real")
+        self.axis_choice = wx.Choice(self, wx.ID_ANY)
+        self.axis_choice.Append("x")
+        self.axis_choice.Append("y")
+        self.axis_choice.Select(0)
+        self.set_lim_button = wx.Button(self, wx.ID_ANY, "Set axis limits")
+        self.set_lim_button.Bind(wx.EVT_BUTTON, self.OnSetLim)
+        self.auto_lim_button = wx.Button(self, wx.ID_ANY, "Auto limits")
+        self.auto_lim_button.Bind(wx.EVT_BUTTON, self.OnAutoLim)
+        self.ctrl_sizer.Add(self.lower_lim_tc, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.ctrl_sizer.Add(self.upper_lim_tc, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.ctrl_sizer.Add(self.axis_choice, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.ctrl_sizer.Add(self.set_lim_button, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.ctrl_sizer.Add(self.auto_lim_button, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.sizer.Add(self.ctrl_sizer, 0, wx.ALL | wx.LEFT , 5)
+        self.sizer.Add(self.canvas, 0, wx.ALL | \
+                       wx.LEFT, 5)
         # self.fig_H_sizer = wx.BoxSizer(wx.VERTICAL)
         # self.fig_H = plt.figure(figsize=(12.0, 8.5), tight_layout=False)
         # self.fig_H.clf()
@@ -665,11 +689,41 @@ class PlotContainer(wx.Panel):
         #        wx.LEFT , 5)
         # self.fig_H_sizer.Add(self.canvas_H, 0, wx.ALL | \
         #        wx.EXPAND , 5)
-        self.sizer.Add(self.fig_sizer, 0, wx.ALL | wx.EXPAND , 5)
-        self.sizer.AddStretchSpacer()
         # self.sizer.Add(self.fig_H_sizer, 0, wx.ALL | wx.EXPAND , 5)
         self.pc_obj = plotting_core(self.fig, title=False)
 
+    def OnSetLim(self, evt):
+        try:
+            lower = self.lower_lim_tc.GetValue()
+            upper = self.upper_lim_tc.GetValue()
+            if(self.axis_choice.GetSelection() == 0):
+                self.pc_obj.axlist[0].set_xlim(lower,upper)
+                self.pc_obj.finishing_touches()
+                self.fig = self.pc_obj.fig
+                self.canvas.draw_idle()
+            else:
+                self.pc_obj.axlist[0].set_ylim(lower,upper)
+                self.pc_obj.finishing_touches()
+                self.fig = self.pc_obj.fig
+                self.canvas.draw_idle()
+        except Exception as e:
+            print("Failed to set limits")
+            print(e)
+            
+    def OnAutoLim(self, evt):
+        try:
+            if(self.axis_choice.GetSelection() == 0):
+                self.pc_obj.axlist[0].set_xlim(auto=True)
+                self.fig = self.pc_obj.fig
+                self.canvas.draw_idle()
+            else:
+                self.pc_obj.axlist[0].set_ylim(auto=True)
+                self.fig = self.pc_obj.fig
+                self.canvas.draw_idle()
+        except Exception as e:
+            print("Failed to set limits")
+            print(e)        
+            
     def Plot(self, plot_type, Config, Results, diag_data, diag_data_selected, other_results, other_results_selected, time, ch, \
              mode, alt_model, use_warm_res, max_unc, tau_threshhold, eq_aspect_ratio):
         self.pc_obj.reset(False)
