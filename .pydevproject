@@ -8,6 +8,6 @@
 
 <pydev_pathproperty name="org.python.pydev.PROJECT_EXTERNAL_SOURCE_PATH">
 <path>/afs/ipp/aug/ads-diags/common/python/lib</path>
-<path>/pfs/work/g2sdenk/workspace/ECRad_Pylib</path>
+<path>C:\Users\Severin\git\augd_ecrad_pylib</path>
 </pydev_pathproperty>
 </pydev_project>
