@@ -10,7 +10,7 @@ found_lib = False
 ECRadPylibFolder = None
 for folder in library_list:
     if("ECRad" in folder or "ecrad"in folder ):
-        sys.path.append(folder)
+        sys.path.append(os.path.abspath(folder))
         found_lib = True
         ECRadPylibFolder = folder
         break

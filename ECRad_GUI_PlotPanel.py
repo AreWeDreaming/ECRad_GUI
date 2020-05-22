@@ -12,6 +12,7 @@ from wxEvents import *
 from plotting_configuration import *
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from plotting_core import plotting_core
+from wx import PyCommandEvent
 if(globalsettings.AUG):
     from shotfile_handling_AUG import shotfile_exists, get_data_calib, AUG_profile_diags,\
                                       load_IDA_data, get_Thomson_data
@@ -252,19 +253,19 @@ class PlotPanel(wx.Panel):
         except AttributeError:
             print("No .mat loaded")
             return
-        time = float(self.time_choice.GetStringSelection())
+        self.time = float(self.time_choice.GetStringSelection())
         if(self.mode_cb.GetValue()):
             mode = -1
             self.cur_mode_str = "X"
         else:
             mode = +1
             self.cur_mode_str = "O"
-        self.cur_selected_index = np.argmin(np.abs(self.Results.time - time))
+        self.cur_selected_index = np.argmin(np.abs(self.Results.time - self.time))
         print("Calculating rays with TORBEAM hold on")
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Calculating rays with TORBEAM hold on')
         self.GetEventHandler().ProcessEvent(evt)
-        wt = WorkerThread(self.run_TORBEAM_all_channels, [time, self.cur_selected_index, mode])
+        wt = WorkerThread(self.run_TORBEAM_all_channels, [self.time, self.cur_selected_index, mode])
         
     def run_TORBEAM_all_channels(self, args):
         time = args[0]
@@ -275,20 +276,23 @@ class PlotPanel(wx.Panel):
             launches.append(ECRHLauncher())
             launches[-1].inject_ECRad_ray_launch(self.Results.Scenario.ray_launch[itime], ich)
         make_TORBEAM_no_data_load(self.Results.Config.working_dir, self.Results.Scenario.shot, time, \
-                                  self.Results.Scenario.plasma_dict["rho_prof"], self.Results.Scenario.plasma_dict["Te"], \
-                                  self.Results.Scenario.plasma_dict["ne"], self.Results.Scenario.plasma_dict["eq_data"].R, \
-                                  self.Results.Scenario.plasma_dict["eq_data"].z, self.Results.Scenario.plasma_dict["eq_data"].rhop**2, \
-                                  self.Results.Scenario.plasma_dict["eq_data"].Br, self.Results.Scenario.plasma_dict["eq_data"].Bt, \
-                                  self.Results.Scenario.plasma_dict["eq_data"].Bz, 0.0, 1.0, \
+                                  self.Results.Scenario.plasma_dict[self.Results.Scenario.plasma_dict["prof_reference"]][itime], \
+                                  self.Results.Scenario.plasma_dict["Te"][itime], \
+                                  self.Results.Scenario.plasma_dict["ne"][itime], self.Results.Scenario.plasma_dict["eq_data"][itime].R, \
+                                  self.Results.Scenario.plasma_dict["eq_data"][itime].z, self.Results.Scenario.plasma_dict["eq_data"][itime].rhop**2, \
+                                  self.Results.Scenario.plasma_dict["eq_data"][itime].Br, self.Results.Scenario.plasma_dict["eq_data"][itime].Bt, \
+                                  self.Results.Scenario.plasma_dict["eq_data"][itime].Bz, 0.0, 1.0, \
                                   launches, mode=mode)
+        evt_out = wx.PyCommandEvent(Unbound_EVT_THREAD_FINISHED, self.GetId())
+        wx.PostEvent(self, evt_out)
 
     def OnThreadFinished(self, evt):
         print("Updating ray information")
-        ray_path = os.path.join(self.Results.Config.working_dir, "ecfm_data", "ray")
+        ray_path = os.path.join(self.Results.Config.working_dir, "{0:d}_{1:1.3f}_rays".format(self.Results.Scenario.shot, self.time))
         if("x" + self.cur_mode_str + "tb" in self.Results.ray):
             for channel in range(len(self.Results.ray["x" + self.cur_mode_str][self.cur_selected_index])):
-                TBRay_file = np.loadtxt(os.path.join(ray_path, "Rz_beam_{0:1d}.dat".format(channel + 1)).replace(",", ""))
-                TBXRay_file = np.loadtxt(os.path.join(ray_path, "xy_beam_{0:1d}.dat".format(channel + 1)).replace(",", ""))
+                TBRay_file = np.loadtxt(os.path.join(ray_path, "Rz_beam_{0:1d}.dat".format(channel + 1)))
+                TBXRay_file = np.loadtxt(os.path.join(ray_path, "xy_beam_{0:1d}.dat".format(channel + 1)))
                 self.Results.ray["x" + self.cur_mode_str + "tb"][self.cur_selected_index].append(TBXRay_file.T[0] / 100.0)
                 self.Results.ray["y" + self.cur_mode_str + "tb"][self.cur_selected_index].append(TBXRay_file.T[1] / 100.0)
                 self.Results.ray["R" + self.cur_mode_str + "tb"][self.cur_selected_index].append(TBRay_file.T[0] / 100.0)
@@ -329,8 +333,8 @@ class PlotPanel(wx.Panel):
                 self.Results.ray["z" + self.cur_mode_str + "tbp2"].append([])
                 if(i == self.cur_selected_index):
                     for channel in range(len(self.Results.ray["x" + self.cur_mode_str][i])):
-                        TBRay_file = np.loadtxt(os.path.join(ray_path, "ray_ch_R{0:04n}tb.dat".format(channel + 1)).replace(",", ""))
-                        TBXRay_file = np.loadtxt(os.path.join(ray_path, "ray_ch_x{0:04n}tb.dat".format(channel + 1)).replace(",", ""))
+                        TBRay_file = np.loadtxt(os.path.join(ray_path, "Rz_beam_{0:1d}.dat".format(channel + 1)))
+                        TBXRay_file = np.loadtxt(os.path.join(ray_path, "xy_beam_{0:1d}.dat".format(channel + 1)))
                         self.Results.ray["x" + self.cur_mode_str + "tb"][i].append(TBXRay_file.T[0] / 100.0)
                         self.Results.ray["y" + self.cur_mode_str + "tb"][i].append(TBXRay_file.T[1] / 100.0)
                         self.Results.ray["R" + self.cur_mode_str + "tb"][i].append(TBRay_file.T[0] / 100.0)
@@ -472,16 +476,20 @@ class PlotPanel(wx.Panel):
                 elif(key is "IDA"):
                     IDA_dict = load_IDA_data(Results.Scenario.shot, timepoints= Results.time, \
                                              exp=self.Results.Scenario.IDA_exp, ed=self.Results.Scenario.IDA_ed)
-                    temp_diag_data["ECE data in IDA"] = Diagnostic(diag_dict[key])
-                    temp_diag_data["ECE data in IDA"].insert_data( IDA_dict["ECE_dat_rhop"], IDA_dict["ECE_dat"] * 1.e-3, 
-                                                                                    IDA_dict["ECE_unc"] * 1.e-3, np.zeros(IDA_dict["ECE_dat_rhop"].shape))
-                    temp_diag_data["ECE model in IDA"] = Diagnostic(diag_dict[key])
-                    temp_diag_data["ECE model in IDA"].insert_data( IDA_dict["ECE_rhop"], IDA_dict["ECE_mod"] * 1.e-3, 
-                                                                                    None, None)
                     temp_diag_data["IDA Te lower unc."] = Diagnostic(diag_dict[key],is_prof=True)
                     temp_diag_data["IDA Te lower unc."].insert_data( IDA_dict[IDA_dict["prof_reference"]], IDA_dict["Te_up"] * 1.e-3, None, None)
                     temp_diag_data["IDA Te upper unc."] = Diagnostic(diag_dict[key],is_prof=True)
                     temp_diag_data["IDA Te upper unc."].insert_data(IDA_dict[IDA_dict["prof_reference"]], IDA_dict["Te_low"] * 1.e-3, None, None)
+                    try:
+                        temp_diag_data["ECE data in IDA"] = Diagnostic(diag_dict[key])
+                        temp_diag_data["ECE data in IDA"].insert_data( IDA_dict["ECE_dat_rhop"], IDA_dict["ECE_dat"] * 1.e-3, 
+                                                                                        IDA_dict["ECE_unc"] * 1.e-3, np.zeros(IDA_dict["ECE_dat_rhop"].shape))
+                        temp_diag_data["ECE model in IDA"] = Diagnostic(diag_dict[key])
+                        temp_diag_data["ECE model in IDA"].insert_data( IDA_dict["ECE_rhop"], IDA_dict["ECE_mod"] * 1.e-3, 
+                                                                                    None, None)
+                    except Exception:
+                        del(temp_diag_data["ECE data in IDA"])
+                        print("Failed to get IDA ECE data due to python 3 problems with dd")
                 elif(key is "VTA"):
                     unc, prof = get_Thomson_data(Results.Scenario.shot, Results.time, diag_dict[key], \
                                                  Te=True, edge=True, \
@@ -565,6 +573,8 @@ class PlotPanel(wx.Panel):
                         temp_compare_data[plot_type][label]["x_2nd"] = x[1]
                         temp_compare_data[plot_type][label]["y"] = y
                         temp_compare_data[plot_type][label]["time"] = result.time
+                        temp_compare_data[plot_type][label]["profx"] = result.Scenario.plasma_dict[result.Scenario.plasma_dict["prof_reference"]] * result.Scenario.Te_rhop_scale
+                        temp_compare_data[plot_type][label]["profy"] = result.Scenario.plasma_dict["Te"] * result.Scenario.Te_scale / 1.e3
                         diag_mask = []
                         for itime in range(len(result.Scenario.plasma_dict["time"])):
                             diag_mask.append(result.Scenario.ray_launch[itime]["diag_name"])
@@ -631,9 +641,9 @@ class FigureBook(wx.Notebook):
 class PlotContainer(wx.Panel):
     def __init__(self, parent, figure_width = 12.0, figure_height = 8.5):
         wx.Panel.__init__(self, parent, wx.ID_ANY)
-        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self.sizer)
-        self.fig_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.ctrl_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.fig = plt.figure(figsize=(figure_width, figure_height), tight_layout=True, frameon=False)
         self.fig.clf()
         self.canvas = FigureCanvas(self, -1, self.fig)
@@ -643,10 +653,31 @@ class PlotContainer(wx.Panel):
         fw, th = self.plot_toolbar.GetSize().Get()
         self.plot_toolbar.SetSize(wx.Size(fw, th))
         self.plot_toolbar.Realize()
-        self.fig_sizer.Add(self.plot_toolbar, 0, wx.ALL | \
-                wx.LEFT , 5)
-        self.fig_sizer.Add(self.canvas, 0, wx.ALL | \
-                wx.EXPAND , 5)
+        self.ctrl_sizer.Add(self.plot_toolbar, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.lower_lim_tc = simple_label_tc(self, "lower limit", 0.0, "real")
+        self.upper_lim_tc = simple_label_tc(self, "upper limit", 0.0, "real")
+        self.axis_choice = wx.Choice(self, wx.ID_ANY)
+        self.axis_choice.Append("x")
+        self.axis_choice.Append("y")
+        self.axis_choice.Select(0)
+        self.set_lim_button = wx.Button(self, wx.ID_ANY, "Set axis limits")
+        self.set_lim_button.Bind(wx.EVT_BUTTON, self.OnSetLim)
+        self.auto_lim_button = wx.Button(self, wx.ID_ANY, "Auto limits")
+        self.auto_lim_button.Bind(wx.EVT_BUTTON, self.OnAutoLim)
+        self.ctrl_sizer.Add(self.lower_lim_tc, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.ctrl_sizer.Add(self.upper_lim_tc, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.ctrl_sizer.Add(self.axis_choice, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.ctrl_sizer.Add(self.set_lim_button, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.ctrl_sizer.Add(self.auto_lim_button, 0, wx.ALL | \
+                wx.ALIGN_CENTER_VERTICAL , 5)
+        self.sizer.Add(self.ctrl_sizer, 0, wx.ALL | wx.LEFT , 5)
+        self.sizer.Add(self.canvas, 0, wx.ALL | \
+                       wx.LEFT, 5)
         # self.fig_H_sizer = wx.BoxSizer(wx.VERTICAL)
         # self.fig_H = plt.figure(figsize=(12.0, 8.5), tight_layout=False)
         # self.fig_H.clf()
@@ -661,11 +692,41 @@ class PlotContainer(wx.Panel):
         #        wx.LEFT , 5)
         # self.fig_H_sizer.Add(self.canvas_H, 0, wx.ALL | \
         #        wx.EXPAND , 5)
-        self.sizer.Add(self.fig_sizer, 0, wx.ALL | wx.EXPAND , 5)
-        self.sizer.AddStretchSpacer()
         # self.sizer.Add(self.fig_H_sizer, 0, wx.ALL | wx.EXPAND , 5)
         self.pc_obj = plotting_core(self.fig, title=False)
 
+    def OnSetLim(self, evt):
+        try:
+            lower = self.lower_lim_tc.GetValue()
+            upper = self.upper_lim_tc.GetValue()
+            if(self.axis_choice.GetSelection() == 0):
+                self.pc_obj.axlist[0].set_xlim(lower,upper)
+                self.pc_obj.finishing_touches()
+                self.fig = self.pc_obj.fig
+                self.canvas.draw_idle()
+            else:
+                self.pc_obj.axlist[0].set_ylim(lower,upper)
+                self.pc_obj.finishing_touches()
+                self.fig = self.pc_obj.fig
+                self.canvas.draw_idle()
+        except Exception as e:
+            print("Failed to set limits")
+            print(e)
+            
+    def OnAutoLim(self, evt):
+        try:
+            if(self.axis_choice.GetSelection() == 0):
+                self.pc_obj.axlist[0].set_xlim(auto=True)
+                self.fig = self.pc_obj.fig
+                self.canvas.draw_idle()
+            else:
+                self.pc_obj.axlist[0].set_ylim(auto=True)
+                self.fig = self.pc_obj.fig
+                self.canvas.draw_idle()
+        except Exception as e:
+            print("Failed to set limits")
+            print(e)        
+            
     def Plot(self, plot_type, Config, Results, diag_data, diag_data_selected, other_results, other_results_selected, time, ch, \
              mode, alt_model, use_warm_res, max_unc, tau_threshhold, eq_aspect_ratio):
         self.pc_obj.reset(False)
@@ -906,24 +967,34 @@ class PlotContainer(wx.Panel):
             warm = False
             tau_mask = Results.tau[time_index] >= tau_threshhold
             if(Results.Config.extra_output and use_warm_res):
-                rhop = Results.resonance["rhop_warm"][time_index][tau_mask]
+                rhop = Results.resonance["rhop_warm"][time_index]
                 warm = True
             else:
-                rhop = Results.resonance["rhop_cold"][time_index][tau_mask]
+                rhop = Results.resonance["rhop_cold"][time_index]
             if(len(rhop) == 0):
                 print("No channels have an optical depth below the currently selected threshold!")
                 return False
-            Trad = Results.Trad[time_index][tau_mask]
             if(alt_model):
                 if(Results.Config.extra_output):
-                    Trad_comp = Results.Trad_comp[time_index][tau_mask]
+                    Trad_comp = Results.Trad_comp[time_index]
                 else:
                     Trad_comp = []
                     print("Secondary model was deactivated during the run.")
                     print("To enable it, activate extra outout und rerun ECRad!")
             else:
                 Trad_comp = []
-            diag_names = Results.Scenario.ray_launch[time_index]["diag_name"][tau_mask]
+            Trad = Results.Trad[time_index]
+            diag_names = Results.Scenario.ray_launch[time_index]["diag_name"]
+            if(multiple_models):
+                print("Multiple models do not support tau filtering -> disabling tau filtering.")
+            else:
+                Trad = Results.Trad[time_index][tau_mask]
+                rhop = rhop[tau_mask]
+                if(alt_model):
+                    Trad_comp=Trad_comp[tau_mask]
+                diag_names = diag_names[tau_mask]
+            rhop_Te= [Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale]
+            Te = [Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3]
             if(multiple_models):
                 rhop_list.append(np.copy(rhop))
                 Trad_list.append(np.copy(Trad))
@@ -939,6 +1010,9 @@ class PlotContainer(wx.Panel):
                     Trad_list.append(other_results["Trad"][entry]["y"][itime])
                     diag_name_list.append(other_results["Trad"][entry]["diag_mask"][itime])
                     label_list.append(entry)
+                    if("profx" in other_results["Trad"][entry]):
+                        rhop_Te.append(other_results["Trad"][entry]["profx"][itime])
+                        Te.append(other_results["Trad"][entry]["profy"][itime])
                 rhop = rhop_list
                 Trad = Trad_list
                 diag_names = diag_name_list
@@ -954,8 +1028,6 @@ class PlotContainer(wx.Panel):
                         diagdict[diag_name].rhop = Results.resonance["rhop_warm"][time_index][Results.Scenario.ray_launch[time_index]["diag_name"] == diag_name][tau_mask_diag]
                     else:
                         diagdict[diag_name].rhop = diagdict[diag_name].rhop[tau_mask_diag]
-            rhop_Te= Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
-            Te = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
                                          rhop_Te, Te,  diagdict, diag_names, \
                                              Config.dstf, alt_model]
