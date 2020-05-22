@@ -24,7 +24,7 @@ globalsettings.ECRadGUIRoot = os.getcwd()
 globalsettings.ECRadPylibRoot = ECRadPylibFolder
 try:
     from equilibrium_utils_AUG import EQData
-except OSError:
+except (OSError,ModuleNotFoundError):
     globalsettings.AUG = False
     print("Failed to load AUG libraries continuing in non-AUG mode.")
 import wx.lib.scrolledpanel as scrolled

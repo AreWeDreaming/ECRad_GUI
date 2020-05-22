@@ -225,7 +225,10 @@ class PlotPanel(wx.Panel):
         mode = self.mode_cb.GetValue()
         alt_model = self.alt_model_cb.GetValue()
         warm_res = self.use_warm_res_cb.GetValue() 
-        max_unc = self.max_unc_tc.GetValue()
+        if(globalsettings.AUG):
+            max_unc = self.max_unc_tc.GetValue()
+        else:
+            max_unc = np.inf
         tau_threshhold = self.tau_threshhold_tc.GetValue()
         eq_aspect_ratio = self.eq_aspect_ratio_cb.GetValue()
         figure_width = self.figure_width_tc.GetValue()
