@@ -125,7 +125,7 @@ class PlotPanel(wx.Panel):
             self.diag_box = wx.ListBox(self, wx.ID_ANY, style=wx.LB_MULTIPLE, size=(100,100))
             self.diag_box_sizer.Add(self.diag_box, 0, wx.ALL | wx.EXPAND, 5)
             self.time_smooth_tc = simple_label_tc(self, "smoothing time [ms]", 1.0, "real")
-            self.diag_box_sizer.Add(self.time_smooth_tc, 0, wx.ALL | wx.EXPAND, 5)
+            self.diag_box_sizer.Add(self.time_smooth_tc, 0, wx.ALL | wx.LEFT, 5)
             self.err_rb_sizer = wx.BoxSizer(wx.HORIZONTAL)
             self.use_std_dev_rb = wx.RadioButton(self, wx.ID_ANY, "Std. dev. for errorbar")
             self.use_std_err_rb = wx.RadioButton(self, wx.ID_ANY, "Std. err. for errorbar")
@@ -133,8 +133,15 @@ class PlotPanel(wx.Panel):
             self.err_rb_sizer.Add(self.use_std_dev_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
             self.err_rb_sizer.Add(self.use_std_err_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
             self.diag_box_sizer.Add(self.err_rb_sizer, 0, wx.ALL | wx.EXPAND, 5)
+            self.mode_filter_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            self.no_mode_filter_rb = wx.RadioButton(self, wx.ID_ANY, "Do not filter MHD modes", style = wx.RB_GROUP)
+            self.mode_filter_rb = wx.RadioButton(self, wx.ID_ANY, "Filter MHD modes")
+            self.no_mode_filter_rb.SetValue(True)
+            self.mode_filter_sizer.Add(self.no_mode_filter_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+            self.mode_filter_sizer.Add(self.mode_filter_rb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+            self.diag_box_sizer.Add(self.mode_filter_sizer, 0, wx.ALL | wx.EXPAND, 5)
             self.max_unc_tc = simple_label_tc(self, "Remove channels with uncertainty/data >", 0.5, "real")
-            self.diag_box_sizer.Add(self.max_unc_tc, 0, wx.ALL | wx.EXPAND, 5)
+            self.diag_box_sizer.Add(self.max_unc_tc, 0, wx.ALL | wx.LEFT, 5)
             self.clear_diags_button = wx.Button(self, wx.ID_ANY, "Unload diags")
             self.clear_diags_button.Bind(wx.EVT_BUTTON, self.OnClearDiags)
             self.diag_box_sizer.Add(self.clear_diags_button, 0, wx.ALL | wx.EXPAND, 5)
@@ -448,6 +455,7 @@ class PlotPanel(wx.Panel):
                     ext_resonances = np.array(ext_resonances)
                 else:
                     ext_resonances = None
+                diag_dict[key].mode_filter = self.mode_filter_rb.GetValue()
                 if(diag_dict[key].name in Results.calib):
                     #Cross calibrated diagnostic
                     calib = Results.calib[diag_dict[key].name]

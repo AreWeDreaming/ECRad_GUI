@@ -506,9 +506,8 @@ class CalibEvolutionPanel(wx.Panel):
         self.fig.clf()
         self.canvas = FigureCanvas(self, -1, self.fig)
         self.canvas.mpl_connect('motion_notify_event', self.UpdateCoords)
-        self.results = None
-        self.diagnostic = None
-        self.ch_cnt = 0
+        self.results_dict = {}
+        self.last_plot = None
         self.Bind(wx.EVT_ENTER_WINDOW, self.ChangeCursor)
         self.canvas.draw()
         self.pc_obj = plotting_core(self.fig, self.dummy_fig, False)
@@ -524,70 +523,57 @@ class CalibEvolutionPanel(wx.Panel):
         self.load_shots_button.Bind(wx.EVT_BUTTON, self.OnOpenOldFiles)
         self.button_sizer.Add(self.load_shots_button, 0, wx.ALL | \
                 wx.ALIGN_TOP, 5)
-        self.plot_button = wx.Button(self, 0, "Plot selected sets")
-        self.plot_button.Bind(wx.EVT_BUTTON, self.OnPlot)
-        self.button_sizer.Add(self.plot_button, 0, wx.ALL | \
-                wx.ALIGN_TOP, 5)
         # self.button_sizer.AddStretchSpacer(prop = 10)
         self.clear_results_button = wx.Button(self, 0, "Clear all sets")
         self.clear_results_button.Bind(wx.EVT_BUTTON, self.OnClearAllResults)
         self.button_sizer.Add(self.clear_results_button, 0, wx.ALL | \
+                wx.ALIGN_TOP, 5)
+        self.clear_plot_button = wx.Button(self, 0, "Clear plot")
+        self.clear_plot_button.Bind(wx.EVT_BUTTON, self.OnClearPlot)
+        self.button_sizer.Add(self.clear_plot_button, 0, wx.ALL | \
                 wx.ALIGN_TOP, 5)
         self.button_ctrl_sizer.Add(self.button_sizer, 0, wx.ALL | wx.ALIGN_LEFT, 5)
         self.canvas_sizer.Add(self.plot_toolbar, 0, wx.ALL | \
                 wx.ALIGN_LEFT, 5)
         self.canvas_sizer.Add(self.canvas, 0, wx.ALL | \
                 wx.ALIGN_LEFT, 5)
-        self.used = []
-        self.unused = []
-        self.select_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.used_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.used_text = wx.StaticText(self, wx.ID_ANY, "Used shots")
-        self.used_list = wx.ListBox(self, wx.ID_ANY, style=wx.LB_MULTIPLE)
-        self.shotlist = []
-        self.ECRad_result_list = []
-        self.used_sizer.Add(self.used_text, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.used_sizer.Add(self.used_list, 1, wx.ALL | wx.EXPAND, 5)
-        self.select_button_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.RemoveButton = wx.Button(self, wx.ID_ANY, '>>')
-        self.RemoveButton.Bind(wx.EVT_BUTTON, self.OnRemoveSelection)
-        self.AddButton = wx.Button(self, wx.ID_ANY, '<<')
-        self.AddButton.Bind(wx.EVT_BUTTON, self.OnAddSelection)
-        self.select_button_sizer.Add(self.RemoveButton, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.select_button_sizer.Add(self.AddButton, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.unused_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.unused_text = wx.StaticText(self, wx.ID_ANY, "Unused shots")
-        self.unused_list = wx.ListBox(self, wx.ID_ANY, style=wx.LB_MULTIPLE)
-        self.unused_sizer.Add(self.unused_text, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.unused_sizer.Add(self.unused_list, 1, wx.ALL | wx.EXPAND, 5)
-        self.select_sizer.Add(self.used_sizer, 1, wx.ALL | wx.EXPAND, 5)
-        self.select_sizer.Add(self.select_button_sizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
-        self.select_sizer.Add(self.unused_sizer, 1, wx.ALL | wx.EXPAND, 5)
-        self.select_shot_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.select_shot_sizer.Add(self.select_sizer, 0, wx.ALL | wx.EXPAND, 5)
         self.sizer.Add(self.button_ctrl_sizer, 0, wx.ALL | \
                 wx.EXPAND, 5)
-        self.button_ctrl_sizer.Add(self.select_shot_sizer, 1, \
-                wx.EXPAND, 0)
-        self.channel_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.diagnostic_tc = simple_label_tc(self, "diagnostic", "CTA", "string")
-        self.channel_sizer.Add(self.diagnostic_tc, 0, wx.ALL | wx.ALIGN_CENTER)
+        self.select_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.result_select_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.result_label = wx.StaticText(self, wx.ID_ANY, "Result")
+        self.results_ch = wx.Choice(self, wx.ID_ANY)
+        self.results_ch.Bind(wx.EVT_CHOICE, self.OnResultSelected)
+        self.result_select_sizer.Add(self.result_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.result_select_sizer.Add(self.results_ch, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.select_sizer.Add(self.result_select_sizer, 0, wx.ALL | wx.ALIGN_CENTER)
+        self.diag_select_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.diag_label = wx.StaticText(self, wx.ID_ANY, "Diagnostic")
+        self.diag_ch = wx.Choice(self, wx.ID_ANY)
+        self.diag_ch.Bind(wx.EVT_CHOICE, self.OnDiagSelected)
+        self.diag_select_sizer.Add(self.diag_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.diag_select_sizer.Add(self.diag_ch, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.select_sizer.Add(self.diag_select_sizer, 0, wx.ALL | wx.ALIGN_CENTER)
         self.channel_label_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.ch_label = wx.StaticText(self, wx.ID_ANY, "Channel to be plotted")
-        self.ch_ch = wx.Choice(self, wx.ID_ANY)
-        self.channel_label_sizer.Add(self.ch_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.channel_label_sizer.Add(self.ch_ch, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.channel_sizer.Add(self.channel_label_sizer, 0, wx.ALL | wx.ALIGN_CENTER)
-        self.button_ctrl_sizer.Add(self.channel_sizer, 0, wx.ALL | wx.ALIGN_LEFT, 5)
-        self.adv_plot_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.channel_label = wx.StaticText(self, wx.ID_ANY, "Channel")
+        self.channel_ch = wx.Choice(self, wx.ID_ANY)
+        self.channel_label_sizer.Add(self.channel_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.channel_label_sizer.Add(self.channel_ch, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.select_sizer.Add(self.channel_label_sizer, 0, wx.ALL | wx.ALIGN_CENTER)
+        self.button_ctrl_sizer.Add(self.select_sizer, 0, wx.ALL | wx.ALIGN_LEFT, 5)
+        self.plot_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.plot_trace_button = wx.Button(self, 0, "Plot time trace")
+        self.plot_trace_button.Bind(wx.EVT_BUTTON, self.OnPlotTrace)
         self.plot_button_Trad = wx.Button(self, 0, "Plot againt Trad")
         self.plot_button_Trad.Bind(wx.EVT_BUTTON, self.OnPlotTradvsSignal)
         self.plot_button_launch = wx.Button(self, 0, "Plot againt launch")
         self.plot_button_launch.Bind(wx.EVT_BUTTON, self.OnPlotCalibvsLaunch)
         self.plot_button_comp = wx.Button(self, 0, "Meas. vs. expected")
         self.plot_button_comp.Bind(wx.EVT_BUTTON, self.OnPlotDiagVsTrad)
-        self.adv_plot_sizer.Add(self.plot_button_Trad, 0, wx.ALL | wx.ALIGN_LEFT, 5)
-        self.adv_plot_sizer.Add(self.plot_button_launch, 0, wx.ALL | wx.ALIGN_LEFT, 5)
+        self.plot_sizer.Add(self.plot_trace_button, 0, wx.ALL | \
+                            wx.ALIGN_TOP, 5)
+        self.plot_sizer.Add(self.plot_button_Trad, 0, wx.ALL | wx.ALIGN_LEFT, 5)
+        self.plot_sizer.Add(self.plot_button_launch, 0, wx.ALL | wx.ALIGN_LEFT, 5)
         self.Trad_comp_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.Trad_comp_sizer.Add(self.plot_button_comp, 0, wx.ALL | wx.ALIGN_LEFT, 5)
         self.ECE_diag_exp_tc = simple_label_tc(self, "exp", "AUGD", "string")
@@ -596,43 +582,16 @@ class CalibEvolutionPanel(wx.Panel):
         self.Trad_comp_sizer.Add(self.ECE_diag_exp_tc, 0, wx.ALL | wx.ALIGN_LEFT, 5)
         self.Trad_comp_sizer.Add(self.ECE_diag_diag_tc, 0, wx.ALL | wx.ALIGN_LEFT, 5)
         self.Trad_comp_sizer.Add(self.ECE_diag_ed_tc, 0, wx.ALL | wx.ALIGN_LEFT, 5)
-        self.button_ctrl_sizer.Add(self.adv_plot_sizer, 0, wx.ALL | wx.ALIGN_LEFT, 5)
+        self.button_ctrl_sizer.Add(self.plot_sizer, 0, wx.ALL | wx.ALIGN_LEFT, 5)
         self.button_ctrl_sizer.Add(self.Trad_comp_sizer, 0, wx.ALL | wx.ALIGN_LEFT, 5)
         self.sizer.Add(self.canvas_sizer, 0, wx.ALL | \
                 wx.ALIGN_TOP, 5)
         self.SetClientSize(self.GetEffectiveMinSize())
 
-    def OnAddSelection(self, evt):
-        sel = self.unused_list.GetSelections()
-        for i_sel in sel:
-            string = self.unused_list.GetString(i_sel)
-            self.used.append(self.unused.pop(self.unused.index(string)))
-        self.used = list(set(self.used))
-        self.used.sort()
-        self.unused = list(set(self.unused))
-        self.unused.sort()
-        self.used_list.Clear()
-        if(len(self.used) > 0):
-            self.used_list.AppendItems(self.used)
-        self.unused_list.Clear()
-        if(len(self.unused) > 0):
-            self.unused_list.AppendItems(self.unused)
-
-    def OnRemoveSelection(self, evt):
-        sel = self.used_list.GetSelections()
-        for i_sel in sel:
-            string = self.used_list.GetString(i_sel)
-            self.unused.append(self.used.pop(self.used.index(string)))
-        self.used = list(set(self.used))
-        self.used.sort()
-        self.unused = list(set(self.unused))
-        self.unused.sort()
-        self.used_list.Clear()
-        if(len(self.used) > 0):
-            self.used_list.AppendItems(self.used)
-        self.unused_list.Clear()
-        if(len(self.unused) > 0):
-            self.unused_list.AppendItems(self.unused)
+    def OnClearPlot(self, evt):
+        self.fig.clf()
+        self.canvas.draw()
+        self.last_plot = None
 
     def OnOpenOldFiles(self, evt):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
@@ -644,152 +603,69 @@ class CalibEvolutionPanel(wx.Panel):
             wildcard=('Matlab files (*.mat)|*.mat'),
             style=wx.FD_OPEN | wx.FD_MULTIPLE)
         if(dlg.ShowModal() == wx.ID_OK):
-            self.diagnostic = self.diagnostic_tc.GetValue()
             paths = dlg.GetPaths()
             dlg.Destroy()
-            new_results = []
             for path in paths:
-                new_results.append(ECRadResults())
-                if(new_results[-1].from_mat_file(path) == False):
+                self.results_dict[os.path.basename(path)] = ECRadResults()
+                if(self.results_dict[os.path.basename(path)].from_mat_file(path) == False):
                     print("Failed to load file at " + path)
+                    del(self.results_dict[os.path.basename(path)])
                     continue
-                if(self.diagnostic not in list(new_results[-1].calib)):
-                    print("No calibration for " + self.diagnostic + " in " + path)
-                    print("Available Calibrations: ", list(new_results[-1].calib))
-                    del(new_results[-1])
-                    continue
-                if(len(new_results[-1].time[new_results[-1].masked_time_points[self.diagnostic]]) < 2):
-                    print(path + " contains only a single time point with a calibration")
-                    print("At least two calibration time points are required for these plots")
-                    del(new_results[-1])
-                    continue
-#                elif("ed{0:d}".format(new_results[-1].edition) not in path):
-#                    print("Edition in .mat file does not match filename - distributing new edition according to filename")
-#                    new_results[-1].edition = 0
-#                    while("ed{0:d}".format(new_results[-1].edition) not in path):
-#                        new_results[-1].edition += 1
-                # it would be nice to have also Te in this plot, but the mapping is a pain
-#                new_results[-1].time, new_results[-1].Scenario.plasma_dict = load_IDA_data(self.Results.Scenario.shot, \
-#                                    new_results[-1].time, self.Results.Scenario.IDA_exp, self.Results.Scenario.IDA_ed)
-            if(len(new_results) == 0):
-                print("No valid calibrations found")
-                return
-            if(len(self.ECRad_result_list) == 0):
-                self.ECRad_result_list = new_results
-                self.shotlist = []
-                self.editionlist = []
-                ishot = 0
-                try:
-                    self.ch_cnt = len(self.ECRad_result_list[ishot].calib[self.diagnostic])
-                except KeyError:
-                    print("Warning!! # {0:d} edition {1:d} does not have a calibration for the selected diagnostic".format(\
-                                      self.ECRad_result_list[ishot].Scenario.shot, self.ECRad_result_list[ishot].edition))
-                    print("Available diagnostics: ", list(self.ECRad_result_list[ishot].calib))
-                    return
-                if(self.ch_cnt == 0):
-                    while(self.ch_cnt == 0):
-                        ishot += 1
-                        if(ishot == len(self.ECRad_result_list)):
-                            print("Error: None of the selected shots holds any information for your selected diagnostic")
-                            print("Please double check that the desired diagnostic has been selected")
-                            self.ECRad_result_list = []
-                            return
-                        try:
-                            self.ch_cnt = len(self.ECRad_result_list[ishot].calib[self.diagnostic])
-                        except KeyError:
-                            print("Warning!! # {0:d} edition {1:d} does not have a calibration for the selected diagnostic".format(\
-                                              self.ECRad_result_list[ishot].Scenario.shot, self.ECRad_result_list[ishot].edition))
-                cur_ch_cnt = 0
-                for result in self.ECRad_result_list[ishot:len(self.ECRad_result_list)]:
-                    try:
-                        cur_ch_cnt = len(result.calib[self.diagnostic])
-                        if(self.ch_cnt != cur_ch_cnt):
-                            print("Warning!! # {0:d} edition {1:d} does not have the same amount of diagnostic channels as the first shot".format(\
-                                          result.Scenario.shot, result.edition))
-                            print("To avoid the comparison of pears with apples the affected shots were not added to the list")
-                        else:
-                            self.shotlist.append(str(result.Scenario.shot))
-                            self.editionlist.append(str(result.edition))
-                    except KeyError:
-                        print("Warning!! # {0:d} edition {1:d} does not have a calibration for the selected diagnostic".format(\
-                                          result.Scenario.shot, self.ECRad_result_list[ishot].edition))
-                for i in range(len(self.shotlist)):
-                    self.used.append(self.shotlist[i] + "_ed_" + self.editionlist[i])
-                self.used_list.AppendItems(self.used)
-                self.ch_ch.AppendItems(list(map(str, range(1, self.ch_cnt + 1))))
-            else:
-                for new_result in new_results:
-                    new_result_replaced_old = False
-                    for index in range(len(self.ECRad_result_list)):
-                        if(new_result.Scenario.shot == self.ECRad_result_list[index].Scenario.shot and new_result.edition == self.ECRad_result_list[index].edition):
-                            new_result_replaced_old = True
-                            try:
-                                cur_ch_cnt = len(new_result.calib[self.diagnostic])
-                                if(self.ch_cnt != cur_ch_cnt):
-                                    print("Warning!! # {0:d} edition {1:d} does not have the same amount of diagnostic channels as the first shot".format(\
-                                                  new_result.Scenario.shot, new_result.edition))
-                                    print("To avoid the comparison of pears with apples the affected shots were not added to the list")
-                                else:
-                                    self.ECRad_result_list[index] = new_result
-                            except KeyError:
-                                print("Warning!! # {0:d} edition {1:d} does not have a calibration for the selected diagnostic".format(\
-                                                  new_result.Scenario.shot, new_result.edition))
-                            break
-                    if(not new_result_replaced_old):
-                        try:
-                            cur_ch_cnt = len(new_result.calib[self.diagnostic])
-                            if(self.ch_cnt != cur_ch_cnt):
-                                print("Warning!! # {0:d} edition {1:d} does not have the same amount of diagnostic channels as the first shot".format(\
-                                              new_result.Scenario.shot, new_result.edition))
-                                print("To avoid the comparison of pears with apples the affected shots were not added to the list")
-                            else:
-                                self.ECRad_result_list.append(new_result)
-                                self.shotlist.append(str(self.ECRad_result_list[-1].Scenario.shot))
-                                self.editionlist.append(str(self.ECRad_result_list[-1].edition))
-                                self.used.append(self.shotlist[-1] + "_ed_" + self.editionlist[-1])
-                                self.used_list.Clear()
-                                self.used = list(set(self.used))
-                                self.used.sort()
-                                self.used_list.AppendItems(self.used)
-                        except KeyError:
-                            print("Error!! # {0:d} edition {1:d} does not have a calibration for the selected diagnostic".format(\
-                                              new_result.Scenario.shot, new_result.edition))
-            if(len(self.ch_ch.GetItems()) > 0):
-                self.ch_ch.Select(0)
+            self.results_ch.Clear()
+            result_keys = list(self.results_dict.keys())
+            result_keys.sort()
+            self.results_ch.AppendItems(result_keys)
+            self.results_ch.Select(0)
+            self.OnResultSelected(None)
+    
+    def OnResultSelected(self, evt):
+        self.diag_ch.Clear()
+        self.selected_result = self.results_dict[self.results_ch.GetStringSelection()]
+        calib_keys = list(self.selected_result.calib.keys())
+        if(len(calib_keys) == 0):
+            print("No calibration in the selected file.")
+            return
+        calib_keys.sort()
+        self.diag_ch.AppendItems(calib_keys)
+        self.diag_ch.Select(0)
+        self.OnDiagSelected(None)
+        
+    def OnDiagSelected(self, evt):
+        self.selected_diag = self.diag_ch.GetStringSelection()
+        self.channel_ch.Clear()
+        ch_list = np.asarray(range(1, len(self.selected_result.calib[self.selected_diag]) + 1),dtype=np.str)
+        self.channel_ch.AppendItems(list(ch_list))
+        self.channel_ch.Select(0)
+        
 
-
-    def OnPlot(self, evt):
+    def OnPlotTrace(self, evt):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Plotting - GUI might be unresponsive for a minute - please wait!')
         self.GetEventHandler().ProcessEvent(evt)
-        if(len(self.used) == 0):
-            print("Error: No shots marked for plotting!")
-            return
-        self.pc_obj.reset(True)
-        self.fig.clf()
-        self.canvas.draw()
-        used_results = []
-        for result in self.ECRad_result_list:
-            if(str(result.Scenario.shot) + "_ed_" + str(result.edition) in self.used):
-                used_results.append(result)
-        ch = self.ch_ch.GetSelection()
+        new_plot = False
+        if(self.last_plot != "time trace"):
+            new_plot=True
+            self.pc_obj.reset(True)
+            self.fig.clf()
+            self.canvas.draw()
+        ch = int(self.channel_ch.GetSelection())
         if(ch < 0):
             print("Error!!: No channel selected")
             return
         if(globalsettings.AUG):
-            cur_result = used_results[0]
             from shotfile_handling_AUG import get_shot_heating
-            heating_array = get_shot_heating(cur_result.Scenario.shot)
+            heating_array = get_shot_heating(self.selected_result.Scenario.shot)
             for heating in heating_array:
-                heating_mask = np.logical_and(heating[0] >= np.min(result.time[result.masked_time_points[self.diagnostic]]), \
-                                                  heating[0] <= np.max(result.time[result.masked_time_points[self.diagnostic]]))
+                heating_mask = np.logical_and(heating[0] >= np.min(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]]), \
+                                                  heating[0] <= np.max(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]]))
                 heating[0], heating[1] = moving_average(heating[0][heating_mask], heating[1][heating_mask], 5.e-2)
-            ne = cur_result.Scenario.plasma_dict["ne"].T[0][cur_result.masked_time_points[self.diagnostic]] # Central ne
-            time_ne, ne = moving_average(cur_result.time[cur_result.masked_time_points[self.diagnostic]], ne, 6.e-2)
-            self.fig = self.pc_obj.calib_evolution(self.diagnostic, ch, used_results, heating_array, time_ne, ne)
+            ne = self.selected_result.Scenario.plasma_dict["ne"].T[0][self.selected_result.masked_time_points[self.selected_diag]] # Central ne
+            time_ne, ne = moving_average(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]], ne, 6.e-2)
+            self.fig = self.pc_obj.calib_evolution(new_plot, self.selected_diag, ch, self.selected_result, heating_array, time_ne, ne)
         else:
-            self.fig = self.pc_obj.calib_evolution(self.diagnostic, ch, used_results)
+            self.fig = self.pc_obj.calib_evolution(new_plot, self.selected_diag, ch, self.selected_result)
         self.canvas.draw()
+        self.last_plot = "time trace"
         evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
         self.GetEventHandler().ProcessEvent(evt)
 
@@ -797,16 +673,15 @@ class CalibEvolutionPanel(wx.Panel):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Plotting - GUI might be unresponsive for a minute - please wait!')
         self.GetEventHandler().ProcessEvent(evt)
-        if(len(self.used) == 0):
-            print("Error: No shots marked for plotting!")
-            return
-        self.pc_obj.reset(True)
-        self.fig.clf()
-        self.canvas.draw()
-        used_results = []
-        if(self.diagnostic == "CTC" or self.diagnostic == "IEC" or self.diagnostic == "CTA"):
+        new_plot = False
+        if(self.last_plot != "Trad vs Signal"):
+            new_plot=True
+            self.pc_obj.reset(True)
+            self.fig.clf()
+            self.canvas.draw()
+        if(self.selected_diag in ["CTC", "IEC", "CTA"]):
             try:
-                beamline = self.ECRad_result_list[0].Scenario.used_diags_dict[self.diagnostic].beamline
+                beamline = self.selected_result.Scenario.used_diags_dict[self.selected_diag].beamline
             except KeyError:
                 print("Failed to get beamliune - if this is an overwritten EXT diag calculation this is expected")
                 beamline = 0
@@ -816,66 +691,59 @@ class CalibEvolutionPanel(wx.Panel):
             pol_ang_list = []
         print("The poloidal angle plot is disabled at the moment")
         beamline = -1
-        for result in self.ECRad_result_list:
-            if(str(result.Scenario.shot) + "_ed_" + str(result.edition) in self.used):
-                used_results.append(result)
-            if(beamline > 0):
-                import get_ECRH_config
-                gy = get_ECRH_config.get_ECRH_viewing_angles(result.Scenario.shot, beamline, self.ECRad_result_list[0].Scenario.used_diags_dict[self.diagnostic].base_freq_140)
-                pol_ang = []
-                for t in result.time:
-                    pol_ang.append(gy.theta_pol[np.argmin(np.abs(gy.time - t))])
-                pol_ang_list.append(np.array(pol_ang))
-                del(get_ECRH_config)
-        ch = self.ch_ch.GetSelection()
+        if(beamline > 0):
+            import get_ECRH_config
+            gy = get_ECRH_config.get_ECRH_viewing_angles(self.selected_result.Scenario.shot, beamline, \
+                                                         self.selected_result.Scenario.used_diags_dict[self.selected_diag].base_freq_140)
+            pol_ang = []
+            for t in self.selected_result.time:
+                pol_ang.append(gy.theta_pol[np.argmin(np.abs(gy.time - t))])
+            pol_ang_list.append(np.array(pol_ang))
+            del(get_ECRH_config)
+        ch = int(self.channel_ch.GetSelection())
         if(ch < 0):
             print("Error!!: No channel selected")
             return
-        time_list = []
-        diag_data = []
-        std_dev_data = []
-        dummy_std_dev_calib = np.zeros(len(result.calib[self.diagnostic]))
-        dummy_calib = np.zeros(len(result.calib[self.diagnostic]))
+        dummy_std_dev_calib = np.zeros(len(self.selected_result.calib[self.selected_diag]))
+        dummy_calib = np.zeros(len(self.selected_result.calib[self.selected_diag]))
         dummy_calib[:] = 1.e0
-        calib_diag = used_results[0].Scenario.used_diags_dict[self.diagnostic]
-        popt_list = []
-        for result in used_results:
-            time_list.append(result.time)
-            Trad = []
-            for itime in range(len(result.time)):
-                if(result.masked_time_points[self.diagnostic][itime]):
-                    Trad.append(result.Trad[itime][result.Scenario.ray_launch[itime]["diag_name"]  == self.diagnostic])
-            Trad = np.array(Trad)
-            if(result.Config.extra_output):
-                resonances = result.resonance["rhop_warm"]
-            else:
-                resonances = result.resonance["rhop_cold"]
-            std_dev, data = get_data_calib(diag=calib_diag, shot=result.Scenario.shot, time=result.time[result.masked_time_points[self.diagnostic]], \
-                                           eq_exp=result.Scenario.EQ_exp, eq_diag=result.Scenario.EQ_diag, eq_ed=result.Scenario.EQ_ed, \
-                                           calib=dummy_calib, \
-                                           std_dev_calib=dummy_std_dev_calib, \
-                                           ext_resonances=resonances)
-            diag_data.append(data[1].T[ch])
-            std_dev_data.append(np.copy(std_dev[0].T[ch]))
-            popt, perr = make_fit('linear', Trad.T[ch], \
-                                  data[1].T[ch], std_dev[0].T[ch], \
-                                  [0.0, 1.0 / np.mean(result.calib_mat[self.diagnostic].T[ch])])
-            # Largest deviation of calibration coefficient from measurement minus standard deviation of the measurement
-            systematic_error = np.sqrt(np.sum((1.0 / popt[1] - (Trad.T[ch] / \
-                                                                data[1].T[ch])) ** 2) / \
-                                       len(Trad.T[ch]))
-            print("Pseudo systematic error [%] and systematic vs. statistical error ", np.abs(systematic_error * popt[1] * 100.0), \
-                  np.abs(systematic_error / (perr[1] / popt[1] ** 2)))
-            print("Inital relative error:", np.sqrt(perr[1] ** 2 / popt[1] ** 4) * popt[1])
-            popt_list.append(popt)
-            print("Fit result: U_0 [V], c [keV/V] / error")
-            print("{0:1.4f}, {1:1.4f} / {2:1.4f} , {3:1.4f}".format(popt[0], 1.e0 / popt[1], perr[0], np.sqrt(perr[1] ** 2 / popt[1] ** 4)))
-            print("Result from calib and std. dev.")
-            print("{0:1.4f}, {1:1.4f}".format(result.calib[self.diagnostic][ch], result.rel_dev[self.diagnostic][ch] * result.calib[self.diagnostic][ch] / 100.0))
-            Trad0 = popt[0] / popt[1]
-            DeltaTrad0 = np.sqrt(perr[0] ** 2 / popt[1] ** 2 + perr[1] ** 2 * popt[0] ** 2 / popt[1] ** 4)
-            print("Trad with zero signal and error [keV]:")
-            print("{0:1.4f}, {1:1.4f}".format(Trad0, DeltaTrad0))
+        Trad = []
+        for itime in range(len(self.selected_result.time)):
+            if(self.selected_result.masked_time_points[self.selected_diag][itime]):
+                Trad.append(self.selected_result.Trad[itime][self.selected_result.Scenario.ray_launch[itime]["diag_name"]  == self.selected_diag])
+        Trad = np.array(Trad)
+        if(self.selected_result.Config.extra_output):
+            resonances = self.selected_result.resonance["rhop_warm"]
+        else:
+            resonances = self.selected_result.resonance["rhop_cold"]
+        std_dev, data = get_data_calib(diag=self.selected_result.Scenario.used_diags_dict[self.selected_diag], \
+                                       shot=self.selected_result.Scenario.shot, \
+                                       time=self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]], \
+                                       eq_exp=self.selected_result.Scenario.EQ_exp, eq_diag=self.selected_result.Scenario.EQ_diag, eq_ed=self.selected_result.Scenario.EQ_ed, \
+                                       calib=dummy_calib, \
+                                       std_dev_calib=dummy_std_dev_calib, \
+                                       ext_resonances=resonances)
+        diag_data = data[1].T[ch]
+        std_dev = np.copy(std_dev[0].T[ch])
+        popt, perr = make_fit('linear', Trad.T[ch], \
+                              diag_data, std_dev, \
+                              [0.0, 1.0 / np.mean(self.selected_result.calib_mat[self.selected_diag].T[ch])])
+        # Largest deviation of calibration coefficient from measurement minus standard deviation of the measurement
+        systematic_error = np.sqrt(np.sum((1.0 / popt[1] - (Trad.T[ch] / \
+                                                            data[1].T[ch])) ** 2) / \
+                                   len(Trad.T[ch]))
+        print("Pseudo systematic error [%] and systematic vs. statistical error ", np.abs(systematic_error * popt[1] * 100.0), \
+              np.abs(systematic_error / (perr[1] / popt[1] ** 2)))
+        print("Inital relative error:", np.sqrt(perr[1] ** 2 / popt[1] ** 4) * popt[1])
+        print("Fit result: U_0 [V], c [keV/V] / error")
+        print("{0:1.4f}, {1:1.4f} / {2:1.4f} , {3:1.4f}".format(popt[0], 1.e0 / popt[1], perr[0], np.sqrt(perr[1] ** 2 / popt[1] ** 4)))
+        print("Result from calib and std. dev.")
+        print("{0:1.4f}, {1:1.4f}".format(self.selected_result.calib[self.selected_diag][ch], self.selected_result.rel_dev[self.selected_diag][ch] * \
+                                          self.selected_result.calib[self.selected_diag][ch] / 100.0))
+        Trad0 = popt[0] / popt[1]
+        DeltaTrad0 = np.sqrt(perr[0] ** 2 / popt[1] ** 2 + perr[1] ** 2 * popt[0] ** 2 / popt[1] ** 4)
+        print("Trad with zero signal and error [keV]:")
+        print("{0:1.4f}, {1:1.4f}".format(Trad0, DeltaTrad0))
         if(beamline > 0):
             min_ang = np.inf
             max_ang = -np.inf
@@ -885,70 +753,69 @@ class CalibEvolutionPanel(wx.Panel):
                 if(np.min(pol_ang_list[i]) < min_ang):
                     min_ang = np.min(pol_ang_list[i])
             if(max_ang - min_ang > 3):
-                self.fig = self.pc_obj.calib_evolution_Trad(self.diagnostic, ch, used_results, diag_data, std_dev_data, popt_list, pol_ang_list)  # , diag_time_list, diag_data_list
+                self.fig = self.pc_obj.calib_evolution_Trad(new_plot, self.selected_diag, ch, self.selected_result, diag_data, std_dev, popt, pol_ang_list)  # , diag_time_list, diag_data_list
             else:
-                self.fig = self.pc_obj.calib_evolution_Trad(self.diagnostic, ch, used_results, diag_data, std_dev_data, popt_list)  # , diag_time_list, diag_data_list
+                self.fig = self.pc_obj.calib_evolution_Trad(new_plot, self.selected_diag, ch, self.selected_result, diag_data, std_dev, popt)  # , diag_time_list, diag_data_list
         else:
-            self.fig = self.pc_obj.calib_evolution_Trad(self.diagnostic, ch, used_results, diag_data, std_dev_data, popt_list)  # , diag_time_list, diag_data_list
+            self.fig = self.pc_obj.calib_evolution_Trad(new_plot, self.selected_diag, ch, self.selected_result, diag_data, std_dev, popt)  # , diag_time_list, diag_data_list
         self.canvas.draw()
+        self.last_plot = "Trad vs Signal"
         evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
         self.GetEventHandler().ProcessEvent(evt)
 
     def OnPlotCalibvsLaunch(self, evt):
+        print("This feature has been temporarily disabled")
+        print("If you think you need this feature please contact the developer")
+        return
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Plotting - GUI might be unresponsive for a minute - please wait!')
         self.GetEventHandler().ProcessEvent(evt)
-        if(len(self.used) == 0):
-            print("Error: No shots marked for plotting!")
-            return
-        self.pc_obj.reset(True)
-        self.fig.clf()
-        self.canvas.draw()
-        used_results = []
-        if(self.diagnostic == "CTC" or self.diagnostic == "IEC" or self.diagnostic == "CTA"):
-            beamline = self.ECRad_result_list[0].Scenario.used_diags_dict[self.diagnostic].beamline
+        new_plot = False
+        if(self.last_plot != "Calib vs launch"):
+            new_plot=True
+            self.pc_obj.reset(True)
+            self.fig.clf()
+            self.canvas.draw()
+        if(self.selected_diag in ["CTC", "IEC", "CTA"]):
+            beamline = self.ECRad_result_list[0].Scenario.used_diags_dict[self.selected_diag].beamline
         else:
             print("This plot is only sensible for steerable ECE!")
             return
-        pol_ang_list = []
-        for result in self.ECRad_result_list:
-            if(str(result.Scenario.shot) + "_ed_" + str(result.edition) in self.used):
-                used_results.append(result)
-            gy = get_ECRH_viewing_angles(result.Scenario.shot, beamline, self.ECRad_result_list[0].Scenario.used_diags_dict[self.diagnostic].base_freq_140)
-            pol_ang = []
-            for t in result.time:
-                pol_ang.append(gy.theta_pol[np.argmin(np.abs(gy.time - t))])
-            pol_ang_list.append(np.array(pol_ang))
-        ch = self.ch_ch.GetSelection()
+        gy = get_ECRH_viewing_angles(self.selected_result.Scenario.shot, beamline, \
+                                     self.ECRad_result_list[0].Scenario.used_diags_dict[self.selected_diag].base_freq_140)
+        pol_ang = []
+        for t in self.selected_result.time:
+            pol_ang.append(gy.theta_pol[np.argmin(np.abs(gy.time - t))])
+        ch = int(self.channel_ch.GetSelection())
         if(ch < 0):
             print("Error!!: No channel selected")
             return
 #        diag_time_list = []
 #        diag_data_list = []
 #        for result in self.ECRad_result_list:
-#            diag_time, diag_data = get_diag_data_no_calib(result.used_diags_dict[self.diagnostic], self.Results.Scenario.shot, preview=True)
+#            diag_time, diag_data = get_diag_data_no_calib(result.used_diags_dict[self.selected_diag], self.Results.Scenario.shot, preview=True)
 #            diag_time_list.append(diag_time)
 #            diag_data_list.append(diag_data.T[ch])
-        self.fig = self.pc_obj.calib_vs_launch(self.diagnostic, ch, used_results, pol_ang_list)  # , diag_time_list, diag_data_list
+        self.fig = self.pc_obj.calib_vs_launch(self.selected_diag, ch, self.selected_result, pol_ang)  # , diag_time_list, diag_data_list
         self.canvas.draw()
+        self.last_plot == "Calib vs launch"
         evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
         self.GetEventHandler().ProcessEvent(evt)
 
     def OnPlotDiagVsTrad(self, evt):
+        print("This feature has been temporarily disabled")
+        print("If you think you need this feature please contact the developer")
+        return
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Plotting - GUI might be unresponsive for a minute - please wait!')
         self.GetEventHandler().ProcessEvent(evt)
-        if(len(self.used) == 0):
-            print("Error: No shots marked for plotting!")
-            return
-        self.pc_obj.reset(True)
-        self.fig.clf()
-        self.canvas.draw()
-        used_results = []
-        for result in self.ECRad_result_list:
-            if(str(result.Scenario.shot) + "_ed_" + str(result.edition) in self.used):
-                used_results.append(result)
-        ch = self.ch_ch.GetSelection()
+        new_plot = False
+        if(self.last_plot != "Diag vs Trad"):
+            new_plot=True
+            self.pc_obj.reset(True)
+            self.fig.clf()
+            self.canvas.draw()
+        ch = int(self.channel_ch.GetSelection())
         if(ch < 0):
             print("Error!!: No channel selected")
             return
@@ -956,67 +823,60 @@ class CalibEvolutionPanel(wx.Panel):
         ECE_diag_diag = self.ECE_diag_diag_tc.GetValue()
         ECE_diag_ed = self.ECE_diag_ed_tc.GetValue()
         time_list = []
-        calib_diag_trace = []
-        Trad_trace = []
-        ECE_diag_trace = []
         ECE_diag = Diag("ECE", ECE_diag_exp, ECE_diag_diag, ECE_diag_ed)
-        calib_diag = used_results[0].Scenario.used_diags_dict[self.diagnostic]
-        for result in used_results:
-            Trad = []
-            for itime in range(len(result.time)):
-                if(result.masked_time_points[self.diagnostic][itime]):
-                    Trad.append(result.Trad[itime][result.Scenario.ray_launch[itime]["diag_name"]  == self.diagnostic])
-            Trad = np.array(Trad)
-            Trad_trace.append(Trad)
-            time_list.append(result.time[result.masked_time_points[self.diagnostic]])
-            calib_diag_trace.append(np.zeros((len(result.time[result.masked_time_points[self.diagnostic]]), \
-                                              len(result.time[result.masked_time_points[self.diagnostic]]))))
-            ECE_diag_trace.append(np.zeros((len(result.time[result.masked_time_points[self.diagnostic]]), \
-                                            len(result.time[result.masked_time_points[self.diagnostic]]))))
-            if(result.Config.extra_output):
-                resonances = result.resonance["rhop_warm"]
-            else:
-                resonances = result.resonance["rhop_cold"]
-            std_dev, data = get_data_calib(diag=calib_diag, shot=result.Scenario.shot, \
-                                           time=result.time[result.masked_time_points[self.diagnostic]], \
-                                           eq_exp=result.Scenario.EQ_exp, \
-                                           eq_diag=result.Scenario.EQ_diag, \
-                                           eq_ed=result.Scenario.EQ_ed, \
-                                           calib=result.calib[self.diagnostic], \
-                                           std_dev_calib=result.rel_dev[self.diagnostic] * result.calib[self.diagnostic] / 100.0, \
-                                           ext_resonances=resonances)
-            calib_diag_trace[-1][0][:] = data[1].T[ch]
-            calib_diag_trace[-1][1][:] = std_dev[0].T[ch] + std_dev[1].T[ch]
-            std_dev, data = get_data_calib(diag=ECE_diag, shot=result.Scenario.shot, \
-                                           time=result.time[result.masked_time_points[self.diagnostic]], \
-                                           eq_exp=result.Scenario.EQ_exp, \
-                                           eq_diag=result.Scenario.EQ_diag, \
-                                           eq_ed=result.Scenario.EQ_ed)
-            # print(data[0], data[1])
-            for i in range(len(result.time[result.masked_time_points[self.diagnostic]])):
-                rhop_calib_diag = resonances[i][ch]
-                ECE_diag_trace[-1][0][i] = data[1][i][np.argmin(np.abs(data[0][i] - rhop_calib_diag))]  # eV -> keV # ECE channel closest to warm resonance
-                # print("res", rhop_calib_diag, data[0][i][np.argmin(np.abs(data[0][i] - rhop_calib_diag))])
-                ECE_diag_trace[-1][1][i] = std_dev[0][i][np.argmin(np.abs(data[0][i] - rhop_calib_diag))]  # eV -> keV
+        calib_diag = self.selected_result.Scenario.used_diags_dict[self.selected_diag]
+        Trad = []
+        for itime in range(len(self.selected_result.time)):
+            if(self.selected_result.masked_time_points[self.selected_diag][itime]):
+                Trad.append(self.selected_result.Trad[itime][self.selected_result.Scenario.ray_launch[itime]["diag_name"]  == self.selected_diag])
+        Trad = np.array(Trad)
+        time_list.append(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]])
+        calib_diag_trace = np.zeros((len(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]]), \
+                                          len(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]])))
+        ECE_diag_trace = np.zeros((len(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]]), \
+                                        len(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]])))
+        if(self.selected_result.Config.extra_output):
+            resonances = self.selected_result.resonance["rhop_warm"]
+        else:
+            resonances = self.selected_result.resonance["rhop_cold"]
+        std_dev, data = get_data_calib(diag=calib_diag, shot=self.selected_result.Scenario.shot, \
+                                       time=self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]], \
+                                       eq_exp=self.selected_result.Scenario.EQ_exp, \
+                                       eq_diag=self.selected_result.Scenario.EQ_diag, \
+                                       eq_ed=self.selected_result.Scenario.EQ_ed, \
+                                       calib=self.selected_result.calib[self.selected_diag], \
+                                       std_dev_calib=self.selected_result.rel_dev[self.selected_diag] * self.selected_result.calib[self.selected_diag] / 100.0, \
+                                       ext_resonances=resonances)
+        calib_diag_trace[0][:] = data[1].T[ch]
+        calib_diag_trace[1][:] = std_dev[0].T[ch] + std_dev[1].T[ch]
+        std_dev, data = get_data_calib(diag=ECE_diag, shot=self.selected_result.Scenario.shot, \
+                                       time=self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]], \
+                                       eq_exp=self.selected_result.Scenario.EQ_exp, \
+                                       eq_diag=self.selected_result.Scenario.EQ_diag, \
+                                       eq_ed=self.selected_result.Scenario.EQ_ed)
+        # print(data[0], data[1])
+        for i in range(len(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]])):
+            rhop_calib_diag = resonances[i][ch]
+            ECE_diag_trace[-1][0][i] = data[1][i][np.argmin(np.abs(data[0][i] - rhop_calib_diag))]  # eV -> keV # ECE channel closest to warm resonance
+            # print("res", rhop_calib_diag, data[0][i][np.argmin(np.abs(data[0][i] - rhop_calib_diag))])
+            ECE_diag_trace[-1][1][i] = std_dev[0][i][np.argmin(np.abs(data[0][i] - rhop_calib_diag))]  # eV -> keV
 #        diag_time_list = []
 #        diag_data_list = []
 #        for result in self.ECRad_result_list:
-#            diag_time, diag_data = get_diag_data_no_calib(result.Scenario.used_diags_dict[self.diagnostic], self.Results.Scenario.shot, preview=True)
+#            diag_time, diag_data = get_diag_data_no_calib(result.Scenario.used_diags_dict[self.selected_diag], self.Results.Scenario.shot, preview=True)
 #            diag_time_list.append(diag_time)
 #            diag_data_list.append(diag_data.T[ch])
-        self.fig = self.pc_obj.Trad_vs_diag(self.diagnostic, ch, time_list, calib_diag_trace, Trad_trace, ECE_diag_trace)
+        self.fig = self.pc_obj.Trad_vs_diag(new_plot, self.selected_diag, ch, time_list, calib_diag_trace, Trad, ECE_diag_trace)
         self.canvas.draw()
+        self.last_plot = "Diag vs Trad"
         evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
         self.GetEventHandler().ProcessEvent(evt)
 
     def OnClearAllResults(self, evt):
-        self.ECRad_result_list = []
-        self.shotlist = []
-        self.used_list.Clear()
-        self.unused_list.Clear()
-        self.used = []
-        self.unused = []
-        self.ch_ch.Clear()
+        self.result_dict = {}
+        self.results_ch.Clear()
+        self.diag_ch.Clear()
+        self.channel_ch.clear()
 
     def ChangeCursor(self, event):
         if(globalsettings.Phoenix):
