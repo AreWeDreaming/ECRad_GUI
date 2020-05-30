@@ -456,7 +456,8 @@ class Main_Panel(scrolled.ScrolledPanel):
             os.remove(os.path.join(self.Results.Config.working_dir, "ECRad.out"))
         if(os.path.isfile(os.path.join(self.Results.Config.working_dir, "ECRad.err"))):
             os.remove(os.path.join(self.Results.Config.working_dir, "ECRad.err"))
-        if(not prepare_input_files(self.Results.Config, self.Results.Scenario, self.index)):
+        if(not prepare_input_files(self.Results.Config, self.Results.Scenario, self.index, \
+                                   ext_result = self.scenario_select_panel.Result_for_ext_launch)):
             print("Error!! Launch aborted")
             evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
             evt.SetStatus('Error while preparing launch!')
@@ -712,6 +713,7 @@ class Main_Panel(scrolled.ScrolledPanel):
 
     def OnConfigLoaded(self, evt):
         self.config_panel.SetConfig(self.Results.Config)
+        self.config_panel.DisableExtRays()
         self.launch_panel.SetScenario(self.Results.Scenario, self.Results.Config.working_dir)
         
     def OnName(self, evt):
