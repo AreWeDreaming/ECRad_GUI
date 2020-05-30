@@ -48,6 +48,10 @@ class ConfigPanel(wx.Panel):
         self.grid_list[-1].Add(self.reflec_X_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
         self.reflec_O_tc = simple_label_tc(self, "Wall refl. coeff. O-mode", Config.reflec_O, "real")
         self.grid_list[-1].Add(self.reflec_O_tc, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
+        self.use_ext_rays_cb = simple_label_cb(self, "Use ext rays", False)
+        self.use_ext_rays_cb.SetToolTip("Load ECRad results in the Scenario panel to enable")
+        self.use_ext_rays_cb.Disable()
+        self.grid_list[-1].Add(self.use_ext_rays_cb, 0, wx.ALL | wx.LEFT | wx.TOP, 5)
         self.sizer.Add(self.grid_list[-1], 0, wx.ALL | wx.LEFT, 5)
         self.lines.append(wx.StaticLine(self, wx.ID_ANY))
         self.sizer.Add(self.lines[-1], 0, wx.ALL | wx.EXPAND, 5)
@@ -130,6 +134,7 @@ class ConfigPanel(wx.Panel):
         Config.mode_conv = self.mode_conv_tc.GetValue()
         Config.reflec_X = self.reflec_X_tc.GetValue()
         Config.reflec_O = self.reflec_O_tc.GetValue()
+        Config.use_ext_rays = self.use_ext_rays_cb.GetValue()
         Config.large_ds = self.ds_large_tc.GetValue()
         Config.small_ds = self.ds_small_tc.GetValue()
         Config.max_points_svec = self.max_points_svec_tc.GetValue()
@@ -158,10 +163,15 @@ class ConfigPanel(wx.Panel):
         self.mode_conv_tc.SetValue(Config.mode_conv)
         self.reflec_X_tc.SetValue(Config.reflec_X)
         self.reflec_O_tc.SetValue(Config.reflec_O)
+        self.use_ext_rays_cb.SetValue(Config.use_ext_rays)
         self.ds_large_tc.SetValue(Config.large_ds)
         self.ds_small_tc.SetValue(Config.small_ds)
         self.max_points_svec_tc.SetValue(Config.max_points_svec)
         self.R_shift_tc.SetValue(Config.R_shift)
         self.z_shift_tc.SetValue(Config.z_shift)
+        
+    def EnableExtRays(self):
+        self.use_ext_rays_cb.Enable()
 
-
+    def DisableExtRays(self):
+        self.use_ext_rays_cb.Disable()

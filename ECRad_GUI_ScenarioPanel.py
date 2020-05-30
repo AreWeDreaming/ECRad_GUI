@@ -16,6 +16,7 @@ from plotting_configuration import *
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from ECRad_GUI_Dialogs import Use3DConfigDialog
 from ECRad_Scenario import ECRadScenario, Use3DScenario
+from ECRad_Results import ECRadResults
 if(globalsettings.Phoenix):
     from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 else:
@@ -34,6 +35,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.fig = plt.figure(figsize=(8.5, 8.0), tight_layout=False)
         self.dummy_fig = plt.figure(figsize=(4.5, 4.5), tight_layout=False)
         self.fig.clf()
+        self.Result_for_ext_launch = None
         self.Scenario = Scenario
         self.Config = Config
         self.delta_t = 5.e-4
@@ -93,6 +95,8 @@ class ScenarioSelectPanel(wx.Panel):
         self.load_Scenario_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadScenarioFromMat)
         self.load_from_mat_button = wx.Button(self, wx.ID_ANY, "Load from .mat")
         self.load_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadfromMat)
+        self.load_Result_from_mat_button = wx.Button(self, wx.ID_ANY, "Load ECRadResult")
+        self.load_Result_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadResultFromMat)
         self.use_3D_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.use_3D_cb = wx.CheckBox(self, wx.ID_ANY, "Use 3D equilibrium")
         self.use_3D_cb.Bind(wx.EVT_CHECKBOX, self.OnUse3D)
@@ -113,6 +117,8 @@ class ScenarioSelectPanel(wx.Panel):
         self.control_sizer.Add(self.load_Scenario_from_mat_button, 0, \
                                wx.EXPAND |  wx.ALL, 5)
         self.control_sizer.Add(self.load_from_mat_button, 0, \
+                               wx.EXPAND |  wx.ALL, 5)
+        self.control_sizer.Add(self.load_Result_from_mat_button, 0, \
                                wx.EXPAND |  wx.ALL, 5)
         self.line1 = wx.StaticLine(self, wx.ID_ANY)
         self.control_sizer.Add(self.line1, 0, \
@@ -332,6 +338,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.GetEventHandler().ProcessEvent(evt)
         try:
             self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
+            self.Parent.Parent.config_panel.DisableExtRays()
         except ValueError as e:
             print("Failed to parse Configuration")
             print("Reason: " + e)
@@ -536,6 +543,7 @@ class ScenarioSelectPanel(wx.Panel):
     def OnLoadfromMat(self, evt):
         try:
             self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
+            self.Parent.Parent.config_panel.DisableExtRays()
         except ValueError as e:
             print("Failed to parse Configuration")
             print("Reason: " + e)
@@ -561,7 +569,6 @@ class ScenarioSelectPanel(wx.Panel):
             return
         print("Updated equilibrium settings with values from .mat")
         if(globalsettings.AUG):
-            self.Scenario.shot = self.plasma_dict["shot"]
             self.Scenario.EQ_exp = self.plasma_dict["eq_exp"]
             self.Scenario.EQ_diag = self.plasma_dict["eq_diag"]
             self.Scenario.EQ_ed = self.plasma_dict["eq_ed"]
@@ -613,6 +620,7 @@ class ScenarioSelectPanel(wx.Panel):
     def OnLoadScenarioFromMat(self, evt):
         try:
             self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
+            self.Parent.Parent.config_panel.DisableExtRays()
         except ValueError as e:
             print("Failed to parse Configuration")
             print("Reason: " + e)
@@ -647,9 +655,7 @@ class ScenarioSelectPanel(wx.Panel):
                 print("Failed to load Scenario -- does the selected file contain a Scenario?")
                 dlg.Destroy()
                 return
-        self.plasma_dict["shot"] = NewScenario.shot
         if(globalsettings.AUG):
-            self.Scenario.shot = self.plasma_dict["shot"]
             try:
                 self.shot_tc.SetValue(self.plasma_dict["shot"])
                 self.IDA_exp_tc.SetValue(NewScenario.IDA_exp)
@@ -660,6 +666,103 @@ class ScenarioSelectPanel(wx.Panel):
             except AttributeError:
                 print("Some values were not in scenario")
         self.plasma_dict = NewScenario.plasma_dict
+        self.plasma_dict["shot"] = NewScenario.shot
+        self.use3Dscen = NewScenario.use3Dscen
+        self.last_used_bt_vac_correction = NewScenario.bt_vac_correction
+        for t in self.plasma_dict["time"]:
+            self.unused.append("{0:2.5f}".format(t))
+        self.unused = list(set(self.unused))
+        self.unused.sort()
+        if(len(self.unused) > 0):
+            self.unused_list.AppendItems(self.unused)
+        self.pc_obj.reset(True)
+        Te_indices = np.zeros((len(self.plasma_dict["Te"]), len(self.plasma_dict["Te"][0])), dtype=np.bool)
+        IDA_labels = []
+        rhop_range = [0.2, 0.95]
+        for index in range(len(self.plasma_dict["time"])):
+            for rhop in rhop_range:
+                Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
+                if(index == 0):
+                    IDA_labels.append(r"$T_\mathrm{e}$" + "({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
+        diag_time = None
+        diag_data = None
+        diag_labels = None
+        self.fig = self.pc_obj.time_trace_for_calib(self.fig, NewScenario.shot, self.plasma_dict["time"], diag_time, \
+                                                    np.reshape(self.plasma_dict["Te"][Te_indices], \
+                                                               (len(self.plasma_dict["time"]), len(rhop_range))).T / 1.e3, \
+                                                    IDA_labels, [], [], \
+                                                    [], [], \
+                                                    diag_data, diag_labels, None)
+        self.canvas.draw()
+        self.loaded = True
+        self.new_data_available = True
+        if(self.use3Dscen.used):
+            self.use_3D_cb.SetValue(True)
+            self.use_3D_config_button.Enable()
+            self.load_from_mat_button.Disable()
+        self.data_source = "file:" + path
+        evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+        evt.SetStatus('Data loaded successfully!')
+        print("Scaling factors of rhop, Te and ne are ignored in this plot!")
+        self.GetEventHandler().ProcessEvent(evt)
+        
+    def OnLoadResultFromMat(self, evt):
+        try:
+            self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
+            self.Parent.Parent.config_panel.DisableExtRays()
+        except ValueError as e:
+            print("Failed to parse Configuration")
+            print("Reason: " + e)
+            return
+        try:
+            self.Scenario = self.Parent.Parent.launch_panel.UpdateScenario(self.Scenario)
+        except ValueError as e:
+            print("Failed to parse Configuration")
+            print("Reason: " + e)
+            return
+        self.OnUnlockSelection(None)
+        self.last_used_bt_vac_correction = 1.0
+        self.unused = []
+        self.used = []
+        self.used_list.Clear()
+        self.unused_list.Clear()
+        dlg = wx.FileDialog(self, message="Choose a .mat file for input", \
+                            defaultDir=self.Config.working_dir, \
+                            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+                            style=wx.FD_OPEN)
+        if(dlg.ShowModal() != wx.ID_OK):
+            dlg.Destroy()
+            return
+        else:
+            NewResult = ECRadResults()
+            try:
+                self.Result_for_ext_launch = NewResult
+                self.Result_for_ext_launch.from_mat_file(dlg.GetPath())
+                path = dlg.GetPath()
+                dlg.Destroy()
+            except Exception as e:
+                print(e)
+                print("Failed to load Scenario -- does the selected file contain a Scenario?")
+                dlg.Destroy()
+                return
+        self.Result_for_ext_launch.Config.use_ext_rays = True
+        self.Parent.Parent.launch_panel.SetScenario(self.Result_for_ext_launch.Scenario, self.Config.working_dir)
+        self.Parent.Parent.config_panel.SetConfig(self.Result_for_ext_launch.Config)
+        self.Config = self.Result_for_ext_launch.Config
+        self.Parent.Parent.config_panel.EnableExtRays()
+        NewScenario = self.Result_for_ext_launch.Scenario
+        if(globalsettings.AUG):
+            try:
+                self.shot_tc.SetValue(self.plasma_dict["shot"])
+                self.IDA_exp_tc.SetValue(NewScenario.IDA_exp)
+                self.IDA_ed_tc.SetValue(NewScenario.IDA_ed)
+                self.EQ_exp_tc.SetValue(NewScenario.EQ_exp)
+                self.EQ_diag_tc.SetValue(NewScenario.EQ_diag)
+                self.EQ_ed_tc.SetValue(NewScenario.EQ_ed)
+            except AttributeError:
+                print("Some values were not in scenario")
+        self.plasma_dict = NewScenario.plasma_dict
+        self.plasma_dict["shot"] = NewScenario.shot
         self.use3Dscen = NewScenario.use3Dscen
         self.last_used_bt_vac_correction = NewScenario.bt_vac_correction
         for t in self.plasma_dict["time"]:
@@ -718,34 +821,41 @@ class ScenarioSelectPanel(wx.Panel):
         elif(len(self.used) == 0):
             print("No time points selected!")
             return Scenario
-        # Get rid of the old stuff it will be updated now
-        if(Scenario.EQ_exp == self.EQ_exp_tc.GetValue() and \
-           Scenario.EQ_diag == self.EQ_diag_tc.GetValue() and \
-           Scenario.EQ_ed == self.EQ_ed_tc.GetValue() and \
-           Scenario.bt_vac_correction == self.bt_vac_correction_tc.GetValue()):
-            old_time_list = Scenario.plasma_dict["time"]
-            old_eq_list = Scenario.plasma_dict["eq_data"]
-            old_rhot_prof_list = Scenario.plasma_dict["rhot_prof"]
-            if(len(old_time_list) != len(old_eq_list)):
-            # Something went wrong on the last load -> reload everything
+        if(globalsettings.AUG and Scenario.data_source == "aug_database"):
+            # Get rid of the old stuff it will be updated now
+            if(Scenario.EQ_exp == self.EQ_exp_tc.GetValue() and \
+               Scenario.EQ_diag == self.EQ_diag_tc.GetValue() and \
+               Scenario.EQ_ed == self.EQ_ed_tc.GetValue() and \
+               Scenario.bt_vac_correction == self.bt_vac_correction_tc.GetValue()):
+                old_time_list = Scenario.plasma_dict["time"]
+                old_eq_list = Scenario.plasma_dict["eq_data"]
+                old_rhot_prof_list = Scenario.plasma_dict["rhot_prof"]
+                if(len(old_time_list) != len(old_eq_list)):
+                # Something went wrong on the last load -> reload everything
+                    old_time_list = []
+                    old_eq_list = []
+                    old_rhot_prof_list = []
+            else:
                 old_time_list = []
                 old_eq_list = []
                 old_rhot_prof_list = []
         else:
-            old_time_list = []
-            old_eq_list = []
-            old_rhot_prof_list = []
+            old_time_list = Scenario.plasma_dict["time"]
+            old_eq_list = Scenario.plasma_dict["eq_data"]
+            old_rhot_prof_list = Scenario.plasma_dict["rhot_prof"]
         Scenario.reset()
         Scenario.data_source = self.data_source
         self.use3Dscen.used = self.use_3D_cb.GetValue()
-        Scenario.shot = self.shot_tc.GetValue()
         if(globalsettings.AUG and Scenario.data_source == "aug_database"):
+            Scenario.shot = self.shot_tc.GetValue()
             Scenario.IDA_exp = self.IDA_exp_tc.GetValue()
             Scenario.IDA_ed = self.IDA_ed_tc.GetValue()
             Scenario.default_diag = self.diag_tc.GetValue()
             Scenario.EQ_exp = self.EQ_exp_tc.GetValue()
             Scenario.EQ_diag = self.EQ_diag_tc.GetValue()
             Scenario.EQ_ed = self.EQ_ed_tc.GetValue()
+        else:
+            Scenario.shot = self.plasma_dict["shot"]
         if(not self.use3Dscen.used):
             Scenario.bt_vac_correction = self.bt_vac_correction_tc.GetValue()
         else:
