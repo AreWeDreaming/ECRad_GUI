@@ -31,7 +31,7 @@ else if ($SYS == "amd64_sles15") then
   module load intel
   module load mkl
   module load texlive
-  module load anaconda/2/2018.12
+  module load anaconda/3/2018.12
   module load git
 endif
 rm id
