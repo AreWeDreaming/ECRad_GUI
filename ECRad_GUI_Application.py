@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import re
 import os
 import wx
 import sys
@@ -19,11 +18,11 @@ if(not found_lib):
     print("Important: ECRad_GUI must be launched with its home directory as the current working directory")
     print("Additionally, the ECRad_Pylib must be in the parent directory of the GUI and must contain one of ECRad, ecrad and Pylib or pylib")
     exit(-1)
-from GlobalSettings import globalsettings
+from Global_Settings import globalsettings
 globalsettings.ECRadGUIRoot = os.getcwd()
 globalsettings.ECRadPylibRoot = ECRadPylibFolder
 try:
-    from equilibrium_utils_AUG import EQData
+    import Equilibrium_Utils_AUG
 except (OSError,ModuleNotFoundError):
     globalsettings.AUG = False
     print("Failed to load AUG libraries continuing in non-AUG mode.")
@@ -35,15 +34,19 @@ from ECRad_GUI_Calibration_Suite import CalibPanel, CalibEvolutionPanel
 from ECRad_GUI_Dialogs import Select_GENE_timepoints_dlg
 # import  wx.lib.scrolledpanel as ScrolledPanel
 import numpy as np
-from signal import signal, SIGTERM
-from wxEvents import *
+from WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unbound_EVT_LOAD_MAT, \
+                      EVT_MAKE_ECRAD, EVT_NEXT_TIME_STEP, EVT_UPDATE_CONFIG, \
+                      EVT_UPDATE_DATA, EVT_LOCK_EXPORT, EVT_GENE_DATA_LOADED, EVT_LOAD_MAT, \
+                      NewStatusEvt, Unbound_EVT_NEW_STATUS, \
+                      Unbound_EVT_MAKE_ECRAD, GENEDataEvt, Unbound_EVT_GENE_DATA_LOADED, \
+                      UpdateDataEvt, Unbound_EVT_UPDATE_DATA, UpdateConfigEvt, \
+                      Unbound_EVT_UPDATE_CONFIG, Unbound_EVT_NEXT_TIME_STEP
 from ECRad_GUI_Shell import Redirect_Text
 from ECRad_Interface import prepare_input_files, GetECRadExec
 from ECRad_Results import ECRadResults
 import getpass
 from ECRad_GUI_PlotPanel import PlotPanel
 ECRad_Model = False
-import shutil
 from time import sleep
 # Events
 
@@ -393,7 +396,7 @@ class Main_Panel(scrolled.ScrolledPanel):
                 return
             else:
                 pathname = fileDialog.GetPath()
-                wt = WorkerThread(self.LoadGeneData, [pathname])
+                WorkerThread(self.LoadGeneData, [pathname])
                 fileDialog.Destroy()
         self.Results.Config.autosave()
         self.Results.Scenario.autosave()

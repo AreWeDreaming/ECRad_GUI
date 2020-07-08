@@ -3,14 +3,14 @@ Created on Mar 21, 2019
 
 @author: sdenk
 '''
-from wxEvents import *
+from WX_Events import NewStatusEvt, Unbound_EVT_NEW_STATUS
 import wx
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row
 from collections import OrderedDict as od
 import numpy as np
-from ECRad_Interface import get_diag_launch, write_diag_launch
+from ECRad_Interface import get_diag_launch
 import os
-from Diags import ECRH_diag, EXT_diag
+from Diag_Types import EXT_diag
 from ECRad_Scenario import ECRadScenario
 
 class LaunchPanel(wx.Panel):
@@ -84,8 +84,8 @@ class LaunchPanel(wx.Panel):
         ECI_dict = {}
         for diag_key in Scenario.used_diags_dict:
             if("CT" in diag_key or "IEC" == diag_key):
-                import get_ECRH_config
-                new_gy = get_ECRH_config.get_ECRH_viewing_angles(Scenario.shot, \
+                import Get_ECRH_Config
+                new_gy = Get_ECRH_Config.get_ECRH_viewing_angles(Scenario.shot, \
                                                 Scenario.used_diags_dict[diag_key].beamline, \
                                                 Scenario.used_diags_dict[diag_key].base_freq_140)
                 if(new_gy.error == 0):
@@ -97,9 +97,9 @@ class LaunchPanel(wx.Panel):
                     evt.SetStatus('Error while preparing launch!')
                     self.GetEventHandler().ProcessEvent(evt)
                     return Scenario
-                del(get_ECRH_config) # Need to destroy this here otherwise we cause an incompatability with libece
+                del(Get_ECRH_Config) # Need to destroy this here otherwise we cause an incompatability with libece
             if(diag_key in ["ECN", "ECO", "ECI"]):
-                from shotfile_handling_AUG import get_ECI_launch
+                from Shotfile_Handling_AUG import get_ECI_launch
                 ECI_dict = get_ECI_launch(Scenario.used_diags_dict[diag_key], Scenario.shot)
         Scenario.ray_launch = []
         # Prepare the launches for each time point

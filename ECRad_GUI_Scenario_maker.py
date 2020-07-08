@@ -22,18 +22,16 @@ if(not found_lib):
     print("Important: ECRad_GUI must be launched with its home directory as the current working directory")
     print("Additionally, the ECRad_Pylib must be in the parent directory of the GUI and must contain one of ECRad, ecrad and Pylib or pylib")
     exit(-1)
-from GlobalSettings import globalsettings
-from equilibrium_utils import EQDataSlice, special_points, EQDataExt
-from TB_communication import make_mdict_from_TB_files
+from Global_Settings import globalsettings
+from Basic_Methods.Equilibrium_Utils import EQDataExt
+from TB_Communication import make_mdict_from_TB_files
 import numpy as np
-from scipy.io import savemat,loadmat
+from scipy.io import savemat
 from scipy.interpolate import InterpolatedUnivariateSpline
-from Diags import EXT_diag
-
-
+from Diag_Types import EXT_diag
 if(globalsettings.AUG):
-    from equilibrium_utils_AUG import EQData, vessel_bd_file
-    from shotfile_handling_AUG import load_IDA_data
+    from Equilibrium_Utils_AUG import EQData
+    from Shotfile_Handling_AUG import load_IDA_data
     def make_plasma_mat_for_testing(filename, shot, times, eq_exp, eq_diag, eq_ed, \
                                     bt_vac_correction=1.005, IDA_exp="AUGD", IDA_ed=0):
         plasma_dict = load_IDA_data(shot, timepoints=times, exp=IDA_exp, ed=IDA_ed)
@@ -71,6 +69,15 @@ def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     plasma_dict["eq_data"] = [EQObj.GetSlice(time)]
     plasma_dict["prof_reference"] = "rhop_prof"
     make_plasma_mat(os.path.join(path, mat_out_name), plasma_dict)
+    
+def make_ECRadScenario_from_OMFIT_derived(shot, omfit_derived_variables, omfit_eqdsk):
+    plasma_dict = {}
+    plasma_dict["shot"] = shot
+    plasma_dict["time"] = []
+    for i, time in enumerate(omfit_derived_variables["time"]):
+        plasma_dict["time"].append(time)
+        plasma_dict["ne"].append(np.asarray(omfit_derived_variables["n_e"])[i])
+        plasma_dict["Te"].append(np.asarray(np.asarray(omfit_derived_variables["T_e"])[i])[i])
 
 def make_plasma_mat(filename, plasma_dict):
     mdict = {}
@@ -84,7 +91,7 @@ def make_plasma_mat(filename, plasma_dict):
     mdict["Bt"] = []
     mdict["Bz"] = []
     R_init = False
-    for itime, time in enumerate(plasma_dict["time"]):
+    for itime in range(len((plasma_dict["time"]))):
         EQ_t = plasma_dict["eq_data"][itime]
         if(not R_init):
             R_init = True

@@ -4,35 +4,36 @@ Created on Apr 3, 2019
 @author: sdenk
 '''
 
-from GlobalSettings import globalsettings
+from Global_Settings import globalsettings
 import wx
 import os
-from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row
-from wxEvents import *
-from plotting_configuration import *
+from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
+from Plotting_Configuration import plt
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-from plotting_core import plotting_core
-from wx import PyCommandEvent
+from Plotting_Core import PlottingCore
 if(globalsettings.AUG):
-    from shotfile_handling_AUG import shotfile_exists, get_data_calib, AUG_profile_diags,\
+    from Shotfile_Handling_AUG import shotfile_exists, get_data_calib, AUG_profile_diags,\
                                       load_IDA_data, get_Thomson_data
 else:
     print("AUG shotfile system inaccessible -> Cannot plot diagnostic data!")                                
-if(globalsettings.Phoenix):
-    from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
-else:
-    from matplotlib.backends.backend_wxagg import NavigationToolbar2Wx
+from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 import numpy as np
-from TB_communication import Ray, make_TORBEAM_no_data_load
+from TB_Communication import Ray, make_TORBEAM_no_data_load
 from ECRad_GUI_Thread import WorkerThread
-from equilibrium_utils import EQDataExt as EQData
-from Diags import Diag
+from Basic_Methods.Equilibrium_Utils import EQDataExt as EQData
+from Diag_Types import Diag
 from ECRad_GUI_Diagnostic import Diagnostic
 from ECRad_Results import ECRadResults
 from BDOP_3D import make_3DBDOP_cut_GUI
-from Diag_efficiency import diag_weight
+from Diag_Efficiency import diag_weight
 from ECRH_Launcher import ECRHLauncher
 from ECRad_GUI_Dialogs import TextEntryDialog
+from WX_Events import EVT_UPDATE_DATA, EVT_THREAD_FINISHED, EVT_DIAGNOSTICS_LOADED, \
+                      EVT_OTHER_RESULTS_LOADED, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
+                      Unbound_EVT_THREAD_FINISHED, UpdateDiagDataEvt, \
+                      Unbound_EVT_DIAGNOSTICS_LOADED, GenerticEvt, \
+                      EVT_DONE_PLOTTING, Unbound_EVT_OTHER_RESULTS_LOADED, \
+                      Unbound_EVT_RESIZE,UpdatePlotEvent, Unbound_EVT_DONE_PLOTTING
 
 class PlotPanel(wx.Panel):
     def __init__(self, parent):
@@ -272,14 +273,14 @@ class PlotPanel(wx.Panel):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Calculating rays with TORBEAM hold on')
         self.GetEventHandler().ProcessEvent(evt)
-        wt = WorkerThread(self.run_TORBEAM_all_channels, [self.time, self.cur_selected_index, mode])
+        WorkerThread(self.run_TORBEAM_all_channels, [self.time, self.cur_selected_index, mode])
         
     def run_TORBEAM_all_channels(self, args):
         time = args[0]
         itime = args[1]
         mode = args[2]
         launches = []
-        for ich, f in enumerate(self.Results.Scenario.ray_launch[itime]["f"]):
+        for ich in range(len(self.Results.Scenario.ray_launch[itime]["f"])):
             launches.append(ECRHLauncher())
             launches[-1].inject_ECRad_ray_launch(self.Results.Scenario.ray_launch[itime], ich)
         make_TORBEAM_no_data_load(self.Results.Config.working_dir, self.Results.Scenario.shot, time, \
@@ -363,7 +364,6 @@ class PlotPanel(wx.Panel):
             print("No results yet!")
         if(self.Results.Scenario.data_source != "aug_database"):
             print("Sorry data load from external data is not yet implemented")
-            mdict = None
             return
         else:
             self.smoothing_time = self.time_smooth_tc.GetValue() * 1.e-3
@@ -438,7 +438,7 @@ class PlotPanel(wx.Panel):
             if(len(diag_dict) == 0):
                 return
             print("Now loading diag data -- this will take a moment")
-            wt = WorkerThread(self.get_diag_data, [self.Results, diag_dict])
+            WorkerThread(self.get_diag_data, [self.Results, diag_dict])
             self.load_diag_data_button.Disable()
         else:
             diag_select_dialog.Destroy()
@@ -551,7 +551,7 @@ class PlotPanel(wx.Panel):
             paths = dlg.GetPaths()
             dlg.Destroy()
             if(len(paths) > 0):
-                wt = WorkerThread(self.get_other_results, [paths, plot_type])
+                WorkerThread(self.get_other_results, [paths, plot_type])
                 self.load_other_results_button.Disable()
         
     def get_other_results(self, args):
@@ -701,7 +701,7 @@ class PlotContainer(wx.Panel):
         # self.fig_H_sizer.Add(self.canvas_H, 0, wx.ALL | \
         #        wx.EXPAND , 5)
         # self.sizer.Add(self.fig_H_sizer, 0, wx.ALL | wx.EXPAND , 5)
-        self.pc_obj = plotting_core(self.fig, title=False)
+        self.pc_obj = PlottingCore(self.fig, title=False)
 
     def OnSetLim(self, evt):
         try:
@@ -1202,7 +1202,7 @@ class PlotContainer(wx.Panel):
             EQ_obj = EQData(Results.Scenario.shot)
             EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
             try:
-                R_axis, z_axis = EQ_obj.get_axis(time)
+                R_axis = EQ_obj.get_axis(time)[0]
                 if(Results.resonance["R_cold"][time_index][ch] < R_axis):
                     rhop_res *= -1.0
             except:
@@ -1239,7 +1239,7 @@ class PlotContainer(wx.Panel):
             EQ_obj = EQData(Results.Scenario.shot)
             EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
             try:
-                R_axis, z_axis = EQ_obj.get_axis(time)
+                R_axis = EQ_obj.get_axis(time)[0]
                 if(Results.resonance["R_cold"][time_index][ch] < R_axis):
                     rhop_res *= -1.0
             except:
@@ -1457,7 +1457,7 @@ class PlotContainer(wx.Panel):
 #                 return False
         args.insert(0,time)
         args.insert(0,Results.Scenario.shot)
-        wt = WorkerThread(self.plot_threading, args, kwargs)
+        WorkerThread(self.plot_threading, args, kwargs)
         return True
 
     def plot_threading(self, args, kwargs):

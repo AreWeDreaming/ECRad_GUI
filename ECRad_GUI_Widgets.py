@@ -4,7 +4,7 @@ Created on Mar 21, 2019
 @author: sdenk
 '''
 import wx
-from ECRad_GUI_regex import test_float, test_integer, integer_pattern
+from ECRad_GUI_regex import test_float, integer_pattern
 import wx.lib.agw.toasterbox as TB
 import re
 import os

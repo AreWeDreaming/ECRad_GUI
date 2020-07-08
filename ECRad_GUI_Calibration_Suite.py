@@ -3,30 +3,27 @@ Created on Apr 3, 2019
 
 @author: sdenk
 '''
-from GlobalSettings import globalsettings
+from Global_Settings import globalsettings
 import wx
-from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row
-from wxEvents import *
-from plotting_configuration import *
+from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
+from WX_Events import EVT_UPDATE_DATA, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
+                      UpdateDataEvt, Unbound_EVT_UPDATE_DATA, Unbound_EVT_RESIZE
+from Plotting_Configuration import plt
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-from plotting_core import plotting_core
-from ECRad_DIAG_AUG import DefaultDiagDict
+from Plotting_Core import PlottingCore
 from copy import deepcopy
-if(globalsettings.Phoenix):
-    from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
-else:
-    from matplotlib.backends.backend_wxagg import NavigationToolbar2Wx
-from Calibration_utils import calibrate
-from Fitting import make_fit
+from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
+from Calibration_Utils import calibrate
+from Basic_Methods.Data_Fitting import make_fit
 import numpy as np
 import os
 from ECRad_Results import ECRadResults
 if(globalsettings.AUG):
-    from shotfile_handling_AUG import get_data_calib, moving_average
-    from get_ECRH_config import get_ECRH_viewing_angles
+    from Shotfile_Handling_AUG import get_data_calib, moving_average
+    from Get_ECRH_Config import get_ECRH_viewing_angles
 else:
     print("AUG shotfile system inaccessible -> Cross-calibration not supported at the moment.")
-from Diags import Diag
+from Diag_Types import Diag
 
 
 class CalibPanel(wx.Panel):
@@ -45,11 +42,11 @@ class CalibPanel(wx.Panel):
         self.Bind(wx.EVT_ENTER_WINDOW, self.ChangeCursor)
         self.Bind(EVT_UPDATE_DATA, self.OnUpdate)
         self.canvas.draw()
-        self.pc_obj = plotting_core(self.fig, self.dummy_fig, False)
+        self.pc_obj = PlottingCore(self.fig, self.dummy_fig, False)
         self.plot_toolbar = NavigationToolbar2Wx(self.canvas)
         self.canvas_sizer = wx.BoxSizer(wx.VERTICAL)
-        tw, th = self.plot_toolbar.GetSize().Get()
-        fw, fh = self.plot_toolbar.GetSize().Get()
+        th = self.plot_toolbar.GetSize().Get()[1]
+        fw = self.plot_toolbar.GetSize().Get()[0]
         self.plot_toolbar.SetSize(wx.Size(fw, th))
         self.plot_toolbar.Realize()
         self.plotted_time_points = []  # To avoid duplicates
@@ -510,11 +507,11 @@ class CalibEvolutionPanel(wx.Panel):
         self.last_plot = None
         self.Bind(wx.EVT_ENTER_WINDOW, self.ChangeCursor)
         self.canvas.draw()
-        self.pc_obj = plotting_core(self.fig, self.dummy_fig, False)
+        self.pc_obj = PlottingCore(self.fig, self.dummy_fig, False)
         self.plot_toolbar = NavigationToolbar2Wx(self.canvas)
         self.canvas_sizer = wx.BoxSizer(wx.VERTICAL)
-        tw, th = self.plot_toolbar.GetSize().Get()
-        fw, fh = self.plot_toolbar.GetSize().Get()
+        th = self.plot_toolbar.GetSize().Get()[1]
+        fw = self.plot_toolbar.GetSize().Get()[0]
         self.plot_toolbar.SetSize(wx.Size(fw, th))
         self.plot_toolbar.Realize()
         self.button_ctrl_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -653,7 +650,7 @@ class CalibEvolutionPanel(wx.Panel):
             print("Error!!: No channel selected")
             return
         if(globalsettings.AUG):
-            from shotfile_handling_AUG import get_shot_heating
+            from Shotfile_Handling_AUG import get_shot_heating
             heating_array = get_shot_heating(self.selected_result.Scenario.shot)
             for heating in heating_array:
                 heating_mask = np.logical_and(heating[0] >= np.min(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]]), \
@@ -692,14 +689,14 @@ class CalibEvolutionPanel(wx.Panel):
         print("The poloidal angle plot is disabled at the moment")
         beamline = -1
         if(beamline > 0):
-            import get_ECRH_config
-            gy = get_ECRH_config.get_ECRH_viewing_angles(self.selected_result.Scenario.shot, beamline, \
+            import Get_ECRH_Config
+            gy = Get_ECRH_Config.get_ECRH_viewing_angles(self.selected_result.Scenario.shot, beamline, \
                                                          self.selected_result.Scenario.used_diags_dict[self.selected_diag].base_freq_140)
             pol_ang = []
             for t in self.selected_result.time:
                 pol_ang.append(gy.theta_pol[np.argmin(np.abs(gy.time - t))])
             pol_ang_list.append(np.array(pol_ang))
-            del(get_ECRH_config)
+            del(Get_ECRH_Config)
         ch = int(self.channel_ch.GetSelection())
         if(ch < 0):
             print("Error!!: No channel selected")
@@ -770,9 +767,7 @@ class CalibEvolutionPanel(wx.Panel):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Plotting - GUI might be unresponsive for a minute - please wait!')
         self.GetEventHandler().ProcessEvent(evt)
-        new_plot = False
         if(self.last_plot != "Calib vs launch"):
-            new_plot=True
             self.pc_obj.reset(True)
             self.fig.clf()
             self.canvas.draw()
@@ -798,7 +793,7 @@ class CalibEvolutionPanel(wx.Panel):
 #            diag_data_list.append(diag_data.T[ch])
         self.fig = self.pc_obj.calib_vs_launch(self.selected_diag, ch, self.selected_result, pol_ang)  # , diag_time_list, diag_data_list
         self.canvas.draw()
-        self.last_plot == "Calib vs launch"
+        self.last_plot = "Calib vs launch"
         evt = wx.PyCommandEvent(Unbound_EVT_RESIZE, self.GetId())
         self.GetEventHandler().ProcessEvent(evt)
 

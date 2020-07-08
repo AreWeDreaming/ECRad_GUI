@@ -10,7 +10,7 @@ def manipiulate_rays(result_file_in, result_file_out):
     res.from_mat_file(result_file_in)
     for index in range(len(res.time)):
         for ich in range(len(res.Scenario.ray_launch[index]["f"])):
-            for imode, mode in enumerate(res.modes):
+            for mode in res.modes:
                 if(res.Config.N_ray > 1):
                     for iray in range(len(res.ray["s" + mode][index][ich])):
                         res.ray["Te" + mode][index][ich][iray][:] /= 2.0

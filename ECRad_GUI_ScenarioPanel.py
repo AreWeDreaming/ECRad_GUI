@@ -3,29 +3,26 @@ Created on Mar 21, 2019
 
 @author: sdenk
 '''
-from GlobalSettings import globalsettings
+from Global_Settings import globalsettings
 import os
+from ECRad_GUI_Widgets import simple_label_tc
 import wx
-from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
-from wxEvents import *
-from plotting_core import plotting_core
-import getpass
+from WX_Events import EVT_UPDATE_DATA, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
+                      Unbound_EVT_REPLOT, LockExportEvt, Unbound_EVT_LOCK_EXPORT
+from Plotting_Core import PlottingCore
 import numpy as np
 from ECRad_Interface import load_plasma_from_mat
-from plotting_configuration import *
+from Plotting_Configuration import plt
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from ECRad_GUI_Dialogs import Use3DConfigDialog
 from ECRad_Scenario import ECRadScenario, Use3DScenario
 from ECRad_Results import ECRadResults
-if(globalsettings.Phoenix):
-    from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
-else:
-    from matplotlib.backends.backend_wxagg import NavigationToolbar2Wx
+from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 if(globalsettings.AUG):
-    from equilibrium_utils_AUG import EQData, vessel_bd_file, check_Bt_vac_source
-    from shotfile_handling_AUG import load_IDA_data, get_diag_data_no_calib, get_freqs, get_divertor_currents, filter_CTA
-    from get_ECRH_config import identify_ECRH_on_phase
-    import ElmSync
+    from Equilibrium_Utils_AUG import EQData, vessel_bd_file, check_Bt_vac_source
+    from Shotfile_Handling_AUG import load_IDA_data, get_diag_data_no_calib, get_divertor_currents, filter_CTA
+    from Get_ECRH_Config import identify_ECRH_on_phase
+    from Elm_Sync import ElmExtract
 
 class ScenarioSelectPanel(wx.Panel):
     def __init__(self, parent, Scenario, Config):
@@ -45,11 +42,11 @@ class ScenarioSelectPanel(wx.Panel):
         self.Bind(wx.EVT_ENTER_WINDOW, self.ChangeCursor)
         self.Bind(EVT_UPDATE_DATA, self.OnUpdate)
         self.canvas.draw()
-        self.pc_obj = plotting_core(self.fig, self.dummy_fig, False)
+        self.pc_obj = PlottingCore(self.fig, self.dummy_fig, False)
         self.plot_toolbar = NavigationToolbar2Wx(self.canvas)
         self.canvas_sizer = wx.BoxSizer(wx.VERTICAL)
-        tw, th = self.plot_toolbar.GetSize().Get()
-        fw, fh = self.plot_toolbar.GetSize().Get()
+        th = self.plot_toolbar.GetSize().Get()[1]
+        fw = self.plot_toolbar.GetSize().Get()[0]
         self.plot_toolbar.SetSize(wx.Size(fw, th))
         self.plot_toolbar.Realize()
         self.control_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -303,7 +300,6 @@ class ScenarioSelectPanel(wx.Panel):
         self.Results = evt.Results
         self.Scenario = evt.Results.Scenario
         self.Config = evt.Results.Config
-        diag_id_list = []
         self.pc_obj.reset(False)
         self.canvas.draw()
         if(globalsettings.AUG):
@@ -914,7 +910,7 @@ class ScenarioSelectPanel(wx.Panel):
         filter_elms = self.elm_filter_cb.GetValue()
         if(filter_elms):
             try:
-                idxNoElm = ElmSync.ElmExtract(np.array(self.used, dtype=np.double), self.Scenario.shot, plot=False, preFac=0.15,
+                idxNoElm = ElmExtract(np.array(self.used, dtype=np.double), self.Scenario.shot, plot=False, preFac=0.15,
                                             postFac=0.6, Experiment='AUGD')
                 good_time = []
                 bad_time = len(self.used) - len(idxNoElm)
@@ -927,7 +923,7 @@ class ScenarioSelectPanel(wx.Panel):
                         self.elm_times.append(self.used.pop(i_time))
                     else:
                         i_time += 1
-                idxNoElm = ElmSync.ElmExtract(np.array(self.unused, dtype=np.double), self.Scenario.shot, plot=False, preFac=0.15,
+                idxNoElm = ElmExtract(np.array(self.unused, dtype=np.double), self.Scenario.shot, plot=False, preFac=0.15,
                                             postFac=0.6, Experiment='AUGD')
                 good_time = []
                 bad_time += len(self.unused) - len(idxNoElm)
@@ -951,6 +947,7 @@ class ScenarioSelectPanel(wx.Panel):
             except Exception as e:
                 print("This discharge does not have an ELM shotfile")
                 print("Maybe this is an L-mode discharge ?")
+                print(e)
                 self.elm_filter_cb.SetValue(False)
                 bad_time = 0
         else:
