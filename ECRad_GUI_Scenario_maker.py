@@ -71,6 +71,7 @@ def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     make_plasma_mat(os.path.join(path, mat_out_name), plasma_dict)
     
 def make_ECRadScenario_from_OMFIT_derived(shot, omfit_derived_variables, omfit_eqdsk):
+    from omfit.classes import omfit_eqdsk
     plasma_dict = {}
     plasma_dict["shot"] = shot
     plasma_dict["time"] = []
@@ -78,6 +79,7 @@ def make_ECRadScenario_from_OMFIT_derived(shot, omfit_derived_variables, omfit_e
         plasma_dict["time"].append(time)
         plasma_dict["ne"].append(np.asarray(omfit_derived_variables["n_e"])[i])
         plasma_dict["Te"].append(np.asarray(np.asarray(omfit_derived_variables["T_e"])[i])[i])
+        omfit_eqdsk()
 
 def make_plasma_mat(filename, plasma_dict):
     mdict = {}
