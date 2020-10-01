@@ -23,15 +23,19 @@ if(not found_lib):
     print("Additionally, the ECRad_Pylib must be in the parent directory of the GUI and must contain one of ECRad, ecrad and Pylib or pylib")
     exit(-1)
 from Global_Settings import globalsettings
-from Basic_Methods.Equilibrium_Utils import EQDataExt
+from Basic_Methods.Equilibrium_Utils import EQDataExt, EQDataSlice
 from TB_Communication import make_mdict_from_TB_files
 import numpy as np
 from scipy.io import savemat
 from scipy.interpolate import InterpolatedUnivariateSpline
 from Diag_Types import EXT_diag
+
 if(globalsettings.AUG):
     from Equilibrium_Utils_AUG import EQData
     from Shotfile_Handling_AUG import load_IDA_data
+    
+    
+    
     def make_plasma_mat_for_testing(filename, shot, times, eq_exp, eq_diag, eq_ed, \
                                     bt_vac_correction=1.005, IDA_exp="AUGD", IDA_ed=0):
         plasma_dict = load_IDA_data(shot, timepoints=times, exp=IDA_exp, ed=IDA_ed)
@@ -40,7 +44,29 @@ if(globalsettings.AUG):
         for time in times:
             plasma_dict["eq_data"].append(EQ_obj.GetSlice(time))
         make_plasma_mat(filename, plasma_dict)
-    
+        
+def make_plasma_mat_from_variables(mat_out_name, shot, time, rho, Te, ne, R, z, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
+    # Vessel data has to be a ndarray of points (shape = (n,2)) with R,z points of the machine wall
+    # Alternatively a standard ECRad vessel file can be used like ASDEX_Upgrade_vessel.txt
+    plasma_dict = {}
+    plasma_dict["shot"] = shot
+    plasma_dict["time"] = np.array([time])
+    plasma_dict["prof_reference"] = "rhop_prof"
+    plasma_dict["rhop_prof"] = rho
+    plasma_dict["ne"] = ne
+    plasma_dict["Te"] = Te
+    plasma_dict["eq_data"] = [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, rhop, Psi_ax=0.0, Psi_sep=0.0)]
+    if(vessel_data is not None):
+        plasma_dict["vessel_bd"] = np.array(vessel_data).T
+    elif(vessel_bd_file is not None):
+        vessel_bd = np.loadtxt(vessel_bd_file, skiprows=1)
+        plasma_dict["vessel_bd"] = []
+        plasma_dict["vessel_bd"].append(vessel_bd.T[0])
+        plasma_dict["vessel_bd"].append(vessel_bd.T[1])
+        plasma_dict["vessel_bd"] = np.array(plasma_dict["vessel_bd"])
+    else:
+        raise ValueError("vessel_data and vessel_bd_file cannot both be None")
+    make_plasma_mat(mat_out_name, plasma_dict)
 
 def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     plasma_dict = {}
@@ -70,16 +96,29 @@ def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     plasma_dict["prof_reference"] = "rhop_prof"
     make_plasma_mat(os.path.join(path, mat_out_name), plasma_dict)
     
-def make_ECRadScenario_from_OMFIT_derived(shot, omfit_derived_variables, omfit_eqdsk):
-    from omfit.classes import omfit_eqdsk
+def make_ECRadScenario_from_OMFIT_derived(mat_out_name, shot, time, derived_file, eqdsk_file):
+    from omfit.classes.omfit_eqdsk import OMFITeqdsk
+    from netCDF4 import Dataset
+    omfit_eq = OMFITeqdsk(eqdsk_file)
     plasma_dict = {}
     plasma_dict["shot"] = shot
-    plasma_dict["time"] = []
-    for i, time in enumerate(omfit_derived_variables["time"]):
-        plasma_dict["time"].append(time)
-        plasma_dict["ne"].append(np.asarray(omfit_derived_variables["n_e"])[i])
-        plasma_dict["Te"].append(np.asarray(np.asarray(omfit_derived_variables["T_e"])[i])[i])
-        omfit_eqdsk()
+    derived = Dataset(derived_file)
+    itime = np.argmin(time - np.asarray(derived['time']))
+    if(np.asarray(derived['psi_n']).ndim == 2):
+        rhop = np.sqrt(np.asarray(derived.variables["psi_n"])[itime])
+    else:
+        rhop = np.sqrt(np.asarray(derived.variables["psi_n"]))
+    Te = np.asarray(derived.variables["T_e"])[itime]
+    ne = np.asarray(derived.variables["n_e"])[itime]
+    make_plasma_mat_from_variables(mat_out_name, shot, time, rhop, Te, ne, \
+                                   omfit_eq['AuxQuantities']["R"], \
+                                   omfit_eq['AuxQuantities']["Z"], \
+                                   omfit_eq['AuxQuantities']["Br"].T, \
+                                   omfit_eq['AuxQuantities']["Bt"].T ,\
+                                   omfit_eq['AuxQuantities']["Bz"].T ,\
+                                   omfit_eq['AuxQuantities']["RHOpRZ"].T,\
+                                   vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
+
 
 def make_plasma_mat(filename, plasma_dict):
     mdict = {}

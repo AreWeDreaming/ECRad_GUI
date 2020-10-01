@@ -310,6 +310,8 @@ class ScenarioSelectPanel(wx.Panel):
             self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
             self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
             self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
+        else:
+            self.plasma_dict["shot"] = self.Scenario.shot
         self.use_3D_cb.SetValue(self.Scenario.use3Dscen.used)
         self.bt_vac_correction_tc.SetValue(self.Scenario.bt_vac_correction)
         self.Te_rhop_scale_tc.SetValue(self.Scenario.Te_rhop_scale)
@@ -318,6 +320,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.ne_scale_tc.SetValue(self.Scenario.ne_scale)
         self.last_used_bt_vac_correction = self.Scenario.bt_vac_correction
         self.post_run = True
+        self.used = list(np.array(self.Scenario.plasma_dict["time"], dtype="|U5"))
         self.used_list.Clear()
         self.used_list.AppendItems(np.array(self.Scenario.plasma_dict["time"], dtype="|U5"))
         self.unused_list.Clear()
