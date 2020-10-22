@@ -577,7 +577,7 @@ class ScenarioSelectPanel(wx.Panel):
             self.EQ_exp_tc.SetValue(self.Scenario.EQ_exp)
             self.EQ_diag_tc.SetValue(self.Scenario.EQ_diag)
             self.EQ_ed_tc.SetValue(self.Scenario.EQ_ed)
-        self.Scenario.profile_dimension = len(self.plasma_dict["Te"][0].shape)
+        self.Scenario.profile_dimension = self.plasma_dict["Te"][0].ndim
         if(len(self.plasma_dict["time"]) > 1):
             self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - self.plasma_dict["time"][0:len(self.plasma_dict["time"]) - 1])
         else:
@@ -589,25 +589,28 @@ class ScenarioSelectPanel(wx.Panel):
         self.unused.sort()
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
-        self.pc_obj.reset(True)
-        Te_indices = np.zeros((len(self.plasma_dict["Te"]), len(self.plasma_dict["Te"][0])), dtype=np.bool)
-        IDA_labels = []
-        rhop_range = [0.2, 0.95]
-        for index in range(len(self.plasma_dict["time"])):
-            for rhop in rhop_range:
-                Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
-                if(index == 0):
-                    IDA_labels.append(r"$T_\mathrm{e}$" + r"({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
-        diag_time = None
-        diag_data = None
-        diag_labels = None
-        self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, \
-                                                    np.reshape(self.plasma_dict["Te"][Te_indices], \
-                                                               (len(self.plasma_dict["time"]), len(rhop_range))).T / 1.e3, \
-                                                    IDA_labels, [], [], \
-                                                    [], [], \
-                                                    diag_data, diag_labels, None)
-        self.canvas.draw()
+        if(self.plasma_dict["Te"][0].ndim == 1):
+            self.pc_obj.reset(True)
+            Te_indices = np.zeros((len(self.plasma_dict["Te"]), len(self.plasma_dict["Te"][0])), dtype=np.bool)
+            IDA_labels = []
+            rhop_range = [0.2, 0.95]
+            for index in range(len(self.plasma_dict["time"])):
+                for rhop in rhop_range:
+                    Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
+                    if(index == 0):
+                        IDA_labels.append(r"$T_\mathrm{e}$" + r"({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
+            diag_time = None
+            diag_data = None
+            diag_labels = None
+            self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, \
+                                                        np.reshape(self.plasma_dict["Te"][Te_indices], \
+                                                                   (len(self.plasma_dict["time"]), len(rhop_range))).T / 1.e3, \
+                                                        IDA_labels, [], [], \
+                                                        [], [], \
+                                                        diag_data, diag_labels, None)
+            self.canvas.draw()
+        else:
+            print("Sorry no plots for your 2D Te/ne data")
         self.loaded = True
         self.new_data_available = True
         self.data_source = "file:" + path
@@ -771,24 +774,25 @@ class ScenarioSelectPanel(wx.Panel):
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
         self.pc_obj.reset(True)
-        Te_indices = np.zeros((len(self.plasma_dict["Te"]), len(self.plasma_dict["Te"][0])), dtype=np.bool)
-        IDA_labels = []
-        rhop_range = [0.2, 0.95]
-        for index in range(len(self.plasma_dict["time"])):
-            for rhop in rhop_range:
-                Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
-                if(index == 0):
-                    IDA_labels.append(r"$T_\mathrm{e}$" + "({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
-        diag_time = None
-        diag_data = None
-        diag_labels = None
-        self.fig = self.pc_obj.time_trace_for_calib(self.fig, NewScenario.shot, self.plasma_dict["time"], diag_time, \
-                                                    np.reshape(self.plasma_dict["Te"][Te_indices], \
-                                                               (len(self.plasma_dict["time"]), len(rhop_range))).T / 1.e3, \
-                                                    IDA_labels, [], [], \
-                                                    [], [], \
-                                                    diag_data, diag_labels, None)
-        self.canvas.draw()
+        if(NewResult.Scenario.profile_dimension == 1):
+            Te_indices = np.zeros((len(self.plasma_dict["Te"]), len(self.plasma_dict["Te"][0])), dtype=np.bool)
+            IDA_labels = []
+            rhop_range = [0.2, 0.95]
+            for index in range(len(self.plasma_dict["time"])):
+                for rhop in rhop_range:
+                    Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
+                    if(index == 0):
+                        IDA_labels.append(r"$T_\mathrm{e}$" + "({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
+            diag_time = None
+            diag_data = None
+            diag_labels = None
+            self.fig = self.pc_obj.time_trace_for_calib(self.fig, NewScenario.shot, self.plasma_dict["time"], diag_time, \
+                                                        np.reshape(self.plasma_dict["Te"][Te_indices], \
+                                                                   (len(self.plasma_dict["time"]), len(rhop_range))).T / 1.e3, \
+                                                        IDA_labels, [], [], \
+                                                        [], [], \
+                                                        diag_data, diag_labels, None)
+            self.canvas.draw()
         self.loaded = True
         self.new_data_available = True
         if(self.use3Dscen.used):
@@ -867,14 +871,14 @@ class ScenarioSelectPanel(wx.Panel):
         if(not Scenario.data_source == "aug_database" and  Scenario.bt_vac_correction != 1.0):
             print("Warning ", Scenario.bt_vac_correction, " differs from 1")
             print("Since vacuum component of Bt cannot be determined for external data the entire Bt will be scaled")
-        profile_dimension = len(self.plasma_dict["Te"][0].shape)
-        if(profile_dimension == 1):
+        Scenario.profile_dimension = self.plasma_dict["Te"][0].ndim
+        if(Scenario.profile_dimension == 1):
             Scenario.plasma_dict["rhop_prof"] = []
             Scenario.plasma_dict["rhot_prof"] = []
         for time in self.used:
             Scenario.plasma_dict["time"].append(float(time))
             itime = np.argmin(np.abs(self.plasma_dict["time"] - Scenario.plasma_dict["time"][-1]))
-            if(profile_dimension == 1):
+            if(Scenario.profile_dimension == 1):
                 Scenario.plasma_dict["rhop_prof"].append(self.plasma_dict["rhop_prof"][itime])
                 if("rhot_prof" in self.plasma_dict):
                     Scenario.plasma_dict["rhot_prof"].append(self.plasma_dict["rhot_prof"][itime])

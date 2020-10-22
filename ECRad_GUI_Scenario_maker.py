@@ -6,6 +6,8 @@ Created on Jul 3, 2019
 #Module independent of the main GUI which allows the user to easily create ECRad Scenarios from external data
 import os
 import sys
+import numpy as np
+from scipy.io import savemat
 from glob import glob
 from ECRad_Scenario import ECRadScenario
 library_list = glob("../*pylib") + glob("../*Pylib")
@@ -25,8 +27,7 @@ if(not found_lib):
 from Global_Settings import globalsettings
 from Basic_Methods.Equilibrium_Utils import EQDataExt, EQDataSlice
 from TB_Communication import make_mdict_from_TB_files
-import numpy as np
-from scipy.io import savemat
+
 from scipy.interpolate import InterpolatedUnivariateSpline
 from Diag_Types import EXT_diag
 
@@ -44,18 +45,50 @@ if(globalsettings.AUG):
         for time in times:
             plasma_dict["eq_data"].append(EQ_obj.GetSlice(time))
         make_plasma_mat(filename, plasma_dict)
+   
+def make_plasma_mat_from_variables_2D(mat_out_name, shot, time, R, z, Te, ne, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
+    # Vessel data has to be a ndarray of points (shape = (n,2)) with R,z points of the machine wall
+    # Alternatively a standard ECRad vessel file can be used like ASDEX_Upgrade_vessel.txt
+    plasma_dict = {}
+    plasma_dict["shot"] = shot
+    plasma_dict["time"] = np.array([time])
+    plasma_dict["prof_reference"] = "2D"
+    plasma_dict["rhop_prof"] = None
+    # N2D [m^{-3}]
+    plasma_dict["ne"] = ne
+    # T2D [eV]
+    plasma_dict["Te"] = Te
+    #R = self.omfit_eq['AuxQuantities']['R']
+    #z = self.omfit_eq['AuxQuantities']['Z']
+    #rhop = self.omfit_eq['AuxQuantities']["RHOpRZ"].T
+    #Br = self.omfit_eq['AuxQuantities']["Br"].T
+    #Bt = self.omfit_eq['AuxQuantities']["Bt"].T
+    #Bz = self.omfit_eq['AuxQuantities']["Bz"].T
+    #vessel_data = np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T
+    plasma_dict["eq_data"] = [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, rhop, Psi_ax=0.0, Psi_sep=1.0)]
+    if(vessel_data is not None):
+        plasma_dict["vessel_bd"] = np.array(vessel_data).T
+    elif(vessel_bd_file is not None):
+        vessel_bd = np.loadtxt(vessel_bd_file, skiprows=1)
+        plasma_dict["vessel_bd"] = []
+        plasma_dict["vessel_bd"].append(vessel_bd.T[0])
+        plasma_dict["vessel_bd"].append(vessel_bd.T[1])
+        plasma_dict["vessel_bd"] = np.array(plasma_dict["vessel_bd"])
+    else:
+        raise ValueError("vessel_data and vessel_bd_file cannot both be None")
+    make_plasma_mat(mat_out_name, plasma_dict)
         
-def make_plasma_mat_from_variables(mat_out_name, shot, time, rho, Te, ne, R, z, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
+def make_plasma_mat_from_variables(mat_out_name, shot, time, rhop_profiles, Te, ne, R, z, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
     # Vessel data has to be a ndarray of points (shape = (n,2)) with R,z points of the machine wall
     # Alternatively a standard ECRad vessel file can be used like ASDEX_Upgrade_vessel.txt
     plasma_dict = {}
     plasma_dict["shot"] = shot
     plasma_dict["time"] = np.array([time])
     plasma_dict["prof_reference"] = "rhop_prof"
-    plasma_dict["rhop_prof"] = rho
+    plasma_dict["rhop_prof"] = rhop_profiles
     plasma_dict["ne"] = ne
     plasma_dict["Te"] = Te
-    plasma_dict["eq_data"] = [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, rhop, Psi_ax=0.0, Psi_sep=0.0)]
+    plasma_dict["eq_data"] = [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, Psi_ax=0.0, Psi_sep=0.0, rhop=rhop)]
     if(vessel_data is not None):
         plasma_dict["vessel_bd"] = np.array(vessel_data).T
     elif(vessel_bd_file is not None):
@@ -96,20 +129,18 @@ def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     plasma_dict["prof_reference"] = "rhop_prof"
     make_plasma_mat(os.path.join(path, mat_out_name), plasma_dict)
     
-def make_ECRadScenario_from_OMFIT_derived(mat_out_name, shot, time, derived_file, eqdsk_file):
+def make_ECRadScenario_for_DIII_D(mat_out_name, shot, time, eqdsk_file, derived_file=None, ped_prof=None):
     from omfit.classes.omfit_eqdsk import OMFITeqdsk
+    from Profile_Utils import make_profile
     from netCDF4 import Dataset
+    profile = make_profile(derived = derived_file, ped_prof = ped_prof, time = time)
     omfit_eq = OMFITeqdsk(eqdsk_file)
     plasma_dict = {}
     plasma_dict["shot"] = shot
-    derived = Dataset(derived_file)
-    itime = np.argmin(time - np.asarray(derived['time']))
-    if(np.asarray(derived['psi_n']).ndim == 2):
-        rhop = np.sqrt(np.asarray(derived.variables["psi_n"])[itime])
-    else:
-        rhop = np.sqrt(np.asarray(derived.variables["psi_n"]))
-    Te = np.asarray(derived.variables["T_e"])[itime]
-    ne = np.asarray(derived.variables["n_e"])[itime]
+    rhop = np.sqrt(profile.axes["T_e"])
+    ne = profile.profs["n_e"]
+    Te = profile.profs["T_e"]
+    np.savetxt("vessel_bd", np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T, fmt='% 1.12E')
     make_plasma_mat_from_variables(mat_out_name, shot, time, rhop, Te, ne, \
                                    omfit_eq['AuxQuantities']["R"], \
                                    omfit_eq['AuxQuantities']["Z"], \
@@ -152,7 +183,17 @@ def make_plasma_mat(filename, plasma_dict):
     mdict["Bz"] = np.array(mdict["Bz"])
     savemat(filename, mdict, appendmat=False)
     
-def make_launch_mat(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X):
+def make_launch_mat_single_timepoint(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X):
+    # 1D
+    # arrays, with length number of channels
+    #R = R_focus + 1.0
+    #z = 0.0
+    #dist_focus = R_focus - R
+    # theta_pol = 0
+    # phi_tor = 0.2
+    # pol_coeff_X = -1.0
+    # df = 0.5e9
+    # width = 1.e-1 # see wikipedia, but we do not need it now. Figure out if you use it
     mdict = {}
     mdict["launch_f"] = np.array([f])
     mdict["launch_df"] = np.array([df])
@@ -162,7 +203,7 @@ def make_launch_mat(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, 
     mdict["launch_pol_ang"] = np.array([theta_pol])
     mdict["launch_tor_ang"] = np.array([phi_tor])
     mdict["launch_dist_focus"] = np.array([dist_focus])
-    mdict["launch_width"] = np.array([width])
+    mdict["launch_width"] = np.array([width]) # see wikipedia, but we do not need it now
     mdict["launch_pol_coeff_X"] = np.array([pol_coeff_X])
     savemat(filename, mdict, appendmat=False)
     
@@ -246,14 +287,17 @@ def make_test_launch(filename):
     make_launch_mat(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
     
 if (__name__ == "__main__"):
+    make_ECRadScenario_for_DIII_D("170325.mat", 170325, time=3850, \
+                                  eqdsk_file="/mnt/c/Users/Severin/Scenarios/170325_3_850/g170325.3_850_20", \
+                                  ped_prof=["profdb_ped", 170325, "t1042"])
 #     make_W7X_Scenario("/tokp/work/sdenk/ECRad/20181009043_michelson_tor", 20181009043, 2.15, "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/example/plasma_profiles.txt", \
 #                       "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/example/oliford-20181009.043-t_2.150s-fi_0_0.050.txt", "VMEC", "/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat", \
 #                       "/tokp/work/sdenk/ECRad/W7X_wall_SI.dat", "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/freq_michelson")
-    make_W7X_Scenario("/tokp/work/sdenk/ECRad/20181009043002_5_00_mich", 20181009043002, 5.00, "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/Travis_ECRad_Benchmark/20181009.043.002_5_00s_Mich", \
-                      "/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat", \
-                      "/tokp/work/sdenk/ECRad/W7X_wall_SI.dat", \
-                      B_scale = 0.9391666666666667, \
-                      ECE_freqs="/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/Travis_ECRad_Benchmark/20181009.043.002_5_00s_Mich/results_0/ECE_spectrum_parsed")#, ECE_freqs="/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/freq_michelson")
+#     make_W7X_Scenario("/tokp/work/sdenk/ECRad/20181009043002_5_00_mich", 20181009043002, 5.00, "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/Travis_ECRad_Benchmark/20181009.043.002_5_00s_Mich", \
+#                       "/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat", \
+#                       "/tokp/work/sdenk/ECRad/W7X_wall_SI.dat", \
+#                       B_scale = 0.9391666666666667, \
+#                       ECE_freqs="/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/Travis_ECRad_Benchmark/20181009.043.002_5_00s_Mich/results_0/ECE_spectrum_parsed")#, ECE_freqs="/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/freq_michelson")
 #     make_W7X_Scenario("/tokp/work/sdenk/ECRad/AUG_32934", 32934, 3.298, "/tokp/work/sdenk/ECRad/32934_3298_plasma_profiles.txt", \
 #                       "/tokp/work/sdenk/ECRad/g32934_03298", "EFIT", "/tokp/work/sdenk/ECRad/ECRad_32934_ECE_ed5.mat", "/tokp/work/sdenk/ECRad/AUG_pseudo_3D_wall.dat")
 #     make_launch_from_ray_launch("/tokp/work/sdenk/ECRad/ray_launch_W7_X.dat","/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat")

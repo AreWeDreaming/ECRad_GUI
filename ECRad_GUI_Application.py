@@ -90,8 +90,9 @@ class ECRad_GUI_MainFrame(wx.Frame):
         self.SetSizer(self.sizer)
 #        self.SetClientSize(self.Panel.sizer.GetMinSize())
 #        self.PlotWindow = PlotFrame(self)
-        self.SetClientSize((wx.GetDisplaySize()[0] * 0.8, \
-                            wx.GetDisplaySize()[1] * 0.8))
+        width = min(wx.GetDisplaySize()[0] * 0.8, 1680)
+        height = min(wx.GetDisplaySize()[1] * 0.8, 960)
+        self.SetClientSize((width, height))
         self.Center()
 
 
@@ -311,6 +312,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             print("Ge, GB -> distribution function computed by GENE (deprecated)")
             print("Please select a valid distribution function identifier.")
             return
+        scenario_updated = False
         # Sets time points and stores plasma data in Scenario
         if(self.scenario_select_panel.UpdateNeeded() or not self.Results.Scenario.plasma_set):
             try:
@@ -330,6 +332,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.TimeBox.Clear()
             for t in self.Results.Scenario.plasma_dict["time"]:
                 self.TimeBox.Append("{0:1.4f}".format(t))
+            scenario_updated = True
         # Stores launch data in Scenario
         if(self.launch_panel.UpdateNeeded() or not self.Results.Scenario.diags_set):
             try:
@@ -349,6 +352,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.DiagBox.Clear()
             for diag in list(self.Results.Scenario.used_diags_dict):
                 self.DiagBox.Append(diag)
+            scenario_updated = True
         self.stop_current_evaluation = False
         self.index = 0
         old_comment = self.Results.comment
@@ -399,7 +403,8 @@ class Main_Panel(scrolled.ScrolledPanel):
                 WorkerThread(self.LoadGeneData, [pathname])
                 fileDialog.Destroy()
         self.Results.Config.autosave()
-        self.Results.Scenario.autosave()
+        if(scenario_updated):
+            self.Results.Scenario.autosave()
         if(self.Results.Config.dstf not in ["Ge", "GB"]):
             self.ProgressBar.SetRange(len(self.Results.Scenario.plasma_dict["time"]))
             evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())

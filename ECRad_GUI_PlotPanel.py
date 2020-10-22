@@ -64,6 +64,7 @@ class PlotPanel(wx.Panel):
         self.plot_choice.Append("BPD mode")
         self.plot_choice.Append("Ray")
         self.plot_choice.Append("Frequencies")
+        self.plot_choice.Append("Theta")
         # self.plot_choice.Append("Ray_H_N")
         self.plot_choice.Append("Rz res.")
         self.plot_choice.Append("Rz res. w. rays")
@@ -747,6 +748,12 @@ class PlotContainer(wx.Panel):
             mode_str = 'X'
         else:
             mode_str = 'O'
+        if(Results.Scenario.plasma_dict["prof_reference"] != "2D"):
+            rhop_Te= [Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale]
+            Te = [Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3]
+        else:
+            rhop_Te = [None]
+            Te = [None]
         if(plot_type == "Ray"):
             if(not Config.extra_output):
                 print("The rays were not output by ECRad!")
@@ -1001,8 +1008,6 @@ class PlotContainer(wx.Panel):
                 if(alt_model):
                     Trad_comp=Trad_comp[tau_mask]
                 diag_names = diag_names[tau_mask]
-            rhop_Te= [Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale]
-            Te = [Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3]
             if(multiple_models):
                 rhop_list.append(np.copy(rhop))
                 Trad_list.append(np.copy(Trad))
@@ -1019,8 +1024,12 @@ class PlotContainer(wx.Panel):
                     diag_name_list.append(other_results["Trad"][entry]["diag_mask"][itime])
                     label_list.append(entry)
                     if("profx" in other_results["Trad"][entry]):
-                        rhop_Te.append(other_results["Trad"][entry]["profx"][itime])
-                        Te.append(other_results["Trad"][entry]["profy"][itime])
+                        if(Results.Scenario.plasma_dict["prof_reference"] != "2D"):
+                            rhop_Te.append(other_results["Trad"][entry]["profx"][itime])
+                            Te.append(other_results["Trad"][entry]["profy"][itime])
+                        else:
+                            rhop_Te.append(None)
+                            Te.append(None)
                 rhop = rhop_list
                 Trad = Trad_list
                 diag_names = diag_name_list
@@ -1037,8 +1046,7 @@ class PlotContainer(wx.Panel):
                     else:
                         diagdict[diag_name].rhop = diagdict[diag_name].rhop[tau_mask_diag]
             args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
-                                         rhop_Te, Te,  diagdict, diag_names, \
-                                             Config.dstf, alt_model]
+                    rhop_Te, Te,  diagdict, diag_names, Config.dstf, alt_model]
             kwargs = {}
             kwargs["multiple_models"] = multiple_models
             kwargs["label_list"] = label_list
@@ -1060,13 +1068,11 @@ class PlotContainer(wx.Panel):
                 tau_comp = Results.tau_comp[time_index][Results.tau[time_index] >= tau_threshhold]
             else:
                 tau_comp = None
-            rhop_IDA = Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
-            Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             use_tau = False
             if(plot_type == "tau"):
                 use_tau = True
             args = [self.pc_obj.plot_tau, time, rhop, tau, tau_comp, \
-                                         rhop_IDA, Te_IDA,  Config.dstf, alt_model, use_tau]
+                     rhop_Te[0], Te[0],  Config.dstf, alt_model, use_tau]
             kwargs = {}
         elif(plot_type == "Trad mode"):
             if(Config.considered_modes != 3):
@@ -1080,8 +1086,6 @@ class PlotContainer(wx.Panel):
                 print("No information on the individual X and O mode fractions availabe")
                 print("This information was not stored in the result files previously, please rerun ECRad")
                 return
-            rhop_Te = Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
-            Te = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             warm = False
             if(mode):
                 # X-mode
@@ -1132,8 +1136,7 @@ class PlotContainer(wx.Panel):
                     Trad *= (1.0 - X_mode_frac)
                     Trad_comp *= (1.0 - X_mode_frac_comp)
             args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
-                                         rhop_Te, Te,  diagdict, diag_names, \
-                                         Config.dstf, alt_model]
+                    rhop_Te, Te,  diagdict, diag_names, Config.dstf, alt_model]
             kwargs = {}
             kwargs["X_mode_fraction"] = X_mode_frac
             kwargs["X_mode_fraction_comp"] = X_mode_frac_comp
@@ -1169,10 +1172,8 @@ class PlotContainer(wx.Panel):
             use_tau = False
             if("tau" in plot_type):
                 use_tau = True
-            rhop_IDA = Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
-            Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             args = [self.pc_obj.plot_tau, time, rhop, \
-                    tau, tau_comp, rhop_IDA, Te_IDA, \
+                    tau, tau_comp, rhop_Te[0], Te[0], \
                     Config.dstf, alt_model, use_tau]
             kwargs = {}
         elif(plot_type == "BPD"):
@@ -1181,8 +1182,6 @@ class PlotContainer(wx.Panel):
                 print("Rerun ECRad with 'extra output' set to True")
                 return
             # R = Results.los["R" + mode_str][time_index][ch]
-            rhop_IDA = Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
-            Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             if(len(Results.BPD["rhopX"]) > 0):
                 rhop = Results.BPD["rhopX"][time_index][ch]
                 D = np.copy(Results.BPD["BPDX"][time_index][ch])
@@ -1207,7 +1206,7 @@ class PlotContainer(wx.Panel):
                     rhop_res *= -1.0
             except:
                 print("Failed to get equilibrium information")
-            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_res]
+            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_Te[0], Te[0], Config.dstf, rhop_res]
             kwargs = {}
 #             self.fig = self.pc_obj.plot_BPD(time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_cold)
         elif(plot_type == "BPD mode"):
@@ -1216,8 +1215,6 @@ class PlotContainer(wx.Panel):
                 print("Rerun ECRad with 'extra output' set to True")
                 return
             # R = Results.los["R" + mode_str][time_index][ch]
-            rhop_IDA = Results.Scenario.plasma_dict[Results.Scenario.plasma_dict["prof_reference"]][time_index] * Results.Scenario.Te_rhop_scale
-            Te_IDA = Results.Scenario.plasma_dict["Te"][time_index] * Results.Scenario.Te_scale / 1.e3
             if(mode):
                 if(len(Results.BPD["rhopX"]) == 0):
                     print("No data availabe for X-mode")
@@ -1244,7 +1241,7 @@ class PlotContainer(wx.Panel):
                     rhop_res *= -1.0
             except:
                 print("Failed to get equilibrium information")
-            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_res]
+            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_Te[0], Te[0], Config.dstf, rhop_res]
             kwargs = {}
 #             self.fig = self.pc_obj.plot_BPD(time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_cold)
         elif(plot_type == "Rz res."):
