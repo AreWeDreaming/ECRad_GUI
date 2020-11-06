@@ -566,35 +566,39 @@ class PlotPanel(wx.Panel):
                 temp_compare_data[quant] =  {}
         try:
             for path in paths:
-                    result = ECRadResults()
-                    if(result.from_mat_file(path) == False):
-                        print("Failed to load file at " + path)
-                        continue
-                    label = os.path.basename(path)
-                    label = label.replace("_", " ")
-                    if(hasattr(result, "comment")):
-                        if(len(result.comment) > 0):
-                            label = result.comment
-                    if(plot_type == "Trad"):
-                        temp_compare_data[plot_type][label] = {}
-                        x, y = result.extract_field(plot_type)
-                        temp_compare_data[plot_type][label]["x"] = x[0]
-                        temp_compare_data[plot_type][label]["x_2nd"] = x[1]
-                        temp_compare_data[plot_type][label]["y"] = y
-                        temp_compare_data[plot_type][label]["time"] = result.time
+                result = ECRadResults()
+                if(result.from_mat_file(path) == False):
+                    print("Failed to load file at " + path)
+                    continue
+                label = os.path.basename(path)
+                label = label.replace("_", " ")
+                if(hasattr(result, "comment")):
+                    if(len(result.comment) > 0):
+                        label = result.comment
+                if(plot_type == "Trad"):
+                    temp_compare_data[plot_type][label] = {}
+                    x, y = result.extract_field(plot_type)
+                    temp_compare_data[plot_type][label]["x"] = x[0]
+                    temp_compare_data[plot_type][label]["x_2nd"] = x[1]
+                    temp_compare_data[plot_type][label]["y"] = y
+                    temp_compare_data[plot_type][label]["time"] = result.time
+                    if(result.Scenario.plasma_dict["prof_reference"] != "2D"):
                         temp_compare_data[plot_type][label]["profx"] = result.Scenario.plasma_dict[result.Scenario.plasma_dict["prof_reference"]] * result.Scenario.Te_rhop_scale
                         temp_compare_data[plot_type][label]["profy"] = result.Scenario.plasma_dict["Te"] * result.Scenario.Te_scale / 1.e3
-                        diag_mask = []
-                        for itime in range(len(result.Scenario.plasma_dict["time"])):
-                            diag_mask.append(result.Scenario.ray_launch[itime]["diag_name"])
-                        temp_compare_data[plot_type][label]["diag_mask"] = np.array(diag_mask)
-                    elif(plot_type == "Ray"):
-                        for quant in ["RayXRz", "RayORz", "RayXxy", "RayXxy"]:
-                            x, y = result.extract_field(quant)
-                            temp_compare_data[quant][label] = {}
-                            temp_compare_data[quant][label]["x"] = x
-                            temp_compare_data[quant][label]["y"] = y
-                            temp_compare_data[quant][label]["time"] = result.time
+                    else:
+                        temp_compare_data[plot_type][label]["profx"] = None
+                        temp_compare_data[plot_type][label]["profy"] = None
+                    diag_mask = []
+                    for itime in range(len(result.Scenario.plasma_dict["time"])):
+                        diag_mask.append(result.Scenario.ray_launch[itime]["diag_name"])
+                    temp_compare_data[plot_type][label]["diag_mask"] = np.array(diag_mask)
+                elif(plot_type == "Ray"):
+                    for quant in ["RayXRz", "RayORz", "RayXxy", "RayXxy"]:
+                        x, y = result.extract_field(quant)
+                        temp_compare_data[quant][label] = {}
+                        temp_compare_data[quant][label]["x"] = x
+                        temp_compare_data[quant][label]["y"] = y
+                        temp_compare_data[quant][label]["time"] = result.time
         except Exception as e:
             print("Something went wrong when importing the other results")
             print(e)
