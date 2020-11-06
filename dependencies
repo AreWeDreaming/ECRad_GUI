@@ -1,0 +1,8 @@
+The gui has the following dependencies. See the licenses folder for their licenses.
+python3
+wxpython
+numpy
+matplolib
+scipy
+h5py
+netcdf

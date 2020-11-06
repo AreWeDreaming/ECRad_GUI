@@ -403,8 +403,8 @@ class Main_Panel(scrolled.ScrolledPanel):
                 WorkerThread(self.LoadGeneData, [pathname])
                 fileDialog.Destroy()
         self.Results.Config.autosave()
-        if(scenario_updated):
-            self.Results.Scenario.autosave()
+#         if(scenario_updated):
+#             self.Results.Scenario.autosave()
         if(self.Results.Config.dstf not in ["Ge", "GB"]):
             self.ProgressBar.SetRange(len(self.Results.Scenario.plasma_dict["time"]))
             evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())

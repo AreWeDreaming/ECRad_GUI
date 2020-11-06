@@ -266,7 +266,7 @@ class ScenarioSelectPanel(wx.Panel):
             self.used.sort()
             if(len(self.used) > 0):
                 self.used_list.AppendItems(self.used)
-            self.data_source = "self"
+            self.data_source = self.Scenario.data_source
             self.loaded = True
         else:
             self.plasma_dict = {}
@@ -808,6 +808,10 @@ class ScenarioSelectPanel(wx.Panel):
     def UpdateNeeded(self):
         if(self.new_data_available):
             return True
+        if(globalsettings.AUG and self.Scenario.data_source == "aug_database"):
+            for widget in [self.EQ_exp_tc, self.EQ_diag_tc, self.EQ_ed_tc]:
+                if(widget.CheckForNewValue()):
+                    return True
         for widget in [self.bt_vac_correction_tc, self.Te_rhop_scale_tc, self.ne_rhop_scale_tc, self.Te_scale_tc, self.ne_scale_tc]:
             if(widget.CheckForNewValue()):
                 return True
@@ -891,7 +895,8 @@ class ScenarioSelectPanel(wx.Panel):
                         Scenario.plasma_dict["rhot_prof"].append(old_rhot_prof_list[np.argmin(np.abs(np.array(old_time_list) - float(time)))])
             elif(Scenario.data_source == "aug_database"):
                 if(EQObj is None):
-                    EQObj = EQData(Scenario.shot, EQ_exp=Scenario.EQ_exp, EQ_diag=Scenario.EQ_diag, EQ_ed=Scenario.EQ_ed, bt_vac_correction=Scenario.bt_vac_correction)
+                    EQObj = EQData(Scenario.shot, EQ_exp=Scenario.EQ_exp, EQ_diag=Scenario.EQ_diag, \
+                                   EQ_ed=Scenario.EQ_ed, bt_vac_correction=Scenario.bt_vac_correction)
                     if("rhot_prof" not in self.plasma_dict):
                         Scenario.plasma_dict["rhot_prof"].append(EQObj.rhop_to_rhot(float(time), Scenario.plasma_dict["rhop_prof"]))
                 Scenario.plasma_dict["eq_data"].append(EQObj.GetSlice(Scenario.plasma_dict["time"][-1]))
