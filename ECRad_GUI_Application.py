@@ -373,17 +373,18 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.GetEventHandler().ProcessEvent(evt)
             return
         if(self.Results.Config.dstf == "Re"):
-            fileDialog=wx.FileDialog(self, "Selectr file with bounce averaged distribution data", \
-                                                 defaultDir = self.Results.Config.working_dir, \
-                                                 wildcard="matlab files (*.mat)|*.mat",
-                                                 style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
-            if(fileDialog.ShowModal() == wx.ID_CANCEL):
-                print("Launch aborted")
-                return
-            else:
-                pathname = fileDialog.GetPath()
-                self.Results.Scenario.load_dist_obj(pathname)
-                fileDialog.Destroy()
+            if(self.Results.Scenario.dist_obj is None):
+                fileDialog=wx.FileDialog(self, "Selectr file with bounce averaged distribution data", \
+                                                     defaultDir = self.Results.Config.working_dir, \
+                                                     wildcard="matlab files (*.mat)|*.mat",
+                                                     style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+                if(fileDialog.ShowModal() == wx.ID_CANCEL):
+                    print("Launch aborted")
+                    return
+                else:
+                    pathname = fileDialog.GetPath()
+                    self.Results.Scenario.load_dist_obj(pathname)
+                    fileDialog.Destroy()
         elif(self.Results.Config.dstf in ["Ge", "GB"]):
             if(len(self.Results.Scenario.plasma_dict["time"]) != 1):
                 print("For GENE distributions please select only one time point, i.e. the time point of the gene calcuation")
