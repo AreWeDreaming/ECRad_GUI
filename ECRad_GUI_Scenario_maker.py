@@ -219,7 +219,7 @@ def make_launch_from_ray_launch(filename_in, filename_out):
     dist_focus = launch.T[8]
     width = launch.T[7]
     pol_coeff_X = launch.T[9]
-    make_launch_mat(filename_out, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
+    make_launch_mat_single_timepoint(filename_out, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
 
 def make_W7X_Scenario(ScenarioName, shot, time, folder, \
                       ray_launch_file, wall_filename, ECE_freqs=None, B_scale=1.0):
@@ -284,12 +284,13 @@ def make_test_launch(filename):
     dist_focus = np.array([2.3, 2.3])
     width = np.array([0.2, 0.2])
     pol_coeff_X = np.array([-1, -1])
-    make_launch_mat(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
+    make_launch_mat_single_timepoint(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
     
 if (__name__ == "__main__"):
-    make_ECRadScenario_for_DIII_D("170325.mat", 170325, time=3850, \
-                                  eqdsk_file="/mnt/c/Users/Severin/Scenarios/170325_3_850/g170325.3_850_20", \
-                                  ped_prof=["profdb_ped", 170325, "t1042"])
+    make_launch_from_ray_launch("/afs/ipp-garching.mpg.de/home/s/sdenk/Documents/CECE_ray_launch.txt", "/afs/ipp-garching.mpg.de/home/s/sdenk/Documents/CECE_launch.mat")
+#     make_ECRadScenario_for_DIII_D("170325.mat", 170325, time=3850, \
+#                                   eqdsk_file="/mnt/c/Users/Severin/Scenarios/170325_3_850/g170325.3_850_20", \
+#                                   ped_prof=["profdb_ped", 170325, "t1042"])
 #     make_W7X_Scenario("/tokp/work/sdenk/ECRad/20181009043_michelson_tor", 20181009043, 2.15, "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/example/plasma_profiles.txt", \
 #                       "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/example/oliford-20181009.043-t_2.150s-fi_0_0.050.txt", "VMEC", "/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat", \
 #                       "/tokp/work/sdenk/ECRad/W7X_wall_SI.dat", "/afs/ipp-garching.mpg.de/home/s/sdenk/Documentation/Data/W7X_stuff/freq_michelson")
