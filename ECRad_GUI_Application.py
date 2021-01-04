@@ -166,7 +166,8 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.ECRad_process = None
         self.ECRad_pid = None
         self.stop_current_evaluation = False
-        self.Results = ECRadResults()
+        self.Results = ECRadResults(lastused=True)
+        self.Results.Config
         self.Bind(EVT_MAKE_ECRAD, self.OnProcessTimeStep)
         self.Bind(wx.EVT_END_PROCESS, self.OnProcessEnded)
         self.Bind(EVT_NEXT_TIME_STEP, self.OnNextTimeStep)
@@ -385,7 +386,14 @@ class Main_Panel(scrolled.ScrolledPanel):
                     pathname = fileDialog.GetPath()
                     self.Results.Scenario.load_dist_obj(pathname)
                     fileDialog.Destroy()
-        elif(self.Results.Config.dstf in ["Ge", "GB"]):
+        self.Results.Config.autosave()
+        if(self.Results.Config.dstf not in ["Ge", "GB"]):
+            if(scenario_updated):
+                self.Results.Scenario.autosave()
+            self.ProgressBar.SetRange(len(self.Results.Scenario.plasma_dict["time"]))
+            evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
+            wx.PostEvent(self, evt)
+        else:
             if(len(self.Results.Scenario.plasma_dict["time"]) != 1):
                 print("For GENE distributions please select only one time point, i.e. the time point of the gene calcuation")
                 evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
@@ -403,13 +411,6 @@ class Main_Panel(scrolled.ScrolledPanel):
                 pathname = fileDialog.GetPath()
                 WorkerThread(self.LoadGeneData, [pathname])
                 fileDialog.Destroy()
-        self.Results.Config.autosave()
-#         if(scenario_updated):
-#             self.Results.Scenario.autosave()
-        if(self.Results.Config.dstf not in ["Ge", "GB"]):
-            self.ProgressBar.SetRange(len(self.Results.Scenario.plasma_dict["time"]))
-            evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
-            wx.PostEvent(self, evt)
             
     def LoadGeneData(self, args):
         pathname = args[0]
@@ -444,6 +445,7 @@ class Main_Panel(scrolled.ScrolledPanel):
                 for time in self.Results.Scenario.plasma_dict["time"]:
                     self.TimeBox.Append("{0:1.5f}".format(time))
                 self.ProgressBar.SetRange(len(self.Results.Scenario.plasma_dict["time"]))
+                self.Results.Scenario.autosave()
                 evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
                 wx.PostEvent(self, evt)
             else:

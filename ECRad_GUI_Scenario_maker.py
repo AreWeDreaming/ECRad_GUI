@@ -150,6 +150,26 @@ def make_ECRadScenario_for_DIII_D(mat_out_name, shot, time, eqdsk_file, derived_
                                    omfit_eq['AuxQuantities']["RHOpRZ"].T,\
                                    vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
 
+def put_TRANSP_U_profiles_in_Scenario(Scenario, filename, time, scenario_name):
+    from ufilelib import UFILELIB
+    from Plotting_Configuration import plt
+    u_file = UFILELIB()
+    u_file.readfile(filename)
+    it = np.argmin(np.abs(Scenario.plasma_dict["time"]-time))
+    eq_slice = Scenario.plasma_dict["eq_data"][it]
+    Scenario.plasma_dict["time"] = np.array([time])
+    Scenario.plasma_dict["eq_data"] = [eq_slice]
+    it_u_file = np.argmin(np.abs(u_file.ufdict["TE"]["Time"]))
+    Scenario.plasma_dict["Te"] = [u_file.ufdict["TE"]["data"][it_u_file]]
+    plt.plot(u_file.ufdict["TE"]["rho_tor"], u_file.ufdict["TE"]["data"][it_u_file]/1.e3)
+    it_u_file = np.argmin(np.abs(u_file.ufdict["NE"]["Time"]))
+    Scenario.plasma_dict["ne"] = [u_file.ufdict["NE"]["data"][it_u_file] * 1.e6]
+    Scenario.plasma_dict["prof_reference"] = "rhot_prof"
+    Scenario.plasma_dict["rhot_prof"] = u_file.ufdict["NE"]["rho_tor"]
+    Scenario.to_mat_file(filename=scenario_name)
+    plt.plot(u_file.ufdict["NE"]["rho_tor"], u_file.ufdict["NE"]["data"][it_u_file]/1.e13)
+    plt.show()
+    
 
 def make_plasma_mat(filename, plasma_dict):
     mdict = {}
@@ -287,7 +307,11 @@ def make_test_launch(filename):
     make_launch_mat_single_timepoint(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
     
 if (__name__ == "__main__"):
-    make_launch_from_ray_launch("/afs/ipp-garching.mpg.de/home/s/sdenk/Documents/CECE_ray_launch.txt", "/afs/ipp-garching.mpg.de/home/s/sdenk/Documents/CECE_launch.mat")
+    Scenario = ECRadScenario(noLoad=True)
+    Scenario.from_mat(path_in="/mnt/c/Users/Severin/ECRad_regression/GENE/ECRad_33585_EXT_ed2.mat")
+    put_TRANSP_U_profiles_in_Scenario(Scenario, "/mnt/c/Users/Severin/ECRad_regression/GENE/33585.u", \
+                                      3.0, "/mnt/c/Users/Severin/ECRad_regression/GENE/ECRad_33585_EXT_ed3.mat")
+#     make_launch_from_ray_launch("/afs/ipp-garching.mpg.de/home/s/sdenk/Documents/CECE_ray_launch.txt", "/afs/ipp-garching.mpg.de/home/s/sdenk/Documents/CECE_launch.mat")
 #     make_ECRadScenario_for_DIII_D("170325.mat", 170325, time=3850, \
 #                                   eqdsk_file="/mnt/c/Users/Severin/Scenarios/170325_3_850/g170325.3_850_20", \
 #                                   ped_prof=["profdb_ped", 170325, "t1042"])

@@ -602,7 +602,7 @@ class ScenarioSelectPanel(wx.Panel):
             diag_time = None
             diag_data = None
             diag_labels = None
-            self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.Scenario.shot, self.plasma_dict["time"], diag_time, \
+            self.fig = self.pc_obj.time_trace_for_calib(self.fig, self.plasma_dict["shot"], self.plasma_dict["time"], diag_time, \
                                                         np.reshape(self.plasma_dict["Te"][Te_indices], \
                                                                    (len(self.plasma_dict["time"]), len(rhop_range))).T / 1.e3, \
                                                         IDA_labels, [], [], \
@@ -655,6 +655,7 @@ class ScenarioSelectPanel(wx.Panel):
             except Exception as e:
                 print(e)
                 print("Failed to load Scenario -- does the selected file contain a Scenario?")
+                print("I fthis file only contains profiles and equilibria try load from .mat instead.")
                 dlg.Destroy()
                 return
         if(globalsettings.AUG):
@@ -815,7 +816,7 @@ class ScenarioSelectPanel(wx.Panel):
         for widget in [self.bt_vac_correction_tc, self.Te_rhop_scale_tc, self.ne_rhop_scale_tc, self.Te_scale_tc, self.ne_scale_tc]:
             if(widget.CheckForNewValue()):
                 return True
-        if(self.data_source == "aug_database"):
+        if(self.data_source == "aug_database" and globalsettings.AUG == True):
             for widget in [self.EQ_exp_tc, self.EQ_diag_tc, self.EQ_ed_tc]:
                 if(widget.CheckForNewValue()):
                     return True
@@ -893,7 +894,7 @@ class ScenarioSelectPanel(wx.Panel):
                     Scenario.plasma_dict["eq_data"].append(old_eq_list[np.argmin(np.abs(np.array(old_time_list) - float(time)))])
                 if("rhot_prof" not in self.plasma_dict):
                         Scenario.plasma_dict["rhot_prof"].append(old_rhot_prof_list[np.argmin(np.abs(np.array(old_time_list) - float(time)))])
-            elif(Scenario.data_source == "aug_database"):
+            elif(Scenario.data_source == "aug_database" and globalsettings.AUG==True):
                 if(EQObj is None):
                     EQObj = EQData(Scenario.shot, EQ_exp=Scenario.EQ_exp, EQ_diag=Scenario.EQ_diag, \
                                    EQ_ed=Scenario.EQ_ed, bt_vac_correction=Scenario.bt_vac_correction)
