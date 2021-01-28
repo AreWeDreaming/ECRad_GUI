@@ -58,6 +58,13 @@ class simple_label_cb(wx.Panel):
 
 class simple_label_tc(wx.Panel):
     def __init__(self, parent, label, value, value_type, border=0, tooltip=None, scale=None):
+        if(value_type is None):
+            if(type(value) == int):
+                value_type = "integer"
+            elif(type(value) == float):
+                value_type = "real"
+            elif(type(value) == str):
+                value_type = "string"
         if(border):
             wx.Panel.__init__(self, parent, wx.ID_ANY, style=wx.SUNKEN_BORDER)
         else:

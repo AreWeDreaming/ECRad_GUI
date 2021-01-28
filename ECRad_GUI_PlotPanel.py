@@ -208,7 +208,7 @@ class PlotPanel(wx.Panel):
             itime = np.argmin(np.abs(self.Results.time - time))
             ch = int(self.ch_choice.GetStringSelection()) - 1
             warm = False
-            if(self.Results.Config.extra_output and self.use_warm_res_cb.GetValue()):
+            if(self.Results.Config["Execution"]["extra_output"] and self.use_warm_res_cb.GetValue()):
                 warm = True
                 res = self.Results.resonance["rhop_warm"][itime][ch]
             else:
@@ -284,7 +284,7 @@ class PlotPanel(wx.Panel):
         for ich in range(len(self.Results.Scenario.ray_launch[itime]["f"])):
             launches.append(ECRHLauncher())
             launches[-1].inject_ECRad_ray_launch(self.Results.Scenario.ray_launch[itime], ich)
-        make_TORBEAM_no_data_load(self.Results.Config.working_dir, self.Results.Scenario.shot, time, \
+        make_TORBEAM_no_data_load(self.Results.Config["Execution"]["working_dir"], self.Results.Scenario.shot, time, \
                                   self.Results.Scenario.plasma_dict[self.Results.Scenario.plasma_dict["prof_reference"]][itime], \
                                   self.Results.Scenario.plasma_dict["Te"][itime], \
                                   self.Results.Scenario.plasma_dict["ne"][itime], self.Results.Scenario.plasma_dict["eq_data"][itime].R, \
@@ -297,7 +297,7 @@ class PlotPanel(wx.Panel):
 
     def OnThreadFinished(self, evt):
         print("Updating ray information")
-        ray_path = os.path.join(self.Results.Config.working_dir, "{0:d}_{1:1.3f}_rays".format(self.Results.Scenario.shot, self.time))
+        ray_path = os.path.join(self.Results.Config["Execution"]["working_dir"], "{0:d}_{1:1.3f}_rays".format(self.Results.Scenario.shot, self.time))
         if("x" + self.cur_mode_str + "tb" in self.Results.ray):
             for channel in range(len(self.Results.ray["x" + self.cur_mode_str][self.cur_selected_index])):
                 TBRay_file = np.loadtxt(os.path.join(ray_path, "Rz_beam_{0:1d}.dat".format(channel + 1)))
@@ -404,7 +404,7 @@ class PlotPanel(wx.Panel):
                         continue
                     while True:
                         fileDialog=wx.FileDialog(self, "Open file with calibration for " + diag_dict[key].name, \
-                                                 defaultDir = self.Results.Config.working_dir, \
+                                                 defaultDir = self.Results.Config["Execution"]["working_dir"], \
                                                  wildcard="matlab files (*.mat)|*.mat",
                                                  style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
                         if(fileDialog.ShowModal() == wx.ID_CANCEL):
@@ -545,7 +545,7 @@ class PlotPanel(wx.Panel):
             return
         dlg = wx.FileDialog(\
             self, message="Choose a preexisting calculation(s)", \
-            defaultDir=self.Results.Config.working_dir, \
+            defaultDir=self.Results.Config["Execution"]["working_dir"], \
             wildcard=('Matlab files (*.mat)|*.mat'),
             style=wx.FD_OPEN | wx.FD_MULTIPLE)
         if(dlg.ShowModal() == wx.ID_OK):
@@ -759,7 +759,7 @@ class PlotContainer(wx.Panel):
             rhop_Te = [None]
             Te = [None]
         if(plot_type == "Ray"):
-            if(not Config.extra_output):
+            if(not Config["Execution"]["extra_output"]):
                 print("The rays were not output by ECRad!")
                 print(r"Rerun ECRad with \"extra output\" set to True")
                 return
@@ -936,7 +936,7 @@ class PlotContainer(wx.Panel):
                 R_res = None
                 z_res = None
             else:
-                if(Results.Config.extra_output and use_warm_res):
+                if(Results.Config["Execution"]["extra_output"] and use_warm_res):
                     s_res = Results.resonance["R_warm"][time_index][ch]
                     R_res = Results.resonance["R_warm"][time_index][ch]
                     z_res = Results.resonance["z_warm"][time_index][ch]
@@ -945,7 +945,7 @@ class PlotContainer(wx.Panel):
                     R_res = Results.resonance["R_cold"][time_index][ch]
                     z_res = Results.resonance["z_cold"][time_index][ch]
             EQ_obj = EQData(Results.Scenario.shot)
-            EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
+            EQ_obj.set_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
             # the matrices in the slices are Fortran ordered - hence transposition necessary
             args = [self.pc_obj.plot_ray, Results.Scenario.shot, time, rays]
             kwargs = {"index":time_index, "Eq_Slice":EQ_obj.GetSlice(time), "H":False, "R_res":R_res, \
@@ -985,7 +985,7 @@ class PlotContainer(wx.Panel):
                 label_list = None
             warm = False
             tau_mask = Results.tau[time_index] >= tau_threshhold
-            if(Results.Config.extra_output and use_warm_res):
+            if(Results.Config["Execution"]["extra_output"] and use_warm_res):
                 rhop = Results.resonance["rhop_warm"][time_index]
                 warm = True
             else:
@@ -994,7 +994,7 @@ class PlotContainer(wx.Panel):
                 print("No channels have an optical depth below the currently selected threshold!")
                 return False
             if(alt_model):
-                if(Results.Config.extra_output):
+                if(Results.Config["Execution"]["extra_output"]):
                     Trad_comp = Results.Trad_comp[time_index]
                 else:
                     Trad_comp = []
@@ -1050,17 +1050,17 @@ class PlotContainer(wx.Panel):
                     else:
                         diagdict[diag_name].rhop = diagdict[diag_name].rhop[tau_mask_diag]
             args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
-                    rhop_Te, Te,  diagdict, diag_names, Config.dstf, alt_model]
+                    rhop_Te, Te,  diagdict, diag_names, Config["Physics"]["dstf"], alt_model]
             kwargs = {}
             kwargs["multiple_models"] = multiple_models
             kwargs["label_list"] = label_list
             kwargs["max_unc"] = max_unc
 #             self.fig = self.pc_obj.plot_Trad(time, rhop, Trad, Trad_comp, \
 #                                              rhop_Te, Te, diagdict, diag_names, \
-#                                              Config.dstf, alt_model, multiple_models=multiple_models, \
+#                                              Config["Physics"]["dstf"], alt_model, multiple_models=multiple_models, \
 #                                              label_list=label_list)
         elif(plot_type == "Transmisivity" or plot_type == "tau"):
-            if(Results.Config.extra_output and use_warm_res):
+            if(Results.Config["Execution"]["extra_output"] and use_warm_res):
                 rhop = Results.resonance["rhop_warm"][time_index][Results.tau[time_index] >= tau_threshhold]
             else:
                 rhop = Results.resonance["rhop_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
@@ -1068,7 +1068,7 @@ class PlotContainer(wx.Panel):
                 print("No channels have an optical depth below the currently selected threshold!")
                 return False
             tau = Results.tau[time_index][Results.tau[time_index] >= tau_threshhold]
-            if(Results.Config.extra_output):
+            if(Results.Config["Execution"]["extra_output"]):
                 tau_comp = Results.tau_comp[time_index][Results.tau[time_index] >= tau_threshhold]
             else:
                 tau_comp = None
@@ -1076,13 +1076,13 @@ class PlotContainer(wx.Panel):
             if(plot_type == "tau"):
                 use_tau = True
             args = [self.pc_obj.plot_tau, time, rhop, tau, tau_comp, \
-                     rhop_Te[0], Te[0],  Config.dstf, alt_model, use_tau]
+                     rhop_Te[0], Te[0],  Config["Physics"]["dstf"], alt_model, use_tau]
             kwargs = {}
         elif(plot_type == "Trad mode"):
-            if(Config.considered_modes != 3):
+            if(Config["Physics"]["considered_modes"] != 3):
                 print("This plot is only sensitble if both X and O mode are considered")
                 return
-            if(not Config.extra_output):
+            if(not Config["Execution"]["extra_output"]):
                 print("Extra ouput must be set to true for this information to be available")
                 print("Please rerun ECRad with 'extra output' set to True")
                 return
@@ -1094,7 +1094,7 @@ class PlotContainer(wx.Panel):
             if(mode):
                 # X-mode
                 tau_mask = Results.Xtau[time_index] >= tau_threshhold
-                if(Results.Config.extra_output and use_warm_res):
+                if(Results.Config["Execution"]["extra_output"] and use_warm_res):
                     rhop = Results.resonance["rhop_warm"][time_index][tau_mask]
                     warm = True
                 else:
@@ -1106,7 +1106,7 @@ class PlotContainer(wx.Panel):
             else:
                 # O-mode
                 tau_mask = Results.Otau[time_index] >= tau_threshhold
-                if(Results.Config.extra_output and use_warm_res):
+                if(Results.Config["Execution"]["extra_output"] and use_warm_res):
                     rhop = Results.resonance["rhop_warm"][time_index][tau_mask]
                     warm = True
                 else:
@@ -1140,16 +1140,16 @@ class PlotContainer(wx.Panel):
                     Trad *= (1.0 - X_mode_frac)
                     Trad_comp *= (1.0 - X_mode_frac_comp)
             args = [self.pc_obj.plot_Trad, time, rhop, Trad, Trad_comp, \
-                    rhop_Te, Te,  diagdict, diag_names, Config.dstf, alt_model]
+                    rhop_Te, Te,  diagdict, diag_names, Config["Physics"]["dstf"], alt_model]
             kwargs = {}
             kwargs["X_mode_fraction"] = X_mode_frac
             kwargs["X_mode_fraction_comp"] = X_mode_frac_comp
             kwargs["max_unc"] = max_unc
         elif(plot_type == "Transmisivity mode" or plot_type == "tau mode"):
-            if(Config.considered_modes != 3):
+            if(Config["Physics"]["considered_modes"] != 3):
                 print("This plot is only sensitble if both X and O mode are considered")
                 return
-            if(not Config.extra_output):
+            if(not Config["Execution"]["extra_output"]):
                 print("Extra ouput must be set to true for this information to be available")
                 print("Please rerun ECRad with 'extra output' set to True")
                 return
@@ -1159,7 +1159,7 @@ class PlotContainer(wx.Panel):
                 return
             if(mode):
                 # X-mode
-                if(Results.Config.extra_output and use_warm_res):
+                if(Results.Config["Execution"]["extra_output"] and use_warm_res):
                     rhop = Results.resonance["rhop_warm"][time_index][Results.Xtau[time_index] >= tau_threshhold]
                 else:
                     rhop = Results.resonance["rhop_cold"][time_index][Results.Xtau[time_index]>= tau_threshhold]
@@ -1167,7 +1167,7 @@ class PlotContainer(wx.Panel):
                 tau_comp = Results.Xtau_comp[time_index][Results.Xtau[time_index] >= tau_threshhold]
             else:
                 # O-mode
-                if(Results.Config.extra_output and use_warm_res):
+                if(Results.Config["Execution"]["extra_output"] and use_warm_res):
                     rhop = Results.resonance["rhop_warm"][time_index][Results.Otau[time_index] >= tau_threshhold]
                 else:
                     rhop = Results.resonance["rhop_cold"][time_index][Results.Otau[time_index]>= tau_threshhold]
@@ -1178,10 +1178,10 @@ class PlotContainer(wx.Panel):
                 use_tau = True
             args = [self.pc_obj.plot_tau, time, rhop, \
                     tau, tau_comp, rhop_Te[0], Te[0], \
-                    Config.dstf, alt_model, use_tau]
+                    Config["Physics"]["dstf"], alt_model, use_tau]
             kwargs = {}
         elif(plot_type == "BPD"):
-            if(not Config.extra_output):
+            if(not Config["Execution"]["extra_output"]):
                 print("Birthplace distribution was not computed")
                 print("Rerun ECRad with 'extra output' set to True")
                 return
@@ -1198,23 +1198,23 @@ class PlotContainer(wx.Panel):
                     rhop = Results.BPD["rhopO"][time_index][ch]
                     D = np.copy(Results.BPD["BPDO"][time_index][ch])
                     D_comp = np.copy(Results.BPD["BPD_secondO"][time_index][ch])
-            if(Results.Config.extra_output and use_warm_res):
+            if(Results.Config["Execution"]["extra_output"] and use_warm_res):
                 rhop_res = Results.resonance["rhop_warm"][time_index][ch]
             else:
                 rhop_res = Results.resonance["rhop_cold"][time_index][ch]
             EQ_obj = EQData(Results.Scenario.shot)
-            EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
+            EQ_obj.set_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
             try:
                 R_axis = EQ_obj.get_axis(time)[0]
                 if(Results.resonance["R_cold"][time_index][ch] < R_axis):
                     rhop_res *= -1.0
             except:
                 print("Failed to get equilibrium information")
-            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_Te[0], Te[0], Config.dstf, rhop_res]
+            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_Te[0], Te[0], Config["Physics"]["dstf"], rhop_res]
             kwargs = {}
-#             self.fig = self.pc_obj.plot_BPD(time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_cold)
+#             self.fig = self.pc_obj.plot_BPD(time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config["Physics"]["dstf"], rhop_cold)
         elif(plot_type == "BPD mode"):
-            if(not Config.extra_output):
+            if(not Config["Execution"]["extra_output"]):
                 print("Birthplace distribution was not computed")
                 print("Rerun ECRad with 'extra output' set to True")
                 return
@@ -1233,25 +1233,25 @@ class PlotContainer(wx.Panel):
                 rhop = Results.BPD["rhopO"][time_index][ch]
                 D = Results.BPD["BPDO"][time_index][ch]
                 D_comp = Results.BPD["BPD_secondO"][time_index][ch]
-            if(Results.Config.extra_output and use_warm_res):
+            if(Results.Config["Execution"]["extra_output"] and use_warm_res):
                 rhop_res = Results.resonance["rhop_warm"][time_index][ch]
             else:
                 rhop_res = Results.resonance["rhop_cold"][time_index][ch]
             EQ_obj = EQData(Results.Scenario.shot)
-            EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
+            EQ_obj.set_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
             try:
                 R_axis = EQ_obj.get_axis(time)[0]
                 if(Results.resonance["R_cold"][time_index][ch] < R_axis):
                     rhop_res *= -1.0
             except:
                 print("Failed to get equilibrium information")
-            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_Te[0], Te[0], Config.dstf, rhop_res]
+            args = [self.pc_obj.plot_BPD, time, rhop, D, D_comp, rhop_Te[0], Te[0], Config["Physics"]["dstf"], rhop_res]
             kwargs = {}
-#             self.fig = self.pc_obj.plot_BPD(time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config.dstf, rhop_cold)
+#             self.fig = self.pc_obj.plot_BPD(time, rhop, D, D_comp, rhop_IDA, Te_IDA, Config["Physics"]["dstf"], rhop_cold)
         elif(plot_type == "Rz res."):
             R_cold = Results.resonance["R_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
             z_cold = Results.resonance["z_cold"][time_index][Results.tau[time_index] >= tau_threshhold]
-            if(Config.extra_output):
+            if(Config["Execution"]["extra_output"]):
                 R_warm = Results.resonance["R_warm"][time_index][Results.tau[time_index] >= tau_threshhold]
                 z_warm = Results.resonance["z_warm"][time_index][Results.tau[time_index] >= tau_threshhold]
             else:
@@ -1263,23 +1263,17 @@ class PlotContainer(wx.Panel):
                 print("No channels have an optical depth below the currently selected threshold!")
                 return False
             EQ_obj = EQData(Results.Scenario.shot)
-            EQ_obj.insert_slices_from_ext(time, Results.Scenario.plasma_dict["eq_data"])
+            EQ_obj.set_slices_from_ext(time, Results.Scenario.plasma_dict["eq_data"])
             # the matrices in the slices are Fortran ordered - hence transposition necessary
             args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
             kwargs = {"EQ_obj":EQ_obj, "eq_aspect_ratio":eq_aspect_ratio}
-#             self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-#                                                EQ_obj=EQ_obj, eq_aspect_ratio=eq_aspect_ratio)
-#            else:
-#                self.fig = self.pc_obj.Plot_Rz_Res(Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm, \
-#                                                   EQ_exp=Config.EQ_exp, EQ_diag=Config.EQ_diag, \
-#                                                   EQ_ed=Config.EQ_ed, eq_aspect_ratio=eq_aspect_ratio)
         elif(plot_type == "Rz res. w. rays"):
-            if(not Config.extra_output):
+            if(not Config["Execution"]["extra_output"]):
                 print("The rays were not output by ECRad only showing cold resonances")
                 print("Rerun ECRad with 'extra output' set to True")
             R_cold = Results.resonance["R_cold"][time_index][Results.tau[time_index] > tau_threshhold]
             z_cold = Results.resonance["z_cold"][time_index][Results.tau[time_index] > tau_threshhold]
-            if(Config.extra_output):
+            if(Config["Execution"]["extra_output"]):
                 R_warm = Results.resonance["R_warm"][time_index][Results.tau[time_index] >= tau_threshhold]
                 z_warm = Results.resonance["z_warm"][time_index][Results.tau[time_index] >= tau_threshhold]
             else:
@@ -1332,7 +1326,7 @@ class PlotContainer(wx.Panel):
                                         Results.ray["z" + mode_str + "tb"][time_index][ich]])
                     tb_rays = np.array(tb_rays)[Results.tau[time_index] > tau_threshhold]
                     EQ_obj = EQData(Results.Scenario.shot)
-                    EQ_obj.insert_slices_from_ext(Results.Scenario.time, Results.Scenario.plasma_dict["eq_data"])
+                    EQ_obj.set_slices_from_ext(Results.Scenario.time, Results.Scenario.plasma_dict["eq_data"])
                     args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
                     kwargs = {"EQ_obj":EQ_obj, "Rays":rays, "straight_Rays":straight_rays, \
                               "vessel_bd": Results.Scenario.plasma_dict["vessel_bd"], "eq_aspect_ratio":eq_aspect_ratio}
@@ -1365,14 +1359,14 @@ class PlotContainer(wx.Panel):
                         else:
                             straight_rays = np.array(straight_rays)[Results.tau[time_index] > tau_threshhold]
                         EQ_obj = EQData(Results.Scenario.shot)
-                        EQ_obj.insert_slices_from_ext(time, Results.Scenario.plasma_dict["eq_data"])
+                        EQ_obj.set_slices_from_ext(time, Results.Scenario.plasma_dict["eq_data"])
                         # the matrices in the slices are Fortran ordered - hence transposition necessary
                         args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
                         kwargs = {"EQ_obj":EQ_obj, "Rays":rays, "straight_Rays":straight_rays, \
                               "vessel_bd": Results.Scenario.plasma_dict["vessel_bd"], "eq_aspect_ratio":eq_aspect_ratio}
                     else:
                         EQ_obj = EQData(Results.Scenario.shot)
-                        EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
+                        EQ_obj.set_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"])
                         # the matrices in the slices are Fortran ordered - hence transposition necessary
                         args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
                         kwargs = {"EQ_obj":EQ_obj, "Rays":rays, \
@@ -1380,7 +1374,7 @@ class PlotContainer(wx.Panel):
             except KeyError:
                 print("No rays available")
                 EQ_obj = EQData(Results.Scenario.shot)
-                EQ_obj.insert_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"], transpose=True)
+                EQ_obj.set_slices_from_ext(Results.Scenario.plasma_dict["time"], Results.Scenario.plasma_dict["eq_data"], transpose=True)
                 # the matrices in the slices are Fortran ordered - hence transposition necessary
                 args = [self.pc_obj.Plot_Rz_Res, Results.Scenario.shot, time, R_cold, z_cold, R_warm, z_warm]
                 kwargs = {"EQ_obj":EQ_obj}
@@ -1401,7 +1395,7 @@ class PlotContainer(wx.Panel):
             LoadDistributionDlg = wx.MessageDialog(self, "Do you want to load a distribution for the plot?", style=wx.YES_NO)
             if(LoadDistributionDlg.ShowModal() == wx.ID_YES):
                 dlg = wx.FileDialog(self, message="Choose a file with a distribution ", \
-                                    defaultDir=Results.Config.working_dir, \
+                                    defaultDir=Results.Config["Execution"]["working_dir"], \
                                     wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
                                     style=wx.FD_OPEN)
                 if(dlg.ShowModal() == wx.ID_OK):
@@ -1411,7 +1405,7 @@ class PlotContainer(wx.Panel):
                     LoadWavesDlg = wx.MessageDialog(self, "Do you want to load wabes for the plot?", style=wx.YES_NO)
                     if(LoadWavesDlg.ShowModal() == wx.ID_YES):
                         dlg = wx.FileDialog(self, message="Choose a file with a distribution ", \
-                                            defaultDir=Results.Config.working_dir, \
+                                            defaultDir=Results.Config["Execution"]["working_dir"], \
                                             wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
                                             style=wx.FD_OPEN)
                         if(dlg.ShowModal() == wx.ID_OK):

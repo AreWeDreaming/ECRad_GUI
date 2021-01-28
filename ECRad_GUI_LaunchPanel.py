@@ -25,11 +25,11 @@ class LaunchPanel(wx.Panel):
         self.grid = wx.GridSizer(0, 10, 0, 0)
         self.diag_cb_dict = od()
         self.working_dir = working_dir
-        for Diagkey in Scenario.avail_diags_dict:
+        for Diagkey in Scenario["avail_diags_dict"]:
             self.diag_cb_dict.update({Diagkey :simple_label_cb(self.diag_select_panel, Diagkey, False)})
             self.grid.Add(self.diag_cb_dict[Diagkey], 0, \
                           wx.TOP | wx.ALL, 5)
-        for Diagkey in Scenario.used_diags_dict:
+        for Diagkey in Scenario["used_diags_dict"]:
             if(Diagkey in self.diag_cb_dict):
                 self.diag_cb_dict[Diagkey].SetValue(True)
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -48,7 +48,7 @@ class LaunchPanel(wx.Panel):
         self.load_launch_panel.sizer.Add(self.gen_ext_from_raylaunch_button, 1, wx.ALL | wx.EXPAND, 5)
         self.diag_config_sizer.Add(self.diag_select_panel, 0, wx.ALL | wx.EXPAND, 5)
         self.load_launch_panel.SetSizer(self.load_launch_panel.sizer)
-        self.Notebook.Spawn_Pages(Scenario.avail_diags_dict)
+        self.Notebook.Spawn_Pages(Scenario["avail_diags_dict"])
         self.diag_config_sizer.Add(self.Notebook, 0, wx.ALL | wx.LEFT, 5)
         self.sizer.Add(self.diag_config_sizer,0, wx.EXPAND | wx.ALL,5)
         self.sizer.Add(self.load_launch_panel,1, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL,5)
@@ -61,20 +61,20 @@ class LaunchPanel(wx.Panel):
 
     def GetCurScenario(self):
         Scenario = ECRadScenario(noLoad=True)
-        Scenario.avail_diags_dict = self.Notebook.UpdateDiagDict(Scenario.avail_diags_dict)
+        Scenario["avail_diags_dict"] = self.Notebook.UpdateDiagDict(Scenario["avail_diags_dict"])
         for Diagkey in self.diag_cb_dict:
             if(self.diag_cb_dict[Diagkey].GetValue()):
-                Scenario.used_diags_dict.update({Diagkey : Scenario.avail_diags_dict[Diagkey]})
+                Scenario["used_diags_dict"].update({Diagkey : Scenario["avail_diags_dict"][Diagkey]})
         return Scenario
 
     def UpdateScenario(self, Scenario):
         Scenario.diags_set = False
-        Scenario.avail_diags_dict = self.Notebook.UpdateDiagDict(Scenario.avail_diags_dict)
-        Scenario.used_diags_dict = od()
+        Scenario["avail_diags_dict"] = self.Notebook.UpdateDiagDict(Scenario["avail_diags_dict"])
+        Scenario["used_diags_dict"] = od()
         for Diagkey in self.diag_cb_dict:
             if(self.diag_cb_dict[Diagkey].GetValue()):
-                Scenario.used_diags_dict.update({Diagkey : Scenario.avail_diags_dict[Diagkey]})
-        if(len(Scenario.used_diags_dict) == 0):
+                Scenario["used_diags_dict"].update({Diagkey : Scenario["avail_diags_dict"][Diagkey]})
+        if(len(Scenario["used_diags_dict"]) == 0):
             print("No diagnostics Selected")
             return Scenario
         if(len(Scenario.plasma_dict["time"]) == 0):
@@ -82,14 +82,14 @@ class LaunchPanel(wx.Panel):
             return Scenario
         gy_dict = {}
         ECI_dict = {}
-        for diag_key in Scenario.used_diags_dict:
+        for diag_key in Scenario["used_diags_dict"]:
             if("CT" in diag_key or "IEC" == diag_key):
                 import Get_ECRH_Config
                 new_gy = Get_ECRH_Config.get_ECRH_viewing_angles(Scenario.shot, \
-                                                Scenario.used_diags_dict[diag_key].beamline, \
-                                                Scenario.used_diags_dict[diag_key].base_freq_140)
+                                                Scenario["used_diags_dict"][diag_key].beamline, \
+                                                Scenario["used_diags_dict"][diag_key].base_freq_140)
                 if(new_gy.error == 0):
-                    gy_dict[str(Scenario.used_diags_dict[diag_key].beamline)] = new_gy
+                    gy_dict[str(Scenario["used_diags_dict"][diag_key].beamline)] = new_gy
                 else:
                     print("Error when reading viewing angles")
                     print("Launch aborted")
@@ -100,13 +100,13 @@ class LaunchPanel(wx.Panel):
                 del(Get_ECRH_Config) # Need to destroy this here otherwise we cause an incompatability with libece
             if(diag_key in ["ECN", "ECO", "ECI"]):
                 from Shotfile_Handling_AUG import get_ECI_launch
-                ECI_dict = get_ECI_launch(Scenario.used_diags_dict[diag_key], Scenario.shot)
+                ECI_dict = get_ECI_launch(Scenario["used_diags_dict"][diag_key], Scenario.shot)
         Scenario.ray_launch = []
         # Prepare the launches for each time point
         # Some diagnostics have steerable LO, hence each time point has an individual launch
         try:
             for time in Scenario.plasma_dict["time"]:
-                Scenario.ray_launch.append(get_diag_launch(Scenario.shot, time, Scenario.used_diags_dict, \
+                Scenario.ray_launch.append(get_diag_launch(Scenario.shot, time, Scenario["used_diags_dict"], \
                                                             gy_dict=gy_dict, ECI_dict=ECI_dict))
         except IOError as e:
             print(e)
@@ -120,7 +120,7 @@ class LaunchPanel(wx.Panel):
         self.working_dir = working_dir
         for Diagkey in self.diag_cb_dict:
             self.diag_cb_dict[Diagkey].SetValue(False)
-            if(Diagkey in Scenario.used_diags_dict):
+            if(Diagkey in Scenario["used_diags_dict"]):
                 self.diag_cb_dict[Diagkey].SetValue(True)
         self.Notebook.DistributeInfo(Scenario)
         
@@ -158,8 +158,8 @@ class LaunchPanel(wx.Panel):
             newExtDiag.set_from_ray_launch(NewSceario.ray_launch, itime, set_only_EXT=False)
             NewSceario.avail_diags_dict.update({"EXT":  newExtDiag})
             curScenario = self.GetCurScenario()
-            curScenario.avail_diags_dict.update({"EXT":  newExtDiag})
-            curScenario.used_diags_dict.update({"EXT":  newExtDiag})
+            curScenario["avail_diags_dict"].update({"EXT":  newExtDiag})
+            curScenario["used_diags_dict"].update({"EXT":  newExtDiag})
             self.SetScenario(curScenario, self.working_dir) 
     
     def GenExtFromRaylaunch(self, evt):
@@ -173,8 +173,8 @@ class LaunchPanel(wx.Panel):
             newExtDiag = EXT_diag("EXT")
             newExtDiag.set_from_mat(path)
             curScenario = self.GetCurScenario()
-            curScenario.avail_diags_dict.update({"EXT":  newExtDiag})
-            curScenario.used_diags_dict.update({"EXT":  newExtDiag})
+            curScenario["avail_diags_dict"].update({"EXT":  newExtDiag})
+            curScenario["used_diags_dict"].update({"EXT":  newExtDiag})
             self.SetScenario(curScenario, self.working_dir)  
 
     def UpdateNeeded(self):
@@ -223,10 +223,10 @@ class Diag_Notebook(wx.Choicebook):
 
     def DistributeInfo(self, Scenario):
         for diag in self.PageDict:
-            if(self.PageDict[diag].name in Scenario.used_diags_dict):
-                self.PageDict[diag].DepositDiag(Scenario.used_diags_dict[self.PageDict[diag].name])
+            if(self.PageDict[diag].name in Scenario["used_diags_dict"]):
+                self.PageDict[diag].DepositDiag(Scenario["used_diags_dict"][self.PageDict[diag].name])
             else:
-                self.PageDict[diag].DepositDiag(Scenario.avail_diags_dict[self.PageDict[diag].name])
+                self.PageDict[diag].DepositDiag(Scenario["avail_diags_dict"][self.PageDict[diag].name])
                 
 
     def CheckForNewValues(self, check_list):
@@ -391,6 +391,7 @@ class ExtDiagPanel(Diag_Panel):
             self.widget_dict[attribute].SetValue(getattr(self.Diag, attribute)[self.selected_channel])
 
     def GetDiag(self):
+        self.channel_select_ch.SetSelection(0)
         self.OnNewChannelSelected(None)
         self.NewValues = False
         return self.Diag

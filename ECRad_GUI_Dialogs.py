@@ -116,18 +116,18 @@ class TextEntryDialog(wx.Dialog):
         self.EndModal(wx.ID_OK)
         
 class Use3DConfigDialog(wx.Dialog):
-    def __init__(self, parent, use3Dscen, working_dir):
+    def __init__(self, parent, eq_data_3D, working_dir):
         wx.Dialog.__init__(self, parent, wx.ID_ANY)
-        self.use3Dscen = use3Dscen
+        self.eq_data_3D = eq_data_3D.copy()
         self.working_dir  = working_dir
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.grid = wx.GridSizer(0,4,0,0)
         self.widgets = {}
-        for key in use3Dscen.attribute_list:
-            if(use3Dscen.type_dict[key] == "bool"):
-                self.widgets[key] = simple_label_cb(self,key.replace("_", " "), getattr(use3Dscen,key))
+        for key in eq_data_3D.keys():
+            if(type(eq_data_3D[key]) == bool):
+                self.widgets[key] = simple_label_cb(self,key.replace("_", " "), eq_data_3D[key])
             else:
-                self.widgets[key] = simple_label_tc(self,key.replace("_", " "), getattr(use3Dscen,key),use3Dscen.type_dict[key])
+                self.widgets[key] = simple_label_tc(self,key.replace("_", " "), eq_data_3D[key], None)
             self.grid.Add(self.widgets[key], 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
         self.sizer.Add(self.grid, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
         self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -171,7 +171,7 @@ class Use3DConfigDialog(wx.Dialog):
 
     def EvtAccept(self, Event):
         for key in self.use3Dscen.attribute_list:
-            setattr(self.use3Dscen,key,self.widgets[key].GetValue())
+            self.eq_data_3D[key] = self.widgets[key].GetValue()        
         self.EndModal(wx.ID_OK)
         
 # class ECRHFreqAndHarmonicDlg(wx.Dialog):
