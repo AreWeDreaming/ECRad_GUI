@@ -9,6 +9,11 @@ git clone https://github.com/AreWeDreaming/ECRad_GUI.git
 ```
 
 ## Dependencies
+ECRad:
+```bash
+git clone https://github.com/AreWeDreaming/ECRad.git
+```
+
 Python 3.0 or higher
 The following Python packages (has to be Python 3):
 * wxPython
