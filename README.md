@@ -9,10 +9,17 @@ git clone https://github.com/AreWeDreaming/ECRad_GUI.git
 ```
 
 ## Dependencies
-ECRad:
+[ECRad](https://github.com/AreWeDreaming/ECRad):
+
 ```bash
 git clone https://github.com/AreWeDreaming/ECRad.git
 ```
+[ECRad Pylib](https://github.com/AreWeDreaming/ECRad_Pylib):
+
+```bash
+git clone https://github.com/AreWeDreaming/ECRad_Pylib.git
+```
+
 
 Python 3.0 or higher
 The following Python packages (has to be Python 3):
