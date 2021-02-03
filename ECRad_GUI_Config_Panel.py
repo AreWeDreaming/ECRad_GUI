@@ -45,10 +45,13 @@ class ConfigPanel(wx.Panel):
     def SetConfig(self, Config):
         for key in Config.main_keys:
             for sub_key in Config.sub_keys[key]:
-                self.widgets[sub_key].SetValue(Config[key][sub_key]) 
+                try:
+                    self.widgets[sub_key].SetValue(Config[key][sub_key])
+                except ValueError:
+                    print("ERROR: Could not setup " + key + "/" + sub_key + " in the ECRad Config panel")
         
     def EnableExtRays(self):
-        self.use_ext_rays_cb.Enable()
+        self.widgets["use_ext_rays"].Enable()
 
     def DisableExtRays(self):
-        self.use_ext_rays_cb.Disable()
+        self.widgets["use_ext_rays"].Disable()

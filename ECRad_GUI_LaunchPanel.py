@@ -77,7 +77,7 @@ class LaunchPanel(wx.Panel):
         if(len(Scenario["used_diags_dict"]) == 0):
             print("No diagnostics Selected")
             return Scenario
-        if(len(Scenario.plasma_dict["time"]) == 0):
+        if(len(Scenario["time"]) == 0):
             # No time points yet, only updating diag info
             return Scenario
         gy_dict = {}
@@ -85,7 +85,7 @@ class LaunchPanel(wx.Panel):
         for diag_key in Scenario["used_diags_dict"]:
             if("CT" in diag_key or "IEC" == diag_key):
                 import Get_ECRH_Config
-                new_gy = Get_ECRH_Config.get_ECRH_viewing_angles(Scenario.shot, \
+                new_gy = Get_ECRH_Config.get_ECRH_viewing_angles(Scenario["shot"], \
                                                 Scenario["used_diags_dict"][diag_key].beamline, \
                                                 Scenario["used_diags_dict"][diag_key].base_freq_140)
                 if(new_gy.error == 0):
@@ -100,18 +100,22 @@ class LaunchPanel(wx.Panel):
                 del(Get_ECRH_Config) # Need to destroy this here otherwise we cause an incompatability with libece
             if(diag_key in ["ECN", "ECO", "ECI"]):
                 from Shotfile_Handling_AUG import get_ECI_launch
-                ECI_dict = get_ECI_launch(Scenario["used_diags_dict"][diag_key], Scenario.shot)
-        Scenario.ray_launch = []
+                ECI_dict = get_ECI_launch(Scenario["used_diags_dict"][diag_key], Scenario["shot"])
         # Prepare the launches for each time point
-        # Some diagnostics have steerable LO, hence each time point has an individual launch
+        # Some diagnostics have steerable LOS, hence each time point has an individual launch
+        for sub_key in Scenario["diagnostic"].keys():
+            Scenario["diagnostic"][sub_key] = []
         try:
-            for time in Scenario.plasma_dict["time"]:
-                Scenario.ray_launch.append(get_diag_launch(Scenario.shot, time, Scenario["used_diags_dict"], \
-                                                            gy_dict=gy_dict, ECI_dict=ECI_dict))
+            for time in Scenario["time"]:
+                ray_launch = get_diag_launch(Scenario["shot"], time, Scenario["used_diags_dict"], \
+                                             gy_dict=gy_dict, ECI_dict=ECI_dict)
+                for sub_key in Scenario["diagnostic"].keys():
+                    Scenario["diagnostic"][sub_key].append(ray_launch[sub_key])
+            for sub_key in Scenario["diagnostic"].keys():
+                Scenario["diagnostic"][sub_key] = np.array(Scenario["diagnostic"][sub_key])
         except IOError as e:
             print(e)
             return Scenario
-        Scenario.ray_launch = np.array(Scenario.ray_launch)
         Scenario.diags_set = True
         return Scenario
 
@@ -147,10 +151,10 @@ class LaunchPanel(wx.Panel):
             NewSceario = ECRadScenario(noLoad=True)
             NewSceario.from_mat(path_in=path, load_plasma_dict=False)
             newExtDiag = EXT_diag("EXT")
-            if(len(NewSceario.plasma_dict["time"]) == 1):
+            if(len(NewSceario["time"]) == 1):
                 itime = 0
             else:
-                timepoint_dlg = Select_Raylaunch_timepoint(self, NewSceario.plasma_dict["time"])
+                timepoint_dlg = Select_Raylaunch_timepoint(self, NewSceario["time"])
                 if(not (timepoint_dlg.ShowModal() == wx.ID_OK)):
                     print("Aborted")
                     return

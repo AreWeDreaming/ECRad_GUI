@@ -19,7 +19,7 @@ else:
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 import numpy as np
 from TB_Communication import Ray, make_TORBEAM_no_data_load
-from ECRad_GUI_Thread import WorkerThread
+from Parallel_Utils import WorkerThread
 from Basic_Methods.Equilibrium_Utils import EQDataExt as EQData
 from Diag_Types import Diag
 from ECRad_GUI_Diagnostic import Diagnostic
