@@ -57,7 +57,14 @@ class simple_label_cb(wx.Panel):
         return self.NewvalueAvailable
 
 class simple_label_tc(wx.Panel):
-    def __init__(self, parent, label, value, value_type, border=0, tooltip=None, scale=None):
+    def __init__(self, parent, label, value, value_type, border=0, tooltip=None, scale=None, readonly=False):
+        if(value_type is None):
+            if(type(value) == int):
+                value_type = "integer"
+            elif(type(value) == float):
+                value_type = "real"
+            elif(type(value) == str):
+                value_type = "string"
         if(border):
             wx.Panel.__init__(self, parent, wx.ID_ANY, style=wx.SUNKEN_BORDER)
         else:
@@ -82,7 +89,10 @@ class simple_label_tc(wx.Panel):
         self.label = wx.StaticText(self, wx.ID_ANY, label_text, \
                                    style=wx.ALIGN_CENTER_HORIZONTAL)
         self.label.Wrap(160)
-        self.tc = wx.TextCtrl(self, wx.ID_ANY, str(self.value))
+        if(readonly):
+            self.tc = wx.TextCtrl(self, wx.ID_ANY, str(self.value), style=wx.TE_READONLY)
+        else:
+            self.tc = wx.TextCtrl(self, wx.ID_ANY, str(self.value))
         if(tooltip is not None):
             self.tc.SetToolTip(wx.ToolTip(tooltip))
         self.lastValue = str(value)
@@ -120,7 +130,7 @@ class simple_label_tc(wx.Panel):
 
     def SetValue(self, Value):
         if(not self.test_str(str(Value))):
-            raise ValueError("Tried to set text control of type {0:d} with this unsuitable value {1:s}".format(self.value_type, Value))
+            raise ValueError("Tried to set text control of type {0:s} with this unsuitable value {1:s}".format(str(self.value_type), str(Value)))
         self.value = Value
         if(self.test_str(self.tc.GetValue())):
             self.lastValue = self.tc.GetValue()

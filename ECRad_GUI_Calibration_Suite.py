@@ -709,7 +709,7 @@ class CalibEvolutionPanel(wx.Panel):
             if(self.selected_result.masked_time_points[self.selected_diag][itime]):
                 Trad.append(self.selected_result.Trad[itime][self.selected_result.Scenario.ray_launch[itime]["diag_name"]  == self.selected_diag])
         Trad = np.array(Trad)
-        if(self.selected_result.Config.extra_output):
+        if(self.selected_result.Config["extra_output"]):
             resonances = self.selected_result.resonance["rhop_warm"]
         else:
             resonances = self.selected_result.resonance["rhop_cold"]
@@ -830,7 +830,7 @@ class CalibEvolutionPanel(wx.Panel):
                                           len(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]])))
         ECE_diag_trace = np.zeros((len(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]]), \
                                         len(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]])))
-        if(self.selected_result.Config.extra_output):
+        if(self.selected_result.Config["extra_output"]):
             resonances = self.selected_result.resonance["rhop_warm"]
         else:
             resonances = self.selected_result.resonance["rhop_cold"]

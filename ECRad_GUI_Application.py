@@ -3,7 +3,6 @@ import os
 import wx
 import sys
 from glob import glob
-from ECRad_GUI_Thread import WorkerThread
 library_list = glob("../*pylib") + glob("../*Pylib")
 found_lib = False
 ECRadPylibFolder = None
@@ -34,16 +33,24 @@ from ECRad_GUI_Calibration_Suite import CalibPanel, CalibEvolutionPanel
 from ECRad_GUI_Dialogs import Select_GENE_timepoints_dlg
 # import  wx.lib.scrolledpanel as ScrolledPanel
 import numpy as np
-from WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unbound_EVT_LOAD_MAT, \
+from WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unbound_EVT_LOAD_OLD_RESULT, \
                       EVT_MAKE_ECRAD, EVT_NEXT_TIME_STEP, EVT_UPDATE_CONFIG, \
-                      EVT_UPDATE_DATA, EVT_LOCK_EXPORT, EVT_GENE_DATA_LOADED, EVT_LOAD_MAT, \
+                      EVT_UPDATE_DATA, EVT_LOCK_EXPORT, EVT_GENE_DATA_LOADED, EVT_LOAD_OLD_RESULT, \
                       NewStatusEvt, Unbound_EVT_NEW_STATUS, \
                       Unbound_EVT_MAKE_ECRAD, GENEDataEvt, Unbound_EVT_GENE_DATA_LOADED, \
                       UpdateDataEvt, Unbound_EVT_UPDATE_DATA, UpdateConfigEvt, \
-                      Unbound_EVT_UPDATE_CONFIG, Unbound_EVT_NEXT_TIME_STEP
+                      Unbound_EVT_UPDATE_CONFIG, Unbound_EVT_NEXT_TIME_STEP,\
+                      Unbound_EVT_ECRAD_FINISHED, ProccessFinishedEvt, \
+                      EVT_ECRAD_FINISHED, \
+                      Unbound_EVT_LOAD_ECRAD_RESULT,EVT_LOAD_ECRAD_RESULT, \
+                      Unbound_EVT_ECRAD_RESULT_LOADED, EVT_ECRAD_RESULT_LOADED,\
+    ThreadFinishedEvt
 from ECRad_GUI_Shell import Redirect_Text
 from ECRad_Interface import prepare_input_files, GetECRadExec
 from ECRad_Results import ECRadResults
+from Parallel_Utils import WorkerThread
+from multiprocessing import Process
+from ECRad_F2PY_Interface import ECRadF2PYInterface
 import getpass
 from ECRad_GUI_PlotPanel import PlotPanel
 ECRad_Model = False
@@ -139,13 +146,13 @@ class ECRad_GUI_MainFrame(wx.Frame):
     def OnOpenOldFile(self, evt):
         dlg = wx.FileDialog(\
             self, message="Choose a preexisting calculation", \
-            defaultDir=self.Panel.Results .Config.working_dir, \
-            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+            defaultDir=self.Panel.Results .Config["Execution"]["working_dir"], \
+            wildcard=("Matlab and Netcdf4 files (*.mat;*.nc)|*.mat;*.nc"),
             style=wx.FD_OPEN)
         if(dlg.ShowModal() == wx.ID_OK):
             path = dlg.GetPath()
             dlg.Destroy()
-            evt = LoadMatEvt(Unbound_EVT_LOAD_MAT, self.Panel.GetId())
+            evt = LoadMatEvt(Unbound_EVT_LOAD_OLD_RESULT, self.Panel.GetId())
             evt.SetFilename(path)
             self.Panel.GetEventHandler().ProcessEvent(evt)
 
@@ -161,21 +168,20 @@ class Main_Panel(scrolled.ScrolledPanel):
     def __init__(self, parent):
         scrolled.ScrolledPanel.__init__(self, parent, wx.ID_ANY)
         self.parent = parent
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.ECRad_running = False
         self.ECRad_process = None
-        self.ECRad_pid = None
-        self.stop_current_evaluation = False
+        self.ECRad_running = False
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.Results = ECRadResults(lastused=True)
-        self.Results.Config
         self.Bind(EVT_MAKE_ECRAD, self.OnProcessTimeStep)
-        self.Bind(wx.EVT_END_PROCESS, self.OnProcessEnded)
+        self.Bind(EVT_ECRAD_FINISHED, self.OnProcessEnded)
         self.Bind(EVT_NEXT_TIME_STEP, self.OnNextTimeStep)
         self.Bind(EVT_UPDATE_CONFIG, self.OnConfigLoaded)
         self.Bind(EVT_UPDATE_DATA, self.OnUpdate)
         self.Bind(EVT_LOCK_EXPORT, self.OnLockExport)
         self.Bind(wx.EVT_IDLE, self.OnIdle)
         self.Bind(EVT_GENE_DATA_LOADED, self.OnGeneLoaded)
+        self.Bind(EVT_ECRAD_RESULT_LOADED, self.OnResultsImported)
+        self.Bind(EVT_LOAD_OLD_RESULT, self.OnImport)
         self.SetSizer(self.sizer)
         self.SetSize((400, 400))
         self.SetMinSize((400, 400))
@@ -184,27 +190,22 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.ButtonSizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.ControlSizer, 0, wx.EXPAND | wx.ALL , 5)
         self.StartECRadButton = wx.Button(self, wx.ID_ANY, \
-            'Start ECRad')
+                                          'Start ECRad')
         self.KillECRadButton = wx.Button(self, wx.ID_ANY, 'Terminate ECRad')
         self.StartECRadButton.Bind(wx.EVT_BUTTON, self.OnStartECRad)
         self.KillECRadButton.Bind(wx.EVT_BUTTON, self.OnKillECRad)
         self.KillECRadButton.Disable()
-        self.ExporttoMatButton = wx.Button(self, wx.ID_ANY, 'Export to .mat')
+        self.ExportButton = wx.Button(self, wx.ID_ANY, 'Save results')
         if(globalsettings.Phoenix):
-            self.ExporttoMatButton.SetToolTip("If this is grayed out there is no (new) data to save!")
+            self.ExportButton.SetToolTip("If this is grayed out there is no (new) data to save!")
         else:
-            self.ExporttoMatButton.SetToolTipString("If this is grayed out there is no (new) data to save!")
-        self.ExporttoMatButton.Bind(wx.EVT_BUTTON, self.OnExporttoMat)
-        self.ExporttoMatButton.Disable()
+            self.ExportButton.SetToolTipString("If this is grayed out there is no (new) data to save!")
+        self.ExportButton.Bind(wx.EVT_BUTTON, self.OnExport)
+        self.ExportButton.Disable()
         self.NameButton = wx.Button(self, wx.ID_ANY, 'Comment Results')
         self.NameButton.Bind(wx.EVT_BUTTON, self.OnName)
-        self.Bind(EVT_LOAD_MAT, self.OnImportMat)
         username = "."
-        if(getpass.getuser() == "sdenk"):
-#            self.ExporttoNssfButton = wx.Button(self, wx.ID_ANY, 'Export to nssf')
-#            self.ExporttoNssfButton.Bind(wx.EVT_BUTTON, self.OnExporttoNssf)
-#            self.ExporttotokpNssfButton = wx.Button(self, wx.ID_ANY, 'Export to tokp nssf')
-#            self.ExporttotokpNssfButton.Bind(wx.EVT_BUTTON, self.OnExporttotokpNssf)
+        if(getpass.getuser() in ["sdenk", "g2sdenk", "denk"]):
             username = ", Severin."
         elif(getpass.getuser() == "bva"):
             username = ", Branka."
@@ -216,16 +217,11 @@ class Main_Panel(scrolled.ScrolledPanel):
                         wx.LEFT, 5)
         self.ButtonSizer.Add(self.KillECRadButton, 0, wx.ALL | \
                         wx.LEFT, 5)
-        self.ButtonSizer.Add(self.ExporttoMatButton, 0, wx.ALL | \
+        self.ButtonSizer.Add(self.ExportButton, 0, wx.ALL | \
                         wx.LEFT, 5)
         self.ButtonSizer.Add(self.NameButton, 0, wx.ALL | \
                         wx.LEFT, 5)
         
-#        if(getpass.getuser() == "sdenk"):
-#            self.ButtonSizer.Add(self.ExporttoNssfButton, 0, wx.ALL | \
-#                        wx.LEFT, 5)
-#            self.ButtonSizer.Add(self.ExporttotokpNssfButton, 0, wx.ALL | \
-#                        wx.LEFT, 5)
         self.ControlSizer.Add(self.ButtonSizer, 0, wx.ALIGN_TOP)
         self.Log_Box = wx.TextCtrl(self, wx.ID_ANY, size=(200, 100), \
                 style=wx.TE_MULTILINE | wx.TE_READONLY)
@@ -233,14 +229,14 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.diag_box_sizer = wx.BoxSizer(wx.VERTICAL)
         self.diag_box_label = wx.StaticText(self, wx.ID_ANY, "Diagnostics")
         self.DiagBox = wx.ListBox(self, wx.ID_ANY, size=(100, 100))
-        for diag_key in list(self.Results.Scenario.used_diags_dict):
+        for diag_key in list(self.Results.Scenario["used_diags_dict"]):
             self.DiagBox.Append(diag_key)
         self.diag_box_sizer.Add(self.diag_box_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL , 5)
         self.diag_box_sizer.Add(self.DiagBox, 1, wx.ALL | wx.EXPAND , 5)
         self.time_box_sizer = wx.BoxSizer(wx.VERTICAL)
         self.time_box_label = wx.StaticText(self, wx.ID_ANY, "Time points")
         self.TimeBox = wx.ListBox(self, wx.ID_ANY, size=(100, 100))
-        for time in self.Results.Scenario.plasma_dict["time"]:
+        for time in self.Results.Scenario["time"]:
             self.TimeBox.Append("{0:1.5f}".format(time))
         self.time_box_sizer.Add(self.time_box_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL , 5)
         self.time_box_sizer.Add(self.TimeBox, 1, wx.ALL | wx.EXPAND , 5)
@@ -254,13 +250,11 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.Progress_sizer.Add(self.Progress_label, 0, wx.ALL | wx.ALIGN_RIGHT, 5)
         self.Redirector = Redirect_Text(self.Log_Box)
         sys.stdout = self.Redirector
-        self.InvokeECRad = None
         self.index = 0  # Index for the iteration over timepoints
-        self.DoReflecOnly = False  # Only evaluate the reflection model in the next time step
         self.UpperBook = wx.Notebook(self)
         self.scenario_select_panel = ScenarioSelectPanel(self.UpperBook, self.Results.Scenario, self.Results.Config)
         self.UpperBook.AddPage(self.scenario_select_panel, "Select IDA time points")
-        self.launch_panel = LaunchPanel(self.UpperBook, self.Results.Scenario, self.Results.Config.working_dir)
+        self.launch_panel = LaunchPanel(self.UpperBook, self.Results.Scenario, self.Results.Config["Execution"]["working_dir"])
         self.UpperBook.AddPage(self.launch_panel, "Diagnostic configuration")
         self.config_panel = ConfigPanel(self.UpperBook, self.Results.Config)
         self.UpperBook.AddPage(self.config_panel, "ECRad configuration")
@@ -271,22 +265,40 @@ class Main_Panel(scrolled.ScrolledPanel):
         if(globalsettings.AUG):
             self.calib_panel = CalibPanel(self.UpperBook, self.Results.Scenario)
             self.UpperBook.AddPage(self.calib_panel, "ECRad Calibration")
-            self.calib_evolution_Panel = CalibEvolutionPanel(self.UpperBook, self.Results.Config.working_dir)
+            self.calib_evolution_Panel = CalibEvolutionPanel(self.UpperBook, self.Results.Config["Execution"]["working_dir"])
             self.UpperBook.AddPage(self.calib_evolution_Panel, "Plotting for calibration")
         else:
             print("AUG shotfile system inaccessible -> Cross calibration disabled")
         self.sizer.Add(self.UpperBook, 1, wx.ALL | \
             wx.LEFT, 5)
 
-    def __del__(self):
-        if self.ECRad_process is not None:
-            self.ECRad_process.Detach()
-            self.ECRad_process.CloseOutput()
-            self.ECRad_process = None
+#     def __del__(self):
+#         if self.ECRad_process is not None:
+#             self.ECRad_process.Detach()
+#             self.ECRad_process.CloseOutput()
+#             self.ECRad_process = None
 
     # Overwrite this to stop the window from constantly jumping
     def OnChildFocus(self, evt):
         pass
+    
+    def FinalECRadSetup(self, scenario_updated):
+        # Thinga we need to do just before we get going
+        if(scenario_updated):
+                self.Results.Scenario.autosave()
+        self.Results.set_dimensions()
+        self.ProgressBar.SetRange(self.Results.Scenario["dimensions"]["N_time"])
+        self.ECRad_interface = ECRadF2PYInterface(self.Results.Config, self.Results.Scenario)
+        evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+        evt.SetStatus('ECRad is running - please wait.')
+        wx.PostEvent(self, evt)
+        self.Progress_label.SetLabel("ECRad running - ({0:d}/{1:d})".format(self.index + 1,len(self.Results.Scenario["time"])))
+        self.ProgressBar.SetValue(self.index)
+        self.ExportButton.Disable()
+        self.NameButton.Disable()
+        self.StartECRadButton.Disable()
+        evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
+        wx.PostEvent(self, evt)
 
     def OnStartECRad(self, evt):
         if(self.ECRad_running):
@@ -304,7 +316,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             evt.SetStatus('')
             self.GetEventHandler().ProcessEvent(evt)
             return
-        if(self.Results.Config.dstf not in ["Th", "Re", "Lu", "Ge", "GB"]):
+        if(self.Results.Config["Physics"]["dstf"] not in ["Th", "Re", "Lu", "Ge", "GB"]):
             print("Invalid choice of distribution")
             print("Possible options:")
             print("Th -> thermal plasma")
@@ -314,27 +326,9 @@ class Main_Panel(scrolled.ScrolledPanel):
             print("Please select a valid distribution function identifier.")
             return
         scenario_updated = False
+        # Reset only the result fields but leave Scenario and Config untouched
+        self.Results.reset(light=True)
         # Sets time points and stores plasma data in Scenario
-        if(self.scenario_select_panel.UpdateNeeded() or not self.Results.Scenario.plasma_set):
-            try:
-                self.Results.Scenario = self.scenario_select_panel.LoadScenario(self.Results.Scenario, self.Results.Config, None)
-                if(not self.Results.Scenario.plasma_set):
-                    evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-                    evt.SetStatus('')
-                    self.GetEventHandler().ProcessEvent(evt)
-                    return
-            except ValueError as e:
-                print("Failed to load Scenario")
-                print("Reason: ", e)
-                evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-                evt.SetStatus('')
-                self.GetEventHandler().ProcessEvent(evt)
-                return
-            self.TimeBox.Clear()
-            for t in self.Results.Scenario.plasma_dict["time"]:
-                self.TimeBox.Append("{0:1.4f}".format(t))
-            scenario_updated = True
-        # Stores launch data in Scenario
         if(self.launch_panel.UpdateNeeded() or not self.Results.Scenario.diags_set):
             try:
                 self.Results.Scenario = self.launch_panel.UpdateScenario(self.Results.Scenario)
@@ -351,32 +345,53 @@ class Main_Panel(scrolled.ScrolledPanel):
                 self.GetEventHandler().ProcessEvent(evt)
                 return
             self.DiagBox.Clear()
-            for diag in list(self.Results.Scenario.used_diags_dict):
+            for diag in list(self.Results.Scenario["used_diags_dict"]):
                 self.DiagBox.Append(diag)
             scenario_updated = True
+        if(self.scenario_select_panel.FullUpdateNeeded() or not self.Results.Scenario.plasma_set):
+            try:
+                self.Results.Scenario = self.scenario_select_panel.UpdateScenario(self.Results.Scenario, self.Results.Config, None)
+                if(not self.Results.Scenario.plasma_set):
+                    evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+                    evt.SetStatus('')
+                    self.GetEventHandler().ProcessEvent(evt)
+                    return
+            except ValueError as e:
+                print("Failed to load Scenario")
+                print("Reason: ", e)
+                evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+                evt.SetStatus('')
+                self.GetEventHandler().ProcessEvent(evt)
+                return
+            self.TimeBox.Clear()
+            for t in self.Results.Scenario["time"]:
+                self.TimeBox.Append("{0:1.4f}".format(t))
+            scenario_updated = True
+        else:
+            self.Results.Scenario = self.scenario_select_panel.SetScaling(self.Results.Scenario)
+        # Stores launch data in Scenario
         self.stop_current_evaluation = False
         self.index = 0
         old_comment = self.Results.comment
-        self.Results.reset()
         self.Results.comment = old_comment # Keep the comment
-        if(len(list(self.Results.Scenario.used_diags_dict)) == 0):
+        if(len(list(self.Results.Scenario["used_diags_dict"].keys())) == 0):
             print("No diagnostics selected")
             print("Run aborted")
             evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
             evt.SetStatus('')
             self.GetEventHandler().ProcessEvent(evt)
             return
-        if(len(self.Results.Scenario.plasma_dict["time"]) == 0):
+        if(len(self.Results.Scenario["time"]) == 0):
             print("No time points selected")
             print("Run aborted")
             evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
             evt.SetStatus('')
             self.GetEventHandler().ProcessEvent(evt)
             return
-        if(self.Results.Config.dstf == "Re"):
-            if(self.Results.Scenario.dist_obj is None):
+        if(self.Results.Config["Physics"]["dstf"] == "Re"):
+            if(self.Results.Scenario["dist_obj"] is None):
                 fileDialog=wx.FileDialog(self, "Selectr file with bounce averaged distribution data", \
-                                                     defaultDir = self.Results.Config.working_dir, \
+                                                     defaultDir = self.Results.Config["Execution"]["working_dir"], \
                                                      wildcard="matlab files (*.mat)|*.mat",
                                                      style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
                 if(fileDialog.ShowModal() == wx.ID_CANCEL):
@@ -387,21 +402,17 @@ class Main_Panel(scrolled.ScrolledPanel):
                     self.Results.Scenario.load_dist_obj(pathname)
                     fileDialog.Destroy()
         self.Results.Config.autosave()
-        if(self.Results.Config.dstf not in ["Ge", "GB"]):
-            if(scenario_updated):
-                self.Results.Scenario.autosave()
-            self.ProgressBar.SetRange(len(self.Results.Scenario.plasma_dict["time"]))
-            evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
-            wx.PostEvent(self, evt)
+        if(self.Results.Config["Physics"]["dstf"] not in ["Ge", "GB"]):
+            self.FinalECRadSetup(scenario_updated)
         else:
-            if(len(self.Results.Scenario.plasma_dict["time"]) != 1):
+            if(len(self.Results.Scenario["time"]) != 1):
                 print("For GENE distributions please select only one time point, i.e. the time point of the gene calcuation")
                 evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
                 evt.SetStatus('')
                 self.GetEventHandler().ProcessEvent(evt)
                 return
             fileDialog=wx.FileDialog(self, "Selectr file with GENE distribution data", \
-                                                 defaultDir = self.Results.Config.working_dir, \
+                                                 defaultDir = self.Results.Config["Execution"]["working_dir"], \
                                                  wildcard="hdf5 files (*.h5)|*.h5",
                                                  style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
             if(fileDialog.ShowModal() == wx.ID_CANCEL):
@@ -415,206 +426,67 @@ class Main_Panel(scrolled.ScrolledPanel):
     def LoadGeneData(self, args):
         pathname = args[0]
         evt = GENEDataEvt(Unbound_EVT_GENE_DATA_LOADED, wx.ID_ANY)
-        if(self.Results.Scenario.load_GENE_obj(pathname, self.Results.Config.dstf)):
+        if(self.Results.Scenario.load_GENE_obj(pathname, self.Results.Config["Physics"]["dstf"])):
             evt.set_state(0)
         else:
             evt.set_state(-1)
         wx.PostEvent(self, evt)
      
+     
     def OnGeneLoaded(self, evt):
         if(evt.state == 0):
-            gene_dlg = Select_GENE_timepoints_dlg(self, self.Results.Scenario.GENE_obj.time)
+            gene_dlg = Select_GENE_timepoints_dlg(self, self.Results.Scenario["GENE_obj"].time)
             if(gene_dlg.ShowModal() == wx.ID_OK):
                 if(len(gene_dlg.used) == 0):
                     print("No time point selected")
                     evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
                     evt.SetStatus('')
-                    self.GetEventHandler().ProcessEvent(evt)
+                    wx.PostEvent(self, evt)
                     return
                 if(not self.Results.Scenario.integrate_GeneData(np.asarray(gene_dlg.used, dtype=np.float) * 1.e-3)):
                     print("GENE object not properly initialized - this is most likely due to a bug in the GUI")
                     evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
                     evt.SetStatus('')
-                    self.GetEventHandler().ProcessEvent(evt)
+                    wx.PostEvent(self, evt)
                     return
                 evt_out_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
                 evt_out_2.SetResults(self.Results)
                 wx.PostEvent(self.scenario_select_panel, evt_out_2)
                 gene_dlg.Destroy()
                 self.TimeBox.Clear()
-                for time in self.Results.Scenario.plasma_dict["time"]:
+                for time in self.Results.Scenario["time"]:
                     self.TimeBox.Append("{0:1.5f}".format(time))
-                self.ProgressBar.SetRange(len(self.Results.Scenario.plasma_dict["time"]))
-                self.Results.Scenario.autosave()
-                evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
-                wx.PostEvent(self, evt)
+                self.FinalECRadSetup(True)
             else:
                 print("Aborted")
                 evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
                 evt.SetStatus('')
-                self.GetEventHandler().ProcessEvent(evt)
+                wx.PostEvent(self, evt)
                 return
         else:
             print("Error when loading GENE data - see above")
             evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
             evt.SetStatus('')
-            self.GetEventHandler().ProcessEvent(evt)
-            return
-            
+            wx.PostEvent(self, evt)
+            return         
             
     def OnProcessTimeStep(self, evt):
-        if(os.path.isfile(os.path.join(self.Results.Config.working_dir, "ECRad.out"))):
-            os.remove(os.path.join(self.Results.Config.working_dir, "ECRad.out"))
-        if(os.path.isfile(os.path.join(self.Results.Config.working_dir, "ECRad.err"))):
-            os.remove(os.path.join(self.Results.Config.working_dir, "ECRad.err"))
-        if(not prepare_input_files(self.Results.Config, self.Results.Scenario, self.index, \
-                                   ext_result = self.scenario_select_panel.Result_for_ext_launch)):
-            print("Error!! Launch aborted")
-            evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-            evt.SetStatus('Error while preparing launch!')
-            self.GetEventHandler().ProcessEvent(evt)
-            return
-        evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-        evt.SetStatus('Successfully saved new values')
-        self.GetEventHandler().ProcessEvent(evt)
-        print('Successfully saved new values')
-        self.ExporttoMatButton.Disable()
-        self.NameButton.Disable()
-        try:
-            self.InvokeECRad = GetECRadExec(self.Results.Config, self.Results.Scenario, self.Results.Scenario.plasma_dict["time"][self.index])
-        except ValueError:
-            print("Something wrong with the job submission configuration!")
-            return
-        os.environ['ECRad_WORKING_DIR'] = self.Results.Config.working_dir
-        self.Progress_label.SetLabel("ECRad running - ({0:d}/{1:d})".format(self.index + 1,len(self.Results.Scenario.plasma_dict["time"])))
-        self.ProgressBar.SetValue(self.index)
-        self.ECRad_process = wx.Process(self)
-        self.ECRad_process.Redirect()
-        print("-------- Launching ECRad -----------\n")
-        print("-------- INVOKE COMMAND------------\n")
-        print(self.InvokeECRad)
-        print("-------- Current working directory ------------\n")
-        print(os.getcwd())
-        print("-----------------------------------\n")
-        self.StartECRadButton.Disable()
-#            ticket_manager = wx.Process(self)
-#            ticket_manager_pid = wx.Execute("echo $KRB5CCNAME", \
-#                                       wx.EXEC_SYNC, ticket_manager)
-        self.ECRad_pid = wx.Execute(self.InvokeECRad, \
-                                    wx.EXEC_ASYNC, self.ECRad_process)
-        self.ECRad_running = True
-        if(self.Results.Config.parallel and not self.Results.Config.batch):
-            while(not wx.Process.Exists(self.ECRad_pid)):
-                sleep(0.25)
-            os.system("renice -n 10 -p " + "{0:d}".format(self.ECRad_process.GetPid()) + " >/dev/null 2>&1")
-        self.KillECRadButton.Enable()
-#        print InvokeECRad + EOLCHART
-        evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-        evt.SetStatus('ECRad has launched - please wait.')
-        self.GetEventHandler().ProcessEvent(evt)
-
-
-    def OnUpdate(self, evt):
-        self.Results = evt.Results
-        self.DiagBox.Clear()
-        for diag_key in list(self.Results.Scenario.used_diags_dict):
-            self.DiagBox.Append(diag_key)
-        self.TimeBox.Clear()
-        for time in self.Results.Scenario.plasma_dict["time"]:
-            self.TimeBox.Append("{0:1.5f}".format(time))
-        evt_out = UpdateConfigEvt(Unbound_EVT_UPDATE_CONFIG, self.GetId())
-        self.GetEventHandler().ProcessEvent(evt_out)
-        self.ExporttoMatButton.Enable()
-        self.NameButton.Enable()
-        print("Updated main results")
-
-    def OnImportMat(self, evt):
-        self.Results = ECRadResults()
-        self.Results.from_mat_file(evt.filename)
-        self.DiagBox.Clear()
-        for diag_key in self.Results.Scenario.used_diags_dict:
-            self.DiagBox.Append(diag_key)
-        self.TimeBox.Clear()
-        for time in self.Results.Scenario.plasma_dict["time"]:
-            self.TimeBox.Append("{0:1.5f}".format(time))
-        evt_out = UpdateConfigEvt(Unbound_EVT_UPDATE_CONFIG, self.GetId())
-        self.GetEventHandler().ProcessEvent(evt_out)
-        evt_out_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
-        evt_out_2.SetResults(self.Results)
-        if(globalsettings.AUG):
-            self.calib_panel.GetEventHandler().ProcessEvent(evt_out_2)
-        self.scenario_select_panel.GetEventHandler().ProcessEvent(evt_out_2)
-        self.plot_panel.GetEventHandler().ProcessEvent(evt_out_2)
-        print("Successfully imported:", evt.filename)
-
-    def OnExporttoMat(self, evt):
-        try:
-            try:
-                NewConfig = self.config_panel.UpdateConfig(self.Results.Config)
-                self.Results.Config.working_dir = NewConfig.working_dir
-            except ValueError as e:
-                print("Failed to parse Configuration")
-                print("Reason: ", e)
-                print("Did not update working directory")
-            if(self.Results is not None):
-                self.Results.to_mat_file()
-            else:
-                print("No results to save")
-        except AttributeError as e:
-            print("No results to save")
-            print(e)
-        except IOError as e:
-            print("Failed to save results")
-            print(e)
-
-    def OnLockExport(self, evt):
-        self.ExporttoMatButton.Disable()
-        self.NameButton.Disable()
-
-    def OnNextTimeStep(self, evt):
-        if(not self.stop_current_evaluation):
-            evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
-            wx.PostEvent(self, evt)
-        else:
-            self.Scenario.plasma_dict["time"] = self.Scenario.plasma_dict["time"][0:self.index]  # shorten time array in case of early termination
-            self.Results.time = self.Results.time[0:self.index]
-            self.Results.tidy_up()
-            self.ExporttoMatButton.Enable()
-            self.NameButton.Enable()
-            evt_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
-            evt_2.SetResults(self.Results)
-            evt_2.SetConfig(self.Results.Config)
-            self.Calib_Panel.GetEventHandler().ProcessEvent(evt_2)
-            evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-            evt.SetStatus('ECRad has Finished!')
-            self.Progress_label.SetLabel("No ECRad run in progress")
-            self.ProgressBar.SetValue(0)
-            self.sizer.Layout()
-            self.StartECRadButton.Enable()
-
-    def OnKillECRad(self, evt):
-        self.stop_current_evaluation = True
-        print("Waiting for current calculation to finish")
-        evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-        evt.SetStatus('Termination scheduled - please wait!')
-        self.GetEventHandler().ProcessEvent(evt)
-        self.KillECRadButton.Disable()
-
-    def OnIdle(self, evt):
         if(self.ECRad_process is not None):
-            stream = self.ECRad_process.GetInputStream()
-            if stream is not None:
-                if stream.CanRead():
-                    text = stream.read()
-                    self.Log_Box.AppendText(text)
-            evt.RequestMore()
-        elif(self.ECRad_running):
-            print("ECRad seems to have crashed without the corresponding event chain firing")
-            print("This might cause some weird stuff from here on out")
-            print("Trying to fix it...")
-            self.ECRad_running = False
-            self.OnProcessEnded(None) 
-
+            self.ECRad_process.close()
+        self.ECRad_process = Process(target=self.RunECRadTimePoint, name="ECRad" + str(self.Results.Scenario["shot"]))
+        self.ECRad_running = True
+        self.ECRad_process.start()
+        
+    def RunECRadTimePoint(self):
+        evt = ProccessFinishedEvt(Unbound_EVT_ECRAD_FINISHED, self.GetId())
+        try:
+            self.ECRad_interface.process_single_timepoint(self.Results, self.index)
+            evt.SetSuccess(True)
+        except Exception as e:
+            print(e)
+            evt.SetSuccess(False)
+        wx.PostEvent(self, evt)
+            
     def OnProcessEnded(self, evt):
         self.ECRad_running = False
         if(self.ECRad_process is None):
@@ -627,105 +499,180 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.StartECRadButton.Enable()
             self.GetEventHandler().ProcessEvent(evt)
             return
-        stream = self.ECRad_process.GetInputStream()
-        if stream is not None:
-            if stream.CanRead():
-                text = stream.read()
-                self.Log_Box.AppendText(text)
-        self.ECRad_process.Destroy()
+#         stream = self.ECRad_process.GetInputStream()
+#         if stream is not None:
+#             if stream.CanRead():
+#                 text = stream.read()
+#                 self.Log_Box.AppendText(text)
+        self.ECRad_process.close()
         self.ECRad_process = None
-        self.ECRad_pid = None
-        try:
+        if(evt.success):
             # Append times twice to track which time points really do have results in case of crashes
-            self.Results.append_new_results(self.Results.Scenario.plasma_dict["time"][self.index])
             self.index += 1
-        except IOError as e:
-            print("Results of ECRad cannot be found!")
-            print("Most likely cause is an error that occurred within ECRad")
-            print("Please run the ECRad with current input parameters in a separate shell.")
-            print("The command to launch the ECRad can be found above.")
-            print("Afterwards please send any error messages that appear at sdenk|at|ipp.mpg.de")
-            print("If no errors occur make sure that you don't have another instance of ECRad GUI working in the same working directory")
-            print(e)
-            print("Skipping current time point {0:1.4f} and continuing".format(self.Results.Scenario.plasma_dict["time"][self.index]))
-            self.Results.Scenario.plasma_dict["time"] = np.delete(self.Results.Scenario.plasma_dict["time"], self.index)
-            if(len(np.shape(self.Results.Scenario.plasma_dict["Te"][self.index])) == 1):
-                try:
-                    self.Results.Scenario.plasma_dict["rhop_prof"] = np.delete(self.Results.Scenario.plasma_dict["rhop_prof"], self.index)
-                except Exception:
-                    print("No rhop profile information")
-                try:
-                    self.Results.Scenario.plasma_dict["rhot_prof"] = np.delete(self.Results.Scenario.plasma_dict["rhot_prof"], self.index)
-                except Exception:
-                    print("No rhot profile information")
-            self.Results.Scenario.plasma_dict["Te"] = np.delete(self.Results.Scenario.plasma_dict["Te"], self.index)
-            self.Results.Scenario.plasma_dict["ne"] = np.delete(self.Results.Scenario.plasma_dict["ne"], self.index)
-            if(not self.Results.Scenario.use3Dscen.used):
-                self.Results.Scenario.plasma_dict["eq_data"] = np.delete(self.Results.Scenario.plasma_dict["eq_data"], self.index)
-            self.Results.Scenario.ray_launch = np.delete(self.Results.Scenario.ray_launch, self.index)
-        except IndexError as e:
-            print("Error parsing results of ECRad")
-            print("Most likely cause is an error that occurred within the ECRad")
-            print("Please run the ECRad with current input parameters in a separate shell.")
-            print("The command to launch the ECRad can be found above.")
-            print("Afterwards please send any error messages that appear at sdenk|at|ipp.mpg.de")
-            print("If no errors occur make sure that you don't have another instance of ECRad GUI working in the same working directory")
-            print(e)
-            self.Progress_label.SetLabel("No ECRad run in progress")
-            self.ProgressBar.SetRange(self.index)
-            self.ProgressBar.SetValue(self.index)
-            self.GetEventHandler().ProcessEvent(evt)
-            self.Results = ECRadResults()  # Empty results
-            self.stop_current_evaluation = True
-            return
-        if(self.index < len(self.Results.Scenario.plasma_dict["time"]) and not self.stop_current_evaluation):
+        else:
+            print("Sorry, ECRad crashed. Please send the log console output to Severin Denk")
+            print("Skipping current time point {0:1.4f} and continuing".format(self.Results.Scenario["time"][self.index]))
+            self.Results.Scenario.drop_time_point(self.index)
+            self.ProgressBar.SetRange(self.Results.Scenario["dimensions"]["N_time"])
+        if(self.index < len(self.Results.Scenario["time"]) and not self.stop_current_evaluation):
             evt = NewStatusEvt(Unbound_EVT_NEXT_TIME_STEP, self.GetId())
             self.GetEventHandler().ProcessEvent(evt)
         else:
-            # Shorten more stuff!
-            if(len(self.Results.Scenario.plasma_dict["time"]) == 0):
-                print("None of the ECRad runs were completed succesfully - sorry")
-                self.Results = ECRadResults()
-                self.Progress_label.SetLabel("No ECRad run in progress")
-                self.ProgressBar.SetRange(self.index)
-                self.ProgressBar.SetValue(self.index)
-                self.GetEventHandler().ProcessEvent(evt)
-                self.Results = ECRadResults()  # Empty results
-                self.stop_current_evaluation = True
-                self.StartECRadButton.Enable()
-                return
-            for key in self.Results.Scenario.plasma_dict:
-                if(key != "vessel_bd" and key != "prof_reference"):
-                    if(self.Results.Scenario.plasma_dict[key] is not None):
-                        self.Results.Scenario.plasma_dict[key] = self.Results.Scenario.plasma_dict[key][0:self.index]  # shorten time array in case of early termination
-            self.Results.time = np.copy(self.Results.Scenario.plasma_dict["time"])
-            self.TimeBox.Clear()
-            for t in self.Results.time:
-                self.TimeBox.Append("{0:1.4f}".format(t))
-            self.KillECRadButton.Disable()
-            self.stop_current_evaluation = False
-            self.Results.tidy_up()
-            self.ExporttoMatButton.Enable()
-            self.NameButton.Enable()
-            evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-            evt.SetStatus('ECRad has Finished!')
+            self.FinishUpECRad()
+                        
+    def OnNextTimeStep(self, evt):
+        if(not self.stop_current_evaluation):
+            evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
+            wx.PostEvent(self, evt)
+        else:
+            self.FinishUpECRad()
+            
+    def FinishUpECRad(self):
+        if(self.Results.Scenario["dimensions"]["N_time"] == 0):
+            # Unsuccessful termination
+            print("None of the ECRad runs were completed succesfully - sorry")
+            self.Results = ECRadResults()
+            # We have deleted all entries from the Scenario we need to rebuilt this
+            self.Results.Scenario.plasma_set = False
             self.Progress_label.SetLabel("No ECRad run in progress")
-            self.ProgressBar.SetRange(self.index)
-            self.ProgressBar.SetValue(self.index)
+            self.ProgressBar.SetRange(1)
+            self.ProgressBar.SetValue(1)
+            evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+            evt.SetStatus('ECRad failed - sorry!')
             self.GetEventHandler().ProcessEvent(evt)
-            evt_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
-            evt_2.SetResults(self.Results)
-            if(globalsettings.AUG):
-                self.calib_panel.GetEventHandler().ProcessEvent(evt_2)
-            self.scenario_select_panel.GetEventHandler().ProcessEvent(evt_2)
-            self.plot_panel.GetEventHandler().ProcessEvent(evt_2)
-            print("-------- ECRad has terminated -----------\n")
+            self.stop_current_evaluation = True
             self.StartECRadButton.Enable()
+            return
+        # Remove time points in case of early termination
+        for i in range(self.index, self.Results.Scenario["dimensions"]["N_time"]):
+            self.Results.Scenario.drop_time_point(i)
+        self.Results.tidy_up()
+        self.TimeBox.Clear()
+        for t in self.Results.Scenario["time"]:
+            self.TimeBox.Append("{0:1.4f}".format(t))
+        self.KillECRadButton.Disable()
+        self.stop_current_evaluation = False
+        self.Results.tidy_up()
+        self.ExportButton.Enable()
+        self.NameButton.Enable()
+        self.Progress_label.SetLabel("No ECRad run in progress")
+        self.ProgressBar.SetRange(self.index)
+        self.ProgressBar.SetValue(self.index)
+        evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+        evt.SetStatus('ECRad has Finished!')
+        wx.PostEvent(self, evt)
+        evt_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
+        evt_2.SetResults(self.Results)
+        if(globalsettings.AUG):
+            wx.PostEvent(self.calib_panel, evt)
+            self.calib_panel.GetEventHandler().ProcessEvent(evt_2)
+        wx.PostEvent(self.scenario_select_panel, evt_2)
+        wx.PostEvent(self.plot_panel, evt_2)
+        self.StartECRadButton.Enable()
+
+    def OnKillECRad(self, evt):
+        self.stop_current_evaluation = True
+        print("Waiting for current calculation to finish")
+        evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+        evt.SetStatus('Termination scheduled - please wait!')
+        self.GetEventHandler().ProcessEvent(evt)
+        self.KillECRadButton.Disable()
+    
+
+    def OnUpdate(self, evt):
+        self.Results = evt.Results
+        self.DiagBox.Clear()
+        for diag_key in list(self.Results.Scenario["used_diags_dict"]):
+            self.DiagBox.Append(diag_key)
+        self.TimeBox.Clear()
+        for time in self.Results.Scenario["time"]:
+            self.TimeBox.Append("{0:1.5f}".format(time))
+        evt_out = UpdateConfigEvt(Unbound_EVT_UPDATE_CONFIG, self.GetId())
+        self.GetEventHandler().ProcessEvent(evt_out)
+        self.ExportButton.Enable()
+        self.NameButton.Enable()
+        print("Updated main results")
+
+    def OnImport(self, evt):
+        self.Results = ECRadResults()
+        print("Now loarding: " + evt.filename)
+        print("This takes a moment please wait")
+        WorkerThread(self.ImportThread, [evt.filename])
+        
+    def ImportThread(self,args):
+        evt = ThreadFinishedEvt(Unbound_EVT_ECRAD_RESULT_LOADED, self.GetId())
+        try:
+            self.Results.load(args[0])
+            evt.SetSuccess(True)
+        except Exception as e:
+            print(e)
+            evt.SetSuccess(False)
+        wx.PostEvent(self, evt)
+        
+    def OnResultsImported(self, evt):
+        if(evt.success):
+            print("Results loaded")
+            self.DiagBox.Clear()
+            for diag_key in self.Results.Scenario["used_diags_dict"]:
+                self.DiagBox.Append(diag_key)
+            self.TimeBox.Clear()
+            for time in self.Results.Scenario["time"]:
+                self.TimeBox.Append("{0:1.5f}".format(time))
+            evt_out = UpdateConfigEvt(Unbound_EVT_UPDATE_CONFIG, self.GetId())
+            wx.PostEvent(self,evt_out)
+            evt_out_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
+            evt_out_2.SetResults(self.Results)
+            if(globalsettings.AUG):
+                wx.PostEvent(evt_out_2, self.calib_panel)
+            wx.PostEvent(self.scenario_select_panel, evt_out_2)
+            wx.PostEvent(self.plot_panel, evt_out_2)
+        else:
+            print("ERROR: Failed to load Results")
+
+    def OnExport(self, evt):
+        try:
+            try:
+                NewConfig = self.config_panel.UpdateConfig(self.Results.Config)
+                self.Results.Config["Execution"]["working_dir"] = NewConfig["Execution"]["working_dir"]
+            except ValueError as e:
+                print("Failed to parse Configuration")
+                print("Reason: ", e)
+                print("Did not update working directory")
+            if(self.Results is not None):
+                WorkerThread(self.Results.to_netcdf)
+            else:
+                print("No results to save")
+        except AttributeError as e:
+            print("No results to save")
+            print(e)
+        except IOError as e:
+            print("Failed to save results")
+            print(e)
+
+    def OnLockExport(self, evt):
+        self.ExportButton.Disable()
+        self.NameButton.Disable()
+
+    def OnIdle(self, evt):
+        pass
+#         if(self.ECRad_process is not None):
+#             stream = self.ECRad_process.GetInputStream()
+#             if stream is not None:
+#                 if stream.CanRead():
+#                     text = stream.read()
+#                     self.Log_Box.AppendText(text)
+#             evt.RequestMore()
+#         elif(self.ECRad_running):
+#             print("ECRad seems to have crashed without the corresponding event chain firing")
+#             print("This might cause some weird stuff from here on out")
+#             print("Trying to fix it...")
+#             self.ECRad_running = False
+#             self.OnProcessEnded(None) 
 
     def OnConfigLoaded(self, evt):
         self.config_panel.SetConfig(self.Results.Config)
         self.config_panel.DisableExtRays()
-        self.launch_panel.SetScenario(self.Results.Scenario, self.Results.Config.working_dir)
+        self.launch_panel.SetScenario(self.Results.Scenario, self.Results.Config["Execution"]["working_dir"])
         
     def OnName(self, evt):
         if(self.Results.comment == None):

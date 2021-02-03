@@ -38,9 +38,9 @@ if(globalsettings.AUG):
     
     
     def make_plasma_mat_for_testing(filename, shot, times, eq_exp, eq_diag, eq_ed, \
-                                    bt_vac_correction=1.005, IDA_exp="AUGD", IDA_ed=0):
+                                    IDA_exp="AUGD", IDA_ed=0):
         plasma_dict = load_IDA_data(shot, timepoints=times, exp=IDA_exp, ed=IDA_ed)
-        EQ_obj = EQData(shot, EQ_exp=eq_exp, EQ_diag=eq_diag, EQ_ed=eq_ed, bt_vac_correction=bt_vac_correction)
+        EQ_obj = EQData(shot, EQ_exp=eq_exp, EQ_diag=eq_diag, EQ_ed=eq_ed)
         plasma_dict["eq_data"] = []
         for time in times:
             plasma_dict["eq_data"].append(EQ_obj.GetSlice(time))
