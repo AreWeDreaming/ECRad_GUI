@@ -51,3 +51,5 @@ At the moment all contributions should be discussed. Pull requests will be welco
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
+
+This GUI uses the wxPython library for its frontend. The license for wxPython can be found in the licenses folder.

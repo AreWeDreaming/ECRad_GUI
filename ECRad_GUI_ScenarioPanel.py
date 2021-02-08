@@ -855,7 +855,6 @@ class ScenarioSelectPanel(wx.Panel):
         Scenario["plasma"]["prof_reference"] = self.plasma_dict["prof_reference"]
         Scenario.plasma_set = True
         self.new_data_available = False
-        Scenario.set_up_dimensions()
         return Scenario
 
     def OnFilterElms(self, evt):

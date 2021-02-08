@@ -49,31 +49,41 @@ from ECRad_GUI_Shell import Redirect_Text
 from ECRad_Interface import prepare_input_files, GetECRadExec
 from ECRad_Results import ECRadResults
 from Parallel_Utils import WorkerThread
-from multiprocessing import Process
+from multiprocessing import Process, Queue, Pipe
+import queue
 from ECRad_F2PY_Interface import ECRadF2PYInterface
 import getpass
 from ECRad_GUI_PlotPanel import PlotPanel
 ECRad_Model = False
 from time import sleep
+from io import StringIO
 # Events
 
 
 def kill_handler(signum, frame):
     print('Successfully terminated ECRad with Signal ', signum)
 
-
-
 class ECRad_GUI_App(wx.App):
+    def __init__(self, ECRad_runner_process, ECRad_input_queue, ECRad_output_queue):
+        """
+        Initialise the App.
+        """
+        self.ECRad_runner_process = ECRad_runner_process
+        self.ECRad_input_queue = ECRad_input_queue
+        self.ECRad_output_queue = ECRad_output_queue
+        wx.App.__init__(self)
+
     def OnInit(self):
         self.SetAppName("ECRad GUI")
         if(globalsettings.Phoenix):
-            frame = ECRad_GUI_MainFrame(self, 'ECRad GUI')
+            frame = ECRad_GUI_MainFrame(self, 'ECRad GUI', self.ECRad_runner_process, \
+                                        self.ECRad_input_queue, self.ECRad_output_queue)
             self.SetTopWindow(frame)
             frame.Show(True)
         return True
 
 class ECRad_GUI_MainFrame(wx.Frame):
-    def __init__(self, parent, title):
+    def __init__(self, parent, title, ECRad_runner_process, ECRad_input_queue, ECRad_output_queue):
         wx.Frame.__init__(self, None, wx.ID_ANY, title, \
                           style=wx.DEFAULT_FRAME_STYLE | \
                           wx.FULL_REPAINT_ON_RESIZE)
@@ -82,9 +92,12 @@ class ECRad_GUI_MainFrame(wx.Frame):
         self.statusbar.SetStatusWidths([-2, -1])
         self.Bind(EVT_NEW_STATUS, self.SetNewStatus)
         self.Bind(EVT_RESIZE, self.OnResizeAll)
+        self.Bind(wx.EVT_CLOSE, self.OnQuit)
         self.CreateMenuBar()
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.Panel = Main_Panel(self)
+        self.ECRad_runner_process = ECRad_runner_process
+        self.ECRad_input_queue = ECRad_input_queue
+        self.Panel = Main_Panel(self, ECRad_runner_process, ECRad_input_queue, ECRad_output_queue)
         self.sizer.Add(self.Panel, 1, wx.EXPAND)
         self.OldSize = self.GetSize()
         self.ConfigLoaded = False
@@ -157,6 +170,9 @@ class ECRad_GUI_MainFrame(wx.Frame):
             self.Panel.GetEventHandler().ProcessEvent(evt)
 
     def OnQuit(self, event):
+        self.ECRad_input_queue.put(["close", None, None])
+        self.ECRad_runner_process.join()
+        self.ECRad_runner_process.close()
         self.FrameParent.ExitMainLoop()
         self.Destroy()
 
@@ -165,11 +181,13 @@ class ECRad_GUI_MainFrame(wx.Frame):
         self.Refresh()
 
 class Main_Panel(scrolled.ScrolledPanel):
-    def __init__(self, parent):
+    def __init__(self, parent, ECRad_runner_process, ECRad_input_queue, ECRad_output_queue):
         scrolled.ScrolledPanel.__init__(self, parent, wx.ID_ANY)
         self.parent = parent
-        self.ECRad_process = None
         self.ECRad_running = False
+        self.ECRad_runner_process = ECRad_runner_process
+        self.ECRad_input_queue = ECRad_input_queue
+        self.ECRad_output_queue = ECRad_output_queue
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.Results = ECRadResults(lastused=True)
         self.Bind(EVT_MAKE_ECRAD, self.OnProcessTimeStep)
@@ -288,7 +306,6 @@ class Main_Panel(scrolled.ScrolledPanel):
                 self.Results.Scenario.autosave()
         self.Results.set_dimensions()
         self.ProgressBar.SetRange(self.Results.Scenario["dimensions"]["N_time"])
-        self.ECRad_interface = ECRadF2PYInterface(self.Results.Config, self.Results.Scenario)
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('ECRad is running - please wait.')
         wx.PostEvent(self, evt)
@@ -329,25 +346,6 @@ class Main_Panel(scrolled.ScrolledPanel):
         # Reset only the result fields but leave Scenario and Config untouched
         self.Results.reset(light=True)
         # Sets time points and stores plasma data in Scenario
-        if(self.launch_panel.UpdateNeeded() or not self.Results.Scenario.diags_set):
-            try:
-                self.Results.Scenario = self.launch_panel.UpdateScenario(self.Results.Scenario)
-                if(not self.Results.Scenario.diags_set):
-                    evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-                    evt.SetStatus('')
-                    self.GetEventHandler().ProcessEvent(evt)
-                    return
-            except ValueError as e:
-                print("Failed to parse diagnostic info")
-                print("Reason: ", e)
-                evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-                evt.SetStatus('')
-                self.GetEventHandler().ProcessEvent(evt)
-                return
-            self.DiagBox.Clear()
-            for diag in list(self.Results.Scenario["used_diags_dict"]):
-                self.DiagBox.Append(diag)
-            scenario_updated = True
         if(self.scenario_select_panel.FullUpdateNeeded() or not self.Results.Scenario.plasma_set):
             try:
                 self.Results.Scenario = self.scenario_select_panel.UpdateScenario(self.Results.Scenario, self.Results.Config, None)
@@ -369,6 +367,26 @@ class Main_Panel(scrolled.ScrolledPanel):
             scenario_updated = True
         else:
             self.Results.Scenario = self.scenario_select_panel.SetScaling(self.Results.Scenario)
+        if(self.launch_panel.UpdateNeeded() or not self.Results.Scenario.diags_set):
+            try:
+                self.Results.Scenario = self.launch_panel.UpdateScenario(self.Results.Scenario)
+                if(not self.Results.Scenario.diags_set):
+                    evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+                    evt.SetStatus('')
+                    self.GetEventHandler().ProcessEvent(evt)
+                    return
+            except ValueError as e:
+                print("Failed to parse diagnostic info")
+                print("Reason: ", e)
+                evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+                evt.SetStatus('')
+                self.GetEventHandler().ProcessEvent(evt)
+                return
+            self.DiagBox.Clear()
+            for diag in list(self.Results.Scenario["used_diags_dict"]):
+                self.DiagBox.Append(diag)
+            scenario_updated = True
+        self.Results.Scenario.set_up_dimensions()
         # Stores launch data in Scenario
         self.stop_current_evaluation = False
         self.index = 0
@@ -471,41 +489,29 @@ class Main_Panel(scrolled.ScrolledPanel):
             return         
             
     def OnProcessTimeStep(self, evt):
-        if(self.ECRad_process is not None):
-            self.ECRad_process.close()
-        self.ECRad_process = Process(target=self.RunECRadTimePoint, name="ECRad" + str(self.Results.Scenario["shot"]))
         self.ECRad_running = True
-        self.ECRad_process.start()
+        self.ECRad_input_queue.put(["run ECRad", self.Results, self.index]) 
         
-    def RunECRadTimePoint(self):
-        evt = ProccessFinishedEvt(Unbound_EVT_ECRAD_FINISHED, self.GetId())
-        try:
-            self.ECRad_interface.process_single_timepoint(self.Results, self.index)
-            evt.SetSuccess(True)
-        except Exception as e:
-            print(e)
-            evt.SetSuccess(False)
-        wx.PostEvent(self, evt)
+    def ECRadRunner(cls, input_queue, output_queue):
+        ECRad_inferface = ECRadF2PYInterface()
+        while True:
+            args = input_queue.get()
+            try:
+                command = args[0]
+                if(command == "close"):
+                    break
+                Results = args[1]
+                Results = ECRad_inferface.process_single_timepoint(Results, args[2])
+                output_queue.put([True, Results])
+            except Exception as e:
+                print(e)
+                output_queue.put([False, Results])
+    
+    ECRadRunner = classmethod(ECRadRunner)
+    
             
     def OnProcessEnded(self, evt):
         self.ECRad_running = False
-        if(self.ECRad_process is None):
-            print("ECRad model has crashed")
-            print("Please read Error log above")
-            self.Results = ECRadResults()
-            evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-            evt.SetStatus('ECRad has crashed - sorry!')
-            self.Progress_label.SetLabel("No ECRad run in progress")
-            self.StartECRadButton.Enable()
-            self.GetEventHandler().ProcessEvent(evt)
-            return
-#         stream = self.ECRad_process.GetInputStream()
-#         if stream is not None:
-#             if stream.CanRead():
-#                 text = stream.read()
-#                 self.Log_Box.AppendText(text)
-        self.ECRad_process.close()
-        self.ECRad_process = None
         if(evt.success):
             # Append times twice to track which time points really do have results in case of crashes
             self.index += 1
@@ -516,7 +522,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.ProgressBar.SetRange(self.Results.Scenario["dimensions"]["N_time"])
         if(self.index < len(self.Results.Scenario["time"]) and not self.stop_current_evaluation):
             evt = NewStatusEvt(Unbound_EVT_NEXT_TIME_STEP, self.GetId())
-            self.GetEventHandler().ProcessEvent(evt)
+            wx.PostEvent(self, evt)
         else:
             self.FinishUpECRad()
                         
@@ -546,21 +552,24 @@ class Main_Panel(scrolled.ScrolledPanel):
         # Remove time points in case of early termination
         for i in range(self.index, self.Results.Scenario["dimensions"]["N_time"]):
             self.Results.Scenario.drop_time_point(i)
-        self.Results.tidy_up()
+        self.Results.tidy_up(False)
         self.TimeBox.Clear()
         for t in self.Results.Scenario["time"]:
             self.TimeBox.Append("{0:1.4f}".format(t))
         self.KillECRadButton.Disable()
         self.stop_current_evaluation = False
-        self.Results.tidy_up()
         self.ExportButton.Enable()
         self.NameButton.Enable()
         self.Progress_label.SetLabel("No ECRad run in progress")
         self.ProgressBar.SetRange(self.index)
         self.ProgressBar.SetValue(self.index)
+        evt = wx.PyCommandEvent()
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('ECRad has Finished!')
         wx.PostEvent(self, evt)
+        print("Now saving results")
+        print("This takes a moment please wait")
+        WorkerThread(self.SavingThread, [])
         evt_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
         evt_2.SetResults(self.Results)
         if(globalsettings.AUG):
@@ -569,6 +578,13 @@ class Main_Panel(scrolled.ScrolledPanel):
         wx.PostEvent(self.scenario_select_panel, evt_2)
         wx.PostEvent(self.plot_panel, evt_2)
         self.StartECRadButton.Enable()
+        
+    def SavingThread(self, args):
+        try:
+            self.Results.autosave()
+        except Exception as e:
+            print("ERROR: Failed to save results")
+            print(e)
 
     def OnKillECRad(self, evt):
         self.stop_current_evaluation = True
@@ -654,7 +670,25 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.NameButton.Disable()
 
     def OnIdle(self, evt):
-        pass
+        if(self.ECRad_running):
+            try:
+                success, self.Results = self.ECRad_output_queue.get(block=False)
+                evt = ProccessFinishedEvt(Unbound_EVT_ECRAD_FINISHED, self.GetId())
+                evt.SetSuccess(success)
+                wx.PostEvent(self, evt)
+                return
+            except queue.Empty:
+                pass
+            if(not self.ECRad_runner_process.is_alive()):
+                self.ECRad_runner_process = Process(target=Main_Panel.ECRadRunner, \
+                                                    args=(self.ECRad_input_queue, \
+                                                          self.ECRad_output_queue))
+                self.ECRad_runner_process.start()
+                success = False
+                evt = ProccessFinishedEvt(Unbound_EVT_ECRAD_FINISHED, self.GetId())
+                evt.SetSuccess(success)
+                wx.PostEvent(self, evt)
+
 #         if(self.ECRad_process is not None):
 #             stream = self.ECRad_process.GetInputStream()
 #             if stream is not None:
@@ -686,13 +720,15 @@ class Main_Panel(scrolled.ScrolledPanel):
 
 class ECRad_GUI:
     def __init__(self):
-        GUI = ECRad_GUI_App()
-        if(not globalsettings.Phoenix):
-            MainFrame = ECRad_GUI_MainFrame(GUI, 'ECRad GUI')
-            MainFrame.Show(True)
+        # Redirect stdout from ECRad
+        ECRad_input_queue = Queue()
+        ECRad_output_queue = Queue()
+        ECRad_runner_process = Process(target=Main_Panel.ECRadRunner, args=(ECRad_input_queue,ECRad_output_queue))
+        ECRad_runner_process.start()
+        GUI = ECRad_GUI_App(ECRad_runner_process, ECRad_input_queue, ECRad_output_queue)
         GUI.MainLoop()
 
-# try:
-Main_ECRad = ECRad_GUI()
+if __name__ == '__main__':
+    Main_ECRad = ECRad_GUI()
 # except Exception as e:
 #    print(e)
