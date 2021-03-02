@@ -126,27 +126,29 @@ class PlotPanel(wx.Panel):
                                     wx.LEFT | wx.ALL , 10)
         self.controlplotsizer.Add(self.controlgrid2, 0, \
                                     wx.LEFT | wx.ALL , 10)
-        self.diag_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.controlplotsizer.Add(self.FigureControlPanel, 1, wx.ALL | wx.EXPAND, 10)
-        self.diag_box_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.aux_data_box_sizer = wx.BoxSizer(wx.VERTICAL)
         self.load_other_results_button = wx.Button(self, wx.ID_ANY, "Load other results")
         self.load_other_results_button.Bind(wx.EVT_BUTTON, self.OnLoadOtherResults)
-        self.diag_box_sizer.Add(self.load_other_results_button, 0, wx.ALL | wx.EXPAND, 5)
+        self.aux_data_box_sizer.Add(self.load_other_results_button, 0, wx.ALL | wx.EXPAND, 5)
         self.other_result_text = wx.StaticText(self, wx.ID_ANY, "Select result(s) for comparison")
-        self.diag_box_sizer.Add(self.other_result_text, 0, wx.ALL | wx.TOP, 5)
+        self.aux_data_box_sizer.Add(self.other_result_text, 0, wx.ALL | wx.TOP, 5)
         self.other_result_box = wx.ListBox(self, wx.ID_ANY, style=wx.LB_MULTIPLE, size=(100,200))
-        self.diag_box_sizer.Add(self.other_result_box, 0, wx.ALL | wx.EXPAND, 5)
+        self.aux_data_box_sizer.Add(self.other_result_box, 0, wx.ALL | wx.EXPAND, 5)
         self.clear_other_results_button = wx.Button(self, wx.ID_ANY, "Clear other results")
         self.clear_other_results_button.Bind(wx.EVT_BUTTON, self.OnClearOtherResults)
-        self.diag_box_sizer.Add(self.clear_other_results_button, 0, wx.ALL | wx.EXPAND, 5)
-        self.diag_sizer.Add(self.diag_box_sizer, 0, wx.ALL | wx.LEFT, 10)
+        self.aux_data_box_sizer.Add(self.clear_other_results_button, 0, wx.ALL | wx.EXPAND, 5)
+        self.scenario_quant_text = wx.StaticText(self, wx.ID_ANY, "Add scenario quantity to plot")
+        self.aux_data_box_sizer.Add(self.scenario_quant_text, 0, wx.ALL | wx.TOP, 5)
+        self.scenario_quant_box = wx.ListBox(self, wx.ID_ANY, style=wx.LB_MULTIPLE, size=(100,200))
+        self.aux_data_box_sizer.Add(self.scenario_quant_box, 0, wx.ALL | wx.EXPAND, 5)
+        self.scenario_quant_box.Bind(wx.EVT_LISTBOX, self.OnScenarioQuantSelected)
         self.sizer.Add(self.controlplotsizer, 1, wx.ALL | wx.EXPAND, 10)
-        self.sizer.Add(self.diag_sizer, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
+        self.sizer.Add(self.aux_data_box_sizer, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
         self.FigureControlPanel.Show(True)
         self.cur_selected_index = 0
         self.compare_data = {}
         
-
     def OnClearOtherResults(self, evt):
         self.other_result_box.Clear()
         self.compare_data = {}
@@ -178,10 +180,28 @@ class PlotPanel(wx.Panel):
     
     def OnYQuantSelected(self, evt):
         selection_list = self.lb_widgets["y_quant"].GetSelections()
+        if(self.y_key == "weights"):
+            self.lb_widgets["mode"].Clear()
+            for n in selection_list:
+                sub_key = self.lb_widgets["y_quant"].GetString(n)
+                if("N_mode" in self.Results.shapes[sub_key] or "N_mode_mix" in self.Results.shapes[sub_key]):
+                    if(self.Results.Config["Physics"]["considered_modes"] == 1):
+                        self.lb_widgets["mode"].Append("X")
+                        break 
+                    elif(self.Results.Config["Physics"]["considered_modes"] == 2):
+                        self.lb_widgets["mode"].Append("O")
+                        break 
+                    else:
+                        if("N_mode" in self.Results.shapes[sub_key]):
+                            self.lb_widgets["mode"].AppendItems(["X", "O"])
+                            break 
+                        else:
+                            self.lb_widgets["mode"].AppendItems(["Mix","X", "O"])
+                            break 
         primary_unit, secondary_unit, bad_n_list = self.resolve_units(selection_list)
         for n in bad_n_list: 
             print("Can only plot two unique units at a time")
-            self.lb_widgets["y_quant"].Deselect(n)                 
+            self.lb_widgets["y_quant"].Deselect(n)                     
     
     def resolve_units(self, selection_list):
         primary_unit = None 
@@ -206,25 +226,22 @@ class PlotPanel(wx.Panel):
         for sub_key in self.Results.sub_keys[select_group]:
             if(sub_key not in self.Results.failed_keys[select_group]):
                 self.lb_widgets["x_quant"].Append(sub_key)
-    
 
-#         plot_type = self.plot_choice.GetStringSelection()
-#         self.other_result_box.Clear()
-#         if(plot_type in  self.compare_data):        
-#             other_results = self.compare_data[plot_type]
-#         elif(plot_type=="Ray" and "RayXRz" in self.compare_data):
-#             other_results = self.compare_data["RayXRz"]
-#         else:
-#             return
-#         other_results.sort()
-#         self.other_result_box.AppendItems(other_results)
-#         self.other_result_box.Layout()
+    def OnScenarioQuantSelected(self, evt):
+        selected_indices = self.scenario_quant_box.GetSelections()
+        if(len(selected_indices) > 1): 
+            for n in selected_indices:
+                if(self.scenario_quant_box.GetString(n) not in ["Te", "ne"]):
+                    print("Only Te and ne can be plotted simulateneously selected from the Scenario")
+                    self.scenario_quant_box.Deselect(n)
 
     def OnUpdate(self, evt):
         self.Results = evt.Results
+        for lb in self.lb_widgets.keys():
+            self.lb_widgets[lb].Clear()
+        self.scenario_quant_box.Clear()
         if(len(self.Results.Scenario["time"]) > 0):
-            for lb in self.lb_widgets.keys():
-                self.lb_widgets[lb].Clear()
+            
             self.lb_widgets["time"].AppendItems(self.Results.Scenario["time"].astype("|U7"))
             self.lb_widgets["time"].Select(0)
             for ich in range(self.Results["dimensions"]["N_ch"]):
@@ -246,13 +263,12 @@ class PlotPanel(wx.Panel):
             if(globalsettings.AUG):
                 self.load_diag_data_button.Enable()
                 self.OnClearDiags(None)
-            self.load_other_results_button.Enable()  
-                  
+            self.load_other_results_button.Enable()
+            self.scenario_quant_box.AppendItems(["Te", "ne", "rhop", "Br", "Bt", "Bz"])  
 
     def OnClearDiags(self, evt):
         self.diag_data = {}
         self.diag_box.Clear()
-        
 
     def resolve_selection(self, compressed_selection):
         # Need to resolve the selection in the list boxes
@@ -295,28 +311,53 @@ class PlotPanel(wx.Panel):
                 selections[key] = self.lb_widgets[key].GetSelections()
             else:
                 selections[key] = self.lb_widgets[key].GetStringSelection()
-            if(len(selections[key]) == 0):
-                print("Please select a " + key.replace("_"," ").replace("quant","quantity"))
-                return
+            if(key in ["y_group", "y_quant", "x_group", "x_quant"]):
+                if(len(selections[key]) == 0):
+                    print("Please select a value for " + key.replace("_"," "))
+                    return
         primary_unit, secondary_unit, _ = self.resolve_units(selections["y_quant"])
+        scenario_selection = [] 
+        for n_selected in self.scenario_quant_box.GetSelections():
+            scenario_selection.append(self.scenario_quant_box.GetString(n_selected))
+        if(len(scenario_selection) > 0):
+            add_scenario_data = True
+        else:
+            add_scenario_data = False
+        if(len(scenario_selection) > 1):
+            if(primary_unit != "[keV]" or secondary_unit is not None):
+                print("WARNING: No room for Te/ne -- skipping")
+                add_scenario_data = False
+        for scenario_select in scenario_selection:
+            if(secondary_unit is not None):
+                if(scenario_select == "Te"):
+                    if("[keV]" not in [primary_unit, secondary_unit]):
+                        print("WARNING: No room to plot Te -- skipping")
+                        add_scenario_data = False
         x_list = []
-        y_list = [[],[]] # main y axis/ second y axis
-        label_list = [[],[]]
+        y_list = [] # main y axis/ second y axis
+        z_list = [] # For contours
+        # Whether primary or secondary axis
+        axis_ref_list = []
+        label_list = []
         x_axis_label = None
-        y_axis_labels = ["",""]
-        marker_type_list = [[],[]]
+        y_axis_labels = [""]
+        marker_type_list = []
+        first_iter = True
         for n_selected in selections["y_quant"]:
             sub_key = self.lb_widgets["y_quant"].GetString(n_selected)
+            compact_index = ()
+            index_labels = []
             if(self.y_key != "weights"):
                 shape_key = self.y_key
             else:
-                shape_key = sub_key
-            compact_index = ()
-            index_labels = []
+                shape_key = sub_key   
             # Get all the requested indices but through out the dimension used in the plot
             for shape_ref in self.Results.shapes[shape_key][:-1]:
                 index_entry = []
                 shape_ref_formatted = shape_ref.split("_")[1]
+                if(len(selections[shape_ref_formatted]) == 0):
+                    print("Please select a value for " + shape_ref_formatted)
+                    return
                 for n in selections[shape_ref_formatted]:
                     index_entry.append(n)
                 index_labels.append(shape_ref_formatted)
@@ -328,7 +369,7 @@ class PlotPanel(wx.Panel):
                 print("Sorry you can plot no more than 15 things at once.")
                 print("Please deselect some of the fields to reduce the amount of plots.")
                 print("If you have a use case that warrants more than 15 plots, please contact the developer.")
-                return          
+                return
             if(self.Results.units[self.y_key][sub_key] == primary_unit):
                 i_axis = 0
             else:
@@ -340,60 +381,139 @@ class PlotPanel(wx.Panel):
                                       self.Results.units[selections["x_group"]][selections["x_quant"]]
                     else:
                         x_axis_label = ""
-                y_list[i_axis].append(self.Results[self.y_key][sub_key][index] * \
-                                      self.Results.scales[self.y_key][sub_key])
+                y_list.append(self.Results[self.y_key][sub_key][index] * \
+                              self.Results.scales[self.y_key][sub_key])
+                axis_ref_list.append(i_axis)
+                z_list.append(None)
                 if(selections["x_quant"] != "None"):
                     x_list.append(self.Results[selections["x_group"]][selections["x_quant"]][index] * \
                                           self.Results.scales[selections["x_group"]][selections["x_quant"]])
                 else:
                     if(self.Results.graph_style[self.y_key] == "line"):
-                        x_list.append(np.linspace(0, 1, len(y_list[i_axis][-1])))
+                        x_list.append(np.linspace(0, 1, len(y_list[-1])))
                     else:
-                        x_list.append(np.linspace(1, len(y_list[i_axis][-1]), len(y_list[i_axis][-1])))
-                label_list[i_axis].append(self.Results.legend_entries[self.y_key][sub_key])
+                        x_list.append(np.linspace(1, len(y_list[-1]), len(y_list[-1])))
+                label_list.append(self.Results.legend_entries[self.y_key][sub_key])
                 for ndim, _ in enumerate(index):
                     next_label = self.Results.get_index_reference(self.y_key, sub_key, ndim, index)
                     if(len(next_label) > 0):
-                        label_list[i_axis][-1] += " " + next_label
-                marker_type_list[i_axis].append(self.Results.graph_style[self.y_key])
-                for comp_result in self.compare_data:
+                        label_list[-1] += " " + next_label
+                marker_type_list.append(self.Results.graph_style[self.y_key])
+                for n_result in self.other_result_box.GetSelections():
+                    comp_result = self.compare_data[self.other_result_box.GetString(n_result)]
                     try:
-                        y_list[i_axis].append(comp_result[self.y_key][sub_key][index] * \
+                        y_list.append(comp_result[self.y_key][sub_key][index] * \
                                               comp_result.scales[self.y_key][sub_key])
+                        axis_ref_list.append(i_axis)
+                        z_list.append(None)
                         if(selections["x_quant"] != "None"):
                             x_list.append(comp_result[selections["x_group"]][selections["x_quant"]][index] * \
-                                                  comp_result.scales[selections["x_group"]][selections["x_quant"]])
+                                          comp_result.scales[selections["x_group"]][selections["x_quant"]])
                         else:
                             if(comp_result.graph_style[self.y_key] == "line"):
-                                x_list.append(np.linspace(0, 1, len(y_list[i_axis][-1])))
+                                x_list.append(np.linspace(0, 1, len(y_list[-1])))
                             else:
-                                x_list.append(np.linspace(1, len(y_list[i_axis][-1]), len(y_list[i_axis][-1])))
-                        label_list[i_axis].append("{0:d} {1:d}: ".format(comp_result.Scenario["shot"], \
-                                                                         comp_result.edition))
-                        label_list[i_axis][-1] += comp_result.legend_entries[self.y_key][sub_key]
+                                x_list.append(np.linspace(1, len(y_list[-1]), len(y_list[-1])))
+                        label_list.append("{0:d} {1:d}: ".format(comp_result.Scenario["shot"], \
+                                                                 comp_result.edition))
+                        label_list[-1] += comp_result.legend_entries[self.y_key][sub_key]
                         for ndim, _ in enumerate(index):
                             next_label = comp_result.get_index_reference(self.y_key, sub_key, ndim, index)
                             if(len(next_label) > 0):
-                                label_list[i_axis][-1] += " " + next_label
-                        marker_type_list[i_axis].append(comp_result.graph_style[self.y_key])
+                                label_list[-1] += " " + next_label
+                        marker_type_list.append(comp_result.graph_style[self.y_key])
                     except Exception as e:
                         print("ERROR: Failed to add result comparison for: ")
                         print("ERROR: {0:d} {1:d}".format(comp_result.Scenario["shot"], \
                                                                        comp_result.edition))
                         print("INFO: The error is: " + str(e))
-                        
+            if(i_axis == 1 and len(y_axis_labels) == 1):
+                y_axis_labels.append("")
             if(y_axis_labels[i_axis] == ""):                
                 y_axis_labels[i_axis] = self.Results.labels[self.y_key][sub_key]
             else:
                 if(self.Results.labels[self.y_key][sub_key] not in y_axis_labels[i_axis].split("/")):
                     y_axis_labels[i_axis] += "/" + self.Results.labels[self.y_key][sub_key]
+            # Add additional scenario data for the plot
+            if(add_scenario_data):
+                if(scenario_selection[0] in ["Te","ne"] and not self.Results.Scenario["plasma"]["2D_prof"]):
+                    if(not selections["x_quant"].startswith("rho")):
+                        print("Cannot plot Te/ne if x_axis is not rhop/rhot")
+                        add_scenario_data = False
+                    elif(first_iter):
+                        for scenario_select in scenario_selection:
+                            for itime in selections["time"]:
+                                if(selections["x_quant"].startswith("rhop")):
+                                    if(len(self.Results.Scenario["plasma"]["rhop_prof"][itime]) > 0):
+                                        x_list.append(self.Results.Scenario["plasma"]["rhop_prof"][itime] * \
+                                                      self.Results.Scenario["scaling"][scenario_select + "_rhop_scale"])
+                                elif(selections["x_quant"].startswith("rhot")):
+                                    if(len(self.Results.Scenario["plasma"]["rhot_prof"][itime]) > 0):
+                                        x_list.append(self.Results.Scenario["plasma"]["rhot_prof"][itime] * \
+                                                      self.Results.Scenario["scaling"][scenario_select + "_rhop_scale"])
+                                if(scenario_select == "Te"):
+                                    if(primary_unit == "[keV]"):
+                                        i_axis = 0
+                                    else:
+                                        i_axis = 1
+                                    y_list.append(self.Results.Scenario["plasma"][scenario_select][itime] / 1.e3 * \
+                                                        self.Results.Scenario["scaling"]["Te_scale"])
+                                else:
+                                    if(primary_unit == "[$\times 10^{19}$m$^{-3}$]"):
+                                        i_axis = 0
+                                    else:
+                                        i_axis = 1
+                                    y_list.append(self.Results.Scenario["plasma"][scenario_select][itime] / 1.e19 * \
+                                                        self.Results.Scenario["scaling"]["ne_scale"])  
+                                label_list.append(self.Results.Scenario.labels[scenario_select] + r" $t =$ " + \
+                                                  "{0:1.3f}".format(self.Results.Scenario["time"][itime]))
+                                axis_ref_list.append(i_axis)
+                                marker_type_list.append("line")
+                                if(len(y_axis_labels) == 1 and i_axis > 0):
+                                    y_axis_labels.append("")
+                                if(y_axis_labels[i_axis] == ""):                
+                                    y_axis_labels[i_axis] = self.Results.Scenario.labels[scenario_select]
+                                else:
+                                    if(self.Results.Scenario.labels[scenario_select] not in y_axis_labels[i_axis].split("/")):
+                                        y_axis_labels[i_axis] += "/" + self.Results.Scenario.labels[scenario_select]
+                                if(secondary_unit is None and i_axis == 1):
+                                    secondary_unit = " " + self.Results.Scenario.units[scenario_select]
+                                z_list.append(None)
+                elif((scenario_selection[0] in ["rhop", "Br", "Bt", "Bz"]) or \
+                     (scenario_selection[0] in ["Te","ne"] and self.Results.Scenario["plasma"]["2D_prof"])):
+                    if(selections["x_quant"] is not "R" or selections["y_quant"] is not "z"):
+                        print("Cannot plot " + scenario_selection[0] + " axes have to be R, z")
+                        add_scenario_data = False
+                    elif(first_iter):
+                        if(len(selections["time"]) > 1):
+                            print("WARNING: Multiple time points selected, but contour plot only useful for single time point")
+                            print("WARNING: Plotting smalles selected time point")
+                        time = self.Results.Scenario["time"][selections["time"][0]]
+                        eq_slice = self.Results.Scenario["plasma"]["eq_data_2D"].GetSlice(time, bt_vac_correction=self.Results.Scenario["plasma"]["Bt_vac_scale"])
+                        x_list.append(eq_slice.R)
+                        y_list.append(eq_slice.z)
+                        if(scenario_selection[0] not in ["Te", "ne"]):
+                            z_list.append(getattr(eq_slice, scenario_selection[0]))
+                        else:
+                            if(scenario_selection[0] == "Te"):
+                                z_list.append(self.Results.Scenario["plasma"][scenario_selection[0]][selections["time"][0]] / 1.e3 * \
+                                              self.Results.Scenario["scaling"]["Te_scale"])
+                            else:
+                                z_list.append(self.Results.Scenario["plasma"][scenario_selection[0]][selections["time"][0]] / 1.e19 * \
+                                              self.Results.Scenario["scaling"]["ne_scale"])
+                        label_list.append(self.Results.Scenario.labels[scenario_selection[0]] + " " + self.Results.Scenario.units[scenario_selection[0]])
+                        axis_ref_list.append(0)
+                        if(scenario_selection[0] == "rhop"):
+                            marker_type_list.append("contour")
+                        else:
+                            marker_type_list.append("contourf")
         y_axis_labels[0] += " " + primary_unit
         if(secondary_unit is not None):
             y_axis_labels[1] += " " + secondary_unit
         eq_aspect_ratio = self.eq_aspect_ratio_cb.GetValue()
         figure_width = self.figure_width_tc.GetValue()
         figure_height = self.figure_height_tc.GetValue()
-        self.FigureControlPanel.AddPlot(x_list, y_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
+        self.FigureControlPanel.AddPlot(x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
                                         eq_aspect_ratio, figure_width, figure_height)
         self.Layout()
 
@@ -412,23 +532,19 @@ class PlotPanel(wx.Panel):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Loading data - GUI might be unresponsive for a minute - please wait!')
         self.GetEventHandler().ProcessEvent(evt)
-        plot_type = self.plot_choice.GetStringSelection()
-        if(plot_type not in ["Trad", "Ray"]):
-            print("Sorry only Trad and Ray supported at the moment")
-            return
         if(self.Results is None):
             print("First load results before you compare")
             return
         dlg = wx.FileDialog(\
             self, message="Choose a preexisting calculation(s)", \
             defaultDir=self.Results.Config["Execution"]["working_dir"], \
-            wildcard=('Matlab files (*.mat)|*.mat'),
+            wildcard=("Matlab and Netcdf4 files (*.mat;*.nc)|*.mat;*.nc"),
             style=wx.FD_OPEN | wx.FD_MULTIPLE)
         if(dlg.ShowModal() == wx.ID_OK):
             paths = dlg.GetPaths()
             dlg.Destroy()
             if(len(paths) > 0):
-                WorkerThread(self.get_other_results, [paths, plot_type])
+                WorkerThread(self.get_other_results, [paths])
                 self.load_other_results_button.Disable()
         
     def get_other_results(self, args):
@@ -461,12 +577,12 @@ class FigureBook(wx.Notebook):
         wx.Notebook.__init__(self, parent, wx.ID_ANY)
         self.FigureList = []
 
-    def AddPlot(self, x_list, y_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
+    def AddPlot(self, x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
                 eq_aspect_ratio, figure_width, figure_height):
         self.FigureList.append(PlotContainer(self, figure_width, figure_height))
-        if(self.FigureList[-1].Plot(x_list, y_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
+        if(self.FigureList[-1].Plot(x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
                                         eq_aspect_ratio)):
-            self.AddPage(self.FigureList[-1], label_list[0][0])
+            self.AddPage(self.FigureList[-1], label_list[0])
         else:
             del(self.FigureList[-1])
             return
@@ -577,54 +693,64 @@ class PlotContainer(wx.Panel):
             print("Failed to set limits")
             print(e)        
             
-    def Plot(self, x_list, y_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
+    def Plot(self, x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
              eq_aspect_ratio):
-        WorkerThread(self.plot_threaded, [x_list, y_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
+        WorkerThread(self.plot_threaded, [x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
              eq_aspect_ratio])
         return True
 
     def plot_threaded(self, args):
-        x_list, y_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
+        x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
              eq_aspect_ratio, = args
         # Does all the plotting in a separate step
         self.axlist.append(self.fig.add_subplot(111))
         n_ax = 1
-        n_colors = len(y_list[0])
-        if(len(y_axis_labels[1]) > 0):
-            n_ax = 2
+        if(len(y_axis_labels) > 1):
             self.axlist.append(self.axlist[0].twinx())
-            n_colors += len(y_list[1])
+            n_ax += 1
+        n_colors = len(y_list) 
         i_marker = 0
         i_line = 0
         icolor = 0
         color_list = self.cmap.to_rgba(np.linspace(0.0, 1.0, n_colors))
-        for i_ax in range(n_ax):
-            for x, y, label, marker in zip(x_list, y_list[i_ax], label_list[i_ax], marker_type_list[i_ax]):
-                if(marker == "point"):
-                    self.axlist[i_ax].plot(x, y, label=label, color=color_list[icolor], \
-                                           linestyle="none", marker=self.markers[i_marker])
-                    if(i_marker + 1 < len(self.markers)):
-                        i_marker += 1
-                    else:
-                        i_marker = 0
-                        
+        for x, y, z, i_ax, label, marker in zip(x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list):
+            if(marker == "point"):
+                self.axlist[i_ax].plot(x, y, label=label, color=color_list[icolor], \
+                                       linestyle="none", marker=self.markers[i_marker])
+                if(i_marker + 1 < len(self.markers)):
+                    i_marker += 1
                 else:
-                    self.axlist[i_ax].plot(x, y, label=label, color=color_list[icolor], \
-                                           linestyle=self.linestyles[i_line])
-                    if(i_line + 1 < len(self.linestyles)):
-                        i_line += 1
-                    else:
-                        i_line = 0
-                icolor += 1
-            self.axlist[i_ax].set_ylabel(y_axis_labels[i_ax])
-            if(eq_aspect_ratio):
-                self.axlist[i_ax].set_aspect("equal")
-        if(n_ax > 1 or len(label_list[0]) > 1):
-            lns = self.axlist[0].get_lines() 
+                    i_marker = 0
+            elif(marker == "line"):
+                self.axlist[i_ax].plot(x, y, label=label, color=color_list[icolor], \
+                                       linestyle=self.linestyles[i_line])
+                if(i_line + 1 < len(self.linestyles)):
+                    i_line += 1
+                else:
+                    i_line = 0
+            elif(marker == "contourf"):
+                cont = self.axlist[0].contourf(x, y, z.T, cmap=plt.get_cmap("plasma"))
+                cbar = self.fig.colorbar(cont, ax=self.axlist[0])
+                cbar.ax.set_ylabel(label)
+            else:# contour of rhop
+                cont = self.axlist[0].contour(x, y, z.T, levels=np.linspace(0.1, 1.2, 12), \
+                                              linewidths=1, colors="k", linestyles="--")
+            icolor += 1
+        for i_ax, label in enumerate(y_axis_labels):
+            self.axlist[i_ax].set_ylabel(label)
+        if(eq_aspect_ratio):
+            self.axlist[i_ax].set_aspect("equal")
+        if(len(label_list) > 1):
+            lns = self.axlist[0].get_lines()
             if(n_ax > 1):
                 lns += self.axlist[1].get_lines() 
-            labs = [l.get_label() for l in lns]
-            leg = self.axlist[0].legend(lns, labs)
+            labs = []
+            lns_short = []
+            for ln in lns:
+                if(not ("_"  in ln.get_label() and "$" not in ln.get_label())):
+                    labs.append(ln.get_label())
+                    lns_short.append(ln)
+            leg = self.axlist[0].legend(lns_short, labs)
             leg.get_frame().set_alpha(0.5)
             leg.set_draggable(True)
         self.axlist[0].set_xlabel(x_axis_label)

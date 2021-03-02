@@ -30,6 +30,7 @@ from TB_Communication import make_mdict_from_TB_files
 
 from scipy.interpolate import InterpolatedUnivariateSpline
 from Diag_Types import EXT_diag
+from ECRad_Interface import load_plasma_from_mat
 
 if(globalsettings.AUG):
     from Equilibrium_Utils_AUG import EQData
@@ -41,9 +42,9 @@ if(globalsettings.AUG):
                                     IDA_exp="AUGD", IDA_ed=0):
         plasma_dict = load_IDA_data(shot, timepoints=times, exp=IDA_exp, ed=IDA_ed)
         EQ_obj = EQData(shot, EQ_exp=eq_exp, EQ_diag=eq_diag, EQ_ed=eq_ed)
-        plasma_dict["eq_data"] = []
+        plasma_dict["eq_data_2D"] = EQDataExt(shot, Ext_data=True)
         for time in times:
-            plasma_dict["eq_data"].append(EQ_obj.GetSlice(time))
+            plasma_dict["eq_data_2D"].insert_slices_from_ext([time] , [EQ_obj.GetSlice(time)])
         make_plasma_mat(filename, plasma_dict)
    
 def make_plasma_mat_from_variables_2D(mat_out_name, shot, time, R, z, Te, ne, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
@@ -65,7 +66,11 @@ def make_plasma_mat_from_variables_2D(mat_out_name, shot, time, R, z, Te, ne, Br
     #Bt = self.omfit_eq['AuxQuantities']["Bt"].T
     #Bz = self.omfit_eq['AuxQuantities']["Bz"].T
     #vessel_data = np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T
-    plasma_dict["eq_data"] = [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, rhop, Psi_ax=0.0, Psi_sep=1.0)]
+    EQObj = EQDataExt(shot, Ext_data=True)
+    EQObj.insert_slices_from_ext(np.array([time]), \
+                                 [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, \
+                                              Psi_ax=0.0, Psi_sep=0.0, rhop=rhop)], False)
+    plasma_dict["eq_data_2D"] = EQObj
     if(vessel_data is not None):
         plasma_dict["vessel_bd"] = np.array(vessel_data).T
     elif(vessel_bd_file is not None):
@@ -88,7 +93,11 @@ def make_plasma_mat_from_variables(mat_out_name, shot, time, rhop_profiles, Te, 
     plasma_dict["rhop_prof"] = rhop_profiles
     plasma_dict["ne"] = ne
     plasma_dict["Te"] = Te
-    plasma_dict["eq_data"] = [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, Psi_ax=0.0, Psi_sep=0.0, rhop=rhop)]
+    EQObj = EQDataExt(shot, Ext_data=True)
+    EQObj.insert_slices_from_ext(np.array([time]), \
+                                 [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, \
+                                              Psi_ax=0.0, Psi_sep=0.0, rhop=rhop)], False)
+    plasma_dict["eq_data_2D"] = EQObj
     if(vessel_data is not None):
         plasma_dict["vessel_bd"] = np.array(vessel_data).T
     elif(vessel_bd_file is not None):
@@ -125,7 +134,7 @@ def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
         plasma_dict["ne"] = ne_spl(plasma_dict["rhop_prof"])
     plasma_dict["ne"] *= 1.e19
     plasma_dict["Te"] *= 1.e3
-    plasma_dict["eq_data"] = [EQObj.GetSlice(time)]
+    plasma_dict["eq_data_2D"] = EQObj
     plasma_dict["prof_reference"] = "rhop_prof"
     make_plasma_mat(os.path.join(path, mat_out_name), plasma_dict)
     
@@ -170,11 +179,19 @@ def put_TRANSP_U_profiles_in_Scenario(Scenario, filename, time, scenario_name):
     plt.plot(u_file.ufdict["NE"]["rho_tor"], u_file.ufdict["NE"]["data"][it_u_file]/1.e13)
     plt.show()
     
+    
+def fix_ne_Te_in_plasma_mat(filename_in, filename_out):
+    plasma_dict = load_plasma_from_mat(filename_in)
+    # Cast to make sure we have floats not np objects
+    plasma_dict["Te"] = np.array(plasma_dict["Te"], dtype=np.float64)
+    plasma_dict["Te"][plasma_dict["Te"] < 2.e-2] = 2.e-2
+    plasma_dict["ne"][plasma_dict["ne"] < 1.e14] = 1.e14
+    make_plasma_mat(filename_out, plasma_dict)
 
 def make_plasma_mat(filename, plasma_dict):
     mdict = {}
     for key in plasma_dict:
-        if(key !="eq_data"):
+        if(key !="eq_data_2D"):
             mdict[key] = plasma_dict[key]
     mdict["Psi_sep"] = []
     mdict["Psi_ax"] = []
@@ -183,8 +200,8 @@ def make_plasma_mat(filename, plasma_dict):
     mdict["Bt"] = []
     mdict["Bz"] = []
     R_init = False
-    for itime in range(len((plasma_dict["time"]))):
-        EQ_t = plasma_dict["eq_data"][itime]
+    for time in plasma_dict["time"]:
+        EQ_t = plasma_dict["eq_data_2D"].GetSlice(time)
         if(not R_init):
             R_init = True
             mdict["R"] = EQ_t.R
@@ -307,10 +324,12 @@ def make_test_launch(filename):
     make_launch_mat_single_timepoint(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
     
 if (__name__ == "__main__"):
-    Scenario = ECRadScenario(noLoad=True)
-    Scenario.from_mat(path_in="/mnt/c/Users/Severin/ECRad_regression/GENE/ECRad_33585_EXT_ed2.mat")
-    put_TRANSP_U_profiles_in_Scenario(Scenario, "/mnt/c/Users/Severin/ECRad_regression/GENE/33585.u", \
-                                      3.0, "/mnt/c/Users/Severin/ECRad_regression/GENE/ECRad_33585_EXT_ed3.mat")
+    fix_ne_Te_in_plasma_mat("/mnt/c/Users/Severin/ECRad/Yu/plasma_179328_3.4_v2.mat", \
+                            "/mnt/c/Users/Severin/ECRad/Yu/plasma_179328_3.4_v3.mat")
+#     Scenario = ECRadScenario(noLoad=True)
+#     Scenario.from_mat(path_in="/mnt/c/Users/Severin/ECRad_regression/GENE/ECRad_33585_EXT_ed2.mat")
+#     put_TRANSP_U_profiles_in_Scenario(Scenario, "/mnt/c/Users/Severin/ECRad_regression/GENE/33585.u", \
+#                                       3.0, "/mnt/c/Users/Severin/ECRad_regression/GENE/ECRad_33585_EXT_ed3.mat")
 #     make_launch_from_ray_launch("/afs/ipp-garching.mpg.de/home/s/sdenk/Documents/CECE_ray_launch.txt", "/afs/ipp-garching.mpg.de/home/s/sdenk/Documents/CECE_launch.mat")
 #     make_ECRadScenario_for_DIII_D("170325.mat", 170325, time=3850, \
 #                                   eqdsk_file="/mnt/c/Users/Severin/Scenarios/170325_3_850/g170325.3_850_20", \

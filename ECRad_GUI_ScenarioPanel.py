@@ -293,8 +293,7 @@ class ScenarioSelectPanel(wx.Panel):
             self.new_data_available = True
             
     def OnUse3DConfig(self, evt):
-        Config_Dlg = Use3DConfigDialog(self, self.plasma_dict["eq_dim"] == 3, \
-                                       self.plasma_dict["eq_data_3D"], self.Config["working_dir"])
+        Config_Dlg = Use3DConfigDialog(self, self.plasma_dict["eq_data_3D"], self.Config["Execution"]["working_dir"])
         if(Config_Dlg.ShowModal() == wx.ID_OK):
             self.eq_data_3D = Config_Dlg.eq_data_3D
             self.use_3D_eq = Config_Dlg.use_3D
@@ -388,7 +387,6 @@ class ScenarioSelectPanel(wx.Panel):
             self.plasma_dict["AUG"]["EQ_exp"] = self.plasma_dict["eq_exp"]
             self.plasma_dict["AUG"]["EQ_diag"] = self.plasma_dict["eq_diag"]
             self.plasma_dict["AUG"]["EQ_ed"] = self.plasma_dict["eq_ed"]
-            self.plasma_dict["eq_dim"] = 2
             # Set to None now, load later with user updates on shotfile info
             self.plasma_dict["eq_data_2D"] = None
             print("Updated equilibrium settings with values from IDA shotfile")
@@ -583,9 +581,9 @@ class ScenarioSelectPanel(wx.Panel):
         if(self.plasma_dict is None):
             return
         print("Updated equilibrium settings with values from .mat")
+        self.shot_tc.SetValue(self.plasma_dict["shot"])
         if(globalsettings.AUG):
             self.default_diag = self.diag_tc.GetValue()
-            self.shot_tc.SetValue(self.plasma_dict["shot"])
             self.IDA_exp_tc.SetValue("EXT")
             self.IDA_ed_tc.SetValue(-1)
             self.EQ_exp_tc.SetValue("EXT")
@@ -775,10 +773,10 @@ class ScenarioSelectPanel(wx.Panel):
     def UpdateScenario(self, Scenario, Config, callee):
         if(self.loaded == False):
             print("No plasma data loaded yet!")
-            return Scenario
+            raise ValueError("No data loaded")
         elif(len(self.used) == 0):
             print("No time points selected!")
-            return Scenario
+            raise ValueError("No time points")
         old_time_list = []
         old_eq = []
         old_rhot_prof_list = []
@@ -835,7 +833,7 @@ class ScenarioSelectPanel(wx.Panel):
             Scenario["plasma"]["Te"].append(self.plasma_dict["Te"][itime])
             Scenario["plasma"]["ne"].append(self.plasma_dict["ne"][itime])
             if(time in old_time_list):
-                if(self.plasma_dict["eq_dim"] == 2):
+                if(Scenario["plasma"]["eq_dim"] == 2):
                     Scenario["plasma"]["eq_data_2D"].set_slices_from_ext([time], [old_eq.GetSlice(time)])
                 if("rhot_prof" not in self.plasma_dict):
                         Scenario["plasma"]["rhot_prof"].append(old_rhot_prof_list[np.argmin(np.abs(np.array(old_time_list) - time))])
@@ -847,9 +845,9 @@ class ScenarioSelectPanel(wx.Panel):
                         Scenario["plasma"]["rhot_prof"].append(self.plasma_dict["eq_data_2D"].rhop_to_rhot(time, Scenario["plasma"]["rhop_prof"]))
                 Scenario["plasma"]["eq_data_2D"].insert_slices_from_ext([time], [self.plasma_dict["eq_data_2D"].GetSlice(time)])
             else:
-                if(self.plasma_dict["eq_dim"] == 2):
+                if(Scenario["plasma"]["eq_dim"] == 2):
                     Scenario["plasma"]["eq_data_2D"].insert_slices_from_ext([time], [self.plasma_dict["eq_data_2D"].GetSlice(time)])
-        if(self.plasma_dict["eq_dim"] == 2):
+        if(Scenario["plasma"]["eq_dim"] == 2): 
             Scenario["plasma"]["vessel_bd"] = self.plasma_dict["vessel_bd"]
         Scenario["time"] = np.array(Scenario["time"])
         Scenario["plasma"]["prof_reference"] = self.plasma_dict["prof_reference"]
