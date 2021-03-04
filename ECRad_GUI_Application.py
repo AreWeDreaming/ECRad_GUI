@@ -3,11 +3,11 @@ import os
 import wx
 import sys
 from glob import glob
-library_list = glob("../*pylib") + glob("../*Pylib")
+library_list = glob("../*pylib") + glob("../*PyLib")
 found_lib = False
 ECRadPylibFolder = None
 for folder in library_list:
-    if("ECRad" in folder or "ecrad"in folder ):
+    if("ECRad" in folder or "ecrad" in folder):
         sys.path.append(os.path.abspath(folder))
         found_lib = True
         ECRadPylibFolder = folder

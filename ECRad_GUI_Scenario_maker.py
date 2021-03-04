@@ -10,7 +10,7 @@ import numpy as np
 from scipy.io import savemat
 from glob import glob
 from ECRad_Scenario import ECRadScenario
-library_list = glob("../*pylib") + glob("../*Pylib")
+library_list = glob("../*pylib") + glob("../*PyLib")
 found_lib = False
 ECRadPylibFolder = None
 for folder in library_list:
