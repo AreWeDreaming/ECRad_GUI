@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/tcsh
 module purge
 if [ $SYS == "amd64_sles15" ]
   then

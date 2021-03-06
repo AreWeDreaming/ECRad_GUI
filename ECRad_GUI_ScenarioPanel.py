@@ -811,8 +811,8 @@ class ScenarioSelectPanel(wx.Panel):
             Scenario["plasma"]["eq_dim"] = 2
         Scenario["shot"] = self.plasma_dict["shot"]
         if(globalsettings.AUG and Scenario.data_source == "aug_database"):
-            Scenario["AUG"]["IDA_exp"] = self.plasma_dict["IDA_exp"]
-            Scenario["AUG"]["IDA_ed"] = self.plasma_dict["IDA_ed"]
+            Scenario["AUG"]["IDA_exp"] = self.plasma_dict["AUG"]["IDA_exp"]
+            Scenario["AUG"]["IDA_ed"] = self.plasma_dict["AUG"]["IDA_ed"]
             Scenario.default_diag = self.diag_tc.GetValue()
             Scenario["AUG"]["EQ_exp"] = self.EQ_exp_tc.GetValue()
             Scenario["AUG"]["EQ_diag"] = self.EQ_diag_tc.GetValue()

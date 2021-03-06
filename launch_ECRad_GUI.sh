@@ -1,4 +1,4 @@
-#!/bin/tcsh
+#!/bin/bash
 module purge
 if ($SYS == "amd64_sles11") then
   module load intel/16.0
