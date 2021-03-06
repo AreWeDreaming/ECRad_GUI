@@ -384,9 +384,9 @@ class ScenarioSelectPanel(wx.Panel):
             self.plasma_dict["vessel_bd"].append(vessel_bd.T[0])
             self.plasma_dict["vessel_bd"].append(vessel_bd.T[1])
             self.plasma_dict["vessel_bd"] = np.array(self.plasma_dict["vessel_bd"])
-            self.plasma_dict["AUG"]["EQ_exp"] = self.plasma_dict["eq_exp"]
-            self.plasma_dict["AUG"]["EQ_diag"] = self.plasma_dict["eq_diag"]
-            self.plasma_dict["AUG"]["EQ_ed"] = self.plasma_dict["eq_ed"]
+            self.plasma_dict["AUG"]["EQ_exp"] = self.plasma_dict["EQ_exp"]
+            self.plasma_dict["AUG"]["EQ_diag"] = self.plasma_dict["EQ_diag"]
+            self.plasma_dict["AUG"]["EQ_ed"] = self.plasma_dict["EQ_ed"]
             # Set to None now, load later with user updates on shotfile info
             self.plasma_dict["eq_data_2D"] = None
             print("Updated equilibrium settings with values from IDA shotfile")
