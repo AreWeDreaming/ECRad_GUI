@@ -372,59 +372,59 @@ class ScenarioSelectPanel(wx.Panel):
         self.used_list.Clear()
         self.unused_list.Clear()
         self.pc_obj.reset(True)
-        try:
-            self.plasma_dict = load_IDA_data(self.shot_tc.GetValue(), None, self.IDA_exp_tc.GetValue(), \
-                                             self.IDA_ed_tc.GetValue())
-            self.plasma_dict["shpt"] = self.shot_tc.GetValue()                   
-            self.plasma_dict["AUG"] = {}
-            self.plasma_dict["AUG"]["IDA_exp"] = self.IDA_exp_tc.GetValue()
-            self.plasma_dict["AUG"]["IDA_ed"] = self.plasma_dict["ed"]
-            vessel_bd = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
-            self.plasma_dict["prof_reference"] = "rhop_prof"
-            self.plasma_dict["vessel_bd"] = []
-            self.plasma_dict["vessel_bd"].append(vessel_bd.T[0])
-            self.plasma_dict["vessel_bd"].append(vessel_bd.T[1])
-            self.plasma_dict["vessel_bd"] = np.array(self.plasma_dict["vessel_bd"])
-            self.plasma_dict["AUG"]["EQ_exp"] = self.plasma_dict["EQ_exp"]
-            self.plasma_dict["AUG"]["EQ_diag"] = self.plasma_dict["EQ_diag"]
-            self.plasma_dict["AUG"]["EQ_ed"] = self.plasma_dict["EQ_ed"]
-            # Set to None now, load later with user updates on shotfile info
-            self.plasma_dict["eq_data_2D"] = None
-            print("Updated equilibrium settings with values from IDA shotfile")
-            self.EQ_exp_tc.SetValue(self.plasma_dict["AUG"]["EQ_exp"])
-            self.EQ_diag_tc.SetValue(self.plasma_dict["AUG"]["EQ_diag"])
-            self.EQ_ed_tc.SetValue(self.plasma_dict["AUG"]["EQ_ed"])
-            Success, bt_vac = check_Bt_vac_source(self.plasma_dict["shot"])
-            if(Success):
-                print("Setting Bt vac according to IDA defaults")
-                self.Bt_vac_scale_tc.SetValue(bt_vac)
-            else:
-                if(self.plasma_dict["Bt_vac_scale"] != self.Bt_vac_scale_tc.GetValue()):
-                    print("WARNING! Currently selected vacuum bt correction differs from IDA")
-                    print("ECRad GUI:", self.Bt_vac_scale_tc.GetValue())
-                    print("IDA:", self.plasma_dict["Bt_vac_scale"])
-            if(self.plasma_dict["scaling"]["ne_rhop_scale"] != self.plasma_dict["ne_rhop_scale_mean"]):
-                print("WARNING! Currently selected ne_rhop_scale differs from IDA")
-                print("ECRad GUI:", self.plasma_dict.ne_rhop_scale)
-                print("IDA:", self.plasma_dict["ne_rhop_scale_mean"])
-            if(self.Config["reflec_X"] != self.plasma_dict["RwallX"]):
-                print("WARNING! Currently selected X-mode wall reflection coefficient differs from IDA")
-                print("ECRad GUI:", self.Config["Physics"]["reflec_X"])
-                print("IDA:", self.plasma_dict["RwallX"])
-            if(self.Config["reflec_O"] != self.plasma_dict["RwallO"]):
-                print("WARNING! Currently selected O-mode wall reflection coefficient differs from IDA")
-                print("ECRad GUI:", self.Config["Physics"]["reflec_O"])
-                print("IDA:", self.plasma_dict["RwallO"])
-            if(self.Config["raytracing"] != self.plasma_dict["raytrace"]):
-                print("WARNING! Refraction was not considered in IDA, but is considered in current ECRad configuation")
-            if(self.IDA_ed_tc.GetValue() != self.plasma_dict["ed"]):
-                print("IDA edition: ", self.plasma_dict["ed"])
-                print("ECRad GUI IDA edition updated")
-                self.IDA_ed_tc.SetValue(self.plasma_dict["ed"])
-        except Exception as e:
-            print("Could not load shotfile dd Error follows")
-            print(e)
-            return
+        # try:
+        self.plasma_dict = load_IDA_data(self.shot_tc.GetValue(), None, self.IDA_exp_tc.GetValue(), \
+                                            self.IDA_ed_tc.GetValue())
+        self.plasma_dict["shot"] = self.shot_tc.GetValue()                   
+        self.plasma_dict["AUG"] = {}
+        self.plasma_dict["AUG"]["IDA_exp"] = self.IDA_exp_tc.GetValue()
+        self.plasma_dict["AUG"]["IDA_ed"] = self.plasma_dict["ed"]
+        vessel_bd = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
+        self.plasma_dict["prof_reference"] = "rhop_prof"
+        self.plasma_dict["vessel_bd"] = []
+        self.plasma_dict["vessel_bd"].append(vessel_bd.T[0])
+        self.plasma_dict["vessel_bd"].append(vessel_bd.T[1])
+        self.plasma_dict["vessel_bd"] = np.array(self.plasma_dict["vessel_bd"])
+        self.plasma_dict["AUG"]["EQ_exp"] = self.plasma_dict["EQ_exp"]
+        self.plasma_dict["AUG"]["EQ_diag"] = self.plasma_dict["EQ_diag"]
+        self.plasma_dict["AUG"]["EQ_ed"] = self.plasma_dict["EQ_ed"]
+        # Set to None now, load later with user updates on shotfile info
+        self.plasma_dict["eq_data_2D"] = None
+        print("Updated equilibrium settings with values from IDA shotfile")
+        self.EQ_exp_tc.SetValue(self.plasma_dict["AUG"]["EQ_exp"])
+        self.EQ_diag_tc.SetValue(self.plasma_dict["AUG"]["EQ_diag"])
+        self.EQ_ed_tc.SetValue(self.plasma_dict["AUG"]["EQ_ed"])
+        Success, bt_vac = check_Bt_vac_source(self.plasma_dict["shot"])
+        if(Success):
+            print("Setting Bt vac according to IDA defaults")
+            self.Bt_vac_scale_tc.SetValue(bt_vac)
+        else:
+            if(self.plasma_dict["Bt_vac_scale"] != self.Bt_vac_scale_tc.GetValue()):
+                print("WARNING! Currently selected vacuum bt correction differs from IDA")
+                print("ECRad GUI:", self.Bt_vac_scale_tc.GetValue())
+                print("IDA:", self.plasma_dict["Bt_vac_scale"])
+        if(self.plasma_dict["scaling"]["ne_rhop_scale"] != self.plasma_dict["ne_rhop_scale_mean"]):
+            print("WARNING! Currently selected ne_rhop_scale differs from IDA")
+            print("ECRad GUI:", self.plasma_dict.ne_rhop_scale)
+            print("IDA:", self.plasma_dict["ne_rhop_scale_mean"])
+        if(self.Config["reflec_X"] != self.plasma_dict["RwallX"]):
+            print("WARNING! Currently selected X-mode wall reflection coefficient differs from IDA")
+            print("ECRad GUI:", self.Config["Physics"]["reflec_X"])
+            print("IDA:", self.plasma_dict["RwallX"])
+        if(self.Config["reflec_O"] != self.plasma_dict["RwallO"]):
+            print("WARNING! Currently selected O-mode wall reflection coefficient differs from IDA")
+            print("ECRad GUI:", self.Config["Physics"]["reflec_O"])
+            print("IDA:", self.plasma_dict["RwallO"])
+        if(self.Config["raytracing"] != self.plasma_dict["raytrace"]):
+            print("WARNING! Refraction was not considered in IDA, but is considered in current ECRad configuation")
+        if(self.IDA_ed_tc.GetValue() != self.plasma_dict["ed"]):
+            print("IDA edition: ", self.plasma_dict["ed"])
+            print("ECRad GUI IDA edition updated")
+            self.IDA_ed_tc.SetValue(self.plasma_dict["ed"])
+        # except Exception as e:
+        #     print("Could not load shotfile dd Error follows")
+        #     print(e)
+        #     return
         if(len(self.plasma_dict["time"]) == 0):
             return
         if(len(self.plasma_dict["time"]) > 1):
