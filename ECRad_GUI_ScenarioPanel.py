@@ -403,19 +403,19 @@ class ScenarioSelectPanel(wx.Panel):
                 print("WARNING! Currently selected vacuum bt correction differs from IDA")
                 print("ECRad GUI:", self.Bt_vac_scale_tc.GetValue())
                 print("IDA:", self.plasma_dict["Bt_vac_scale"])
-        if(self.plasma_dict["scaling"]["ne_rhop_scale"] != self.plasma_dict["ne_rhop_scale_mean"]):
+        if(self.ne_rhop_scale_tc.GetValue() != self.plasma_dict["ne_rhop_scale_mean"]):
             print("WARNING! Currently selected ne_rhop_scale differs from IDA")
             print("ECRad GUI:", self.plasma_dict.ne_rhop_scale)
             print("IDA:", self.plasma_dict["ne_rhop_scale_mean"])
-        if(self.Config["reflec_X"] != self.plasma_dict["RwallX"]):
+        if(self.Config["Physics"]["reflec_X"] != self.plasma_dict["RwallX"]):
             print("WARNING! Currently selected X-mode wall reflection coefficient differs from IDA")
             print("ECRad GUI:", self.Config["Physics"]["reflec_X"])
             print("IDA:", self.plasma_dict["RwallX"])
-        if(self.Config["reflec_O"] != self.plasma_dict["RwallO"]):
+        if(self.Config["Physics"]["reflec_O"] != self.plasma_dict["RwallO"]):
             print("WARNING! Currently selected O-mode wall reflection coefficient differs from IDA")
             print("ECRad GUI:", self.Config["Physics"]["reflec_O"])
             print("IDA:", self.plasma_dict["RwallO"])
-        if(self.Config["raytracing"] != self.plasma_dict["raytrace"]):
+        if(self.Config["Physics"]["raytracing"] != self.plasma_dict["raytrace"]):
             print("WARNING! Refraction was not considered in IDA, but is considered in current ECRad configuation")
         if(self.IDA_ed_tc.GetValue() != self.plasma_dict["ed"]):
             print("IDA edition: ", self.plasma_dict["ed"])
