@@ -374,7 +374,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.pc_obj.reset(True)
         try:
             self.plasma_dict = load_IDA_data(self.IDA_exp_tc.GetValue(), \
-                                None, self.IDA_ed_tc.GetValue(), self.plasma_dict["IDA_ed"])
+                                             None, self.IDA_ed_tc.GetValue(), self.plasma_dict["AUG"]["IDA_ed"])
             self.plasma_dict["AUG"] = {}
             self.plasma_dict["AUG"]["IDA_exp"] = self.IDA_exp_tc.GetValue()
             self.plasma_dict["AUG"]["IDA_ed"] = self.IDA_ed_tc.GetValue()
