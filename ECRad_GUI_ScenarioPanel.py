@@ -375,9 +375,10 @@ class ScenarioSelectPanel(wx.Panel):
         try:
             self.plasma_dict = load_IDA_data(self.shot_tc.GetValue(), None, self.IDA_exp_tc.GetValue(), \
                                              self.IDA_ed_tc.GetValue())
+            self.plasma_dict["shpt"] = self.shot_tc.GetValue()                   
             self.plasma_dict["AUG"] = {}
             self.plasma_dict["AUG"]["IDA_exp"] = self.IDA_exp_tc.GetValue()
-            self.plasma_dict["AUG"]["IDA_ed"] = self.IDA_ed_tc.GetValue()
+            self.plasma_dict["AUG"]["IDA_ed"] = self.plasma_dict["ed"]
             vessel_bd = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
             self.plasma_dict["prof_reference"] = "rhop_prof"
             self.plasma_dict["vessel_bd"] = []
@@ -393,14 +394,15 @@ class ScenarioSelectPanel(wx.Panel):
             self.EQ_exp_tc.SetValue(self.plasma_dict["AUG"]["EQ_exp"])
             self.EQ_diag_tc.SetValue(self.plasma_dict["AUG"]["EQ_diag"])
             self.EQ_ed_tc.SetValue(self.plasma_dict["AUG"]["EQ_ed"])
-            if(self.plasma_dict["Bt_vac_scale"] != self.Bt_vac_scale_tc.GetValue()):
-                print("WARNING! Currently selected vacuum bt correction differs from IDA")
-                print("ECRad GUI:", self.Bt_vac_scale_tc.GetValue())
-                print("IDA:", self.plasma_dict["Bt_vac_scale"])
             Success, bt_vac = check_Bt_vac_source(self.plasma_dict["shot"])
             if(Success):
                 print("Setting Bt vac according to IDA defaults")
                 self.Bt_vac_scale_tc.SetValue(bt_vac)
+            else:
+                if(self.plasma_dict["Bt_vac_scale"] != self.Bt_vac_scale_tc.GetValue()):
+                    print("WARNING! Currently selected vacuum bt correction differs from IDA")
+                    print("ECRad GUI:", self.Bt_vac_scale_tc.GetValue())
+                    print("IDA:", self.plasma_dict["Bt_vac_scale"])
             if(self.plasma_dict["scaling"]["ne_rhop_scale"] != self.plasma_dict["ne_rhop_scale_mean"]):
                 print("WARNING! Currently selected ne_rhop_scale differs from IDA")
                 print("ECRad GUI:", self.plasma_dict.ne_rhop_scale)
