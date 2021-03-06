@@ -373,8 +373,8 @@ class ScenarioSelectPanel(wx.Panel):
         self.unused_list.Clear()
         self.pc_obj.reset(True)
         try:
-            self.plasma_dict = load_IDA_data(self.IDA_exp_tc.GetValue(), \
-                                             None, self.IDA_ed_tc.GetValue(), self.plasma_dict["AUG"]["IDA_ed"])
+            self.plasma_dict = load_IDA_data(self.shot_tc.GetValue(), None, self.IDA_exp_tc.GetValue(), \
+                                             self.IDA_ed_tc.GetValue())
             self.plasma_dict["AUG"] = {}
             self.plasma_dict["AUG"]["IDA_exp"] = self.IDA_exp_tc.GetValue()
             self.plasma_dict["AUG"]["IDA_ed"] = self.IDA_ed_tc.GetValue()
@@ -589,8 +589,8 @@ class ScenarioSelectPanel(wx.Panel):
             self.EQ_exp_tc.SetValue("EXT")
             self.EQ_diag_tc.SetValue("EXT")
             self.plasma_dict["shot"] = self.shot_tc.GetValue()
-            self.plasma_dict["IDA_exp"] = "EXT"
-            self.plasma_dict["IDA_ed"] = -1
+            self.plasma_dict["AUG"]["IDA_exp"] = "EXT"
+            self.plasma_dict["AUG"]["IDA_ed"] = -1
             self.EQ_ed_tc.SetValue(-1)
         if(len(self.plasma_dict["time"]) > 1):
             self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - \
