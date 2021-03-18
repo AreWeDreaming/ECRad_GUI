@@ -46,14 +46,16 @@ from WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unbound_EVT_LOAD_O
                       Unbound_EVT_ECRAD_RESULT_LOADED, EVT_ECRAD_RESULT_LOADED,\
     ThreadFinishedEvt
 from ECRad_GUI_Shell import Redirect_Text
-from ECRad_Interface import prepare_input_files, GetECRadExec
+from ECRad_Interface import prepare_input_files
 from ECRad_Results import ECRadResults
 from Parallel_Utils import WorkerThread
 from multiprocessing import Process, Queue, Pipe
+from ECRad_Execution import SetupECRadBatch
 import queue
 from ECRad_F2PY_Interface import ECRadF2PYInterface
 import getpass
 from ECRad_GUI_PlotPanel import PlotPanel
+from subprocess import Popen
 ECRad_Model = False
 from time import sleep
 from io import StringIO
@@ -299,23 +301,6 @@ class Main_Panel(scrolled.ScrolledPanel):
     # Overwrite this to stop the window from constantly jumping
     def OnChildFocus(self, evt):
         pass
-    
-    def FinalECRadSetup(self, scenario_updated):
-        # Thinga we need to do just before we get going
-        if(scenario_updated):
-                self.Results.Scenario.autosave()
-        self.Results.set_dimensions()
-        self.ProgressBar.SetRange(self.Results.Scenario["dimensions"]["N_time"])
-        evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
-        evt.SetStatus('ECRad is running - please wait.')
-        wx.PostEvent(self, evt)
-        self.Progress_label.SetLabel("ECRad running - ({0:d}/{1:d})".format(self.index + 1,len(self.Results.Scenario["time"])))
-        self.ProgressBar.SetValue(self.index)
-        self.ExportButton.Disable()
-        self.NameButton.Disable()
-        self.StartECRadButton.Disable()
-        evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
-        wx.PostEvent(self, evt)
 
     def OnStartECRad(self, evt):
         if(self.ECRad_running):
@@ -487,7 +472,24 @@ class Main_Panel(scrolled.ScrolledPanel):
             evt.SetStatus('')
             wx.PostEvent(self, evt)
             return         
-            
+
+    def FinalECRadSetup(self, scenario_updated):
+        # Thinga we need to do just before we get going
+        if(scenario_updated):
+                self.Results.Scenario.autosave()
+        self.Results.set_dimensions()
+        self.ProgressBar.SetRange(self.Results.Scenario["dimensions"]["N_time"])
+        evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
+        evt.SetStatus('ECRad is running - please wait.')
+        wx.PostEvent(self, evt)
+        self.Progress_label.SetLabel("ECRad running - ({0:d}/{1:d})".format(self.index + 1,len(self.Results.Scenario["time"])))
+        self.ProgressBar.SetValue(self.index)
+        self.ExportButton.Disable()
+        self.NameButton.Disable()
+        self.StartECRadButton.Disable()
+        evt = wx.PyCommandEvent(Unbound_EVT_MAKE_ECRAD, self.GetId())
+        wx.PostEvent(self, evt)
+
     def OnProcessTimeStep(self, evt):
         self.ECRad_running = True
         self.ECRad_input_queue.put(["run ECRad", self.Results, self.index]) 
@@ -501,8 +503,26 @@ class Main_Panel(scrolled.ScrolledPanel):
                 if(command == "close"):
                     break
                 Results = args[1]
-                Results = ECRad_inferface.process_single_timepoint(Results, args[2])
-                output_queue.put([True, Results])
+                if(Results.Config["Execution"]["batch"]):
+                    scratch_dir = Results.Config["Execution"]["scratch_dir"]
+                    Results.Scenario.to_netcdf(filename=os.path.join(scratch_dir, "Scenario.nc"))
+                    Results.Config.to_netcdf(filename=os.path.join(scratch_dir, "Config.nc"))
+                    run_ECRad = SetupECRadBatch(Results.Config, Results.Scenario, Results.Scenario["time"][args[2]])
+                    ECRad_batch = Popen(run_ECRad)
+                    ECRad_batch.wait()
+                    try:
+                        filename, ed = Results.get_default_filename_and_edition(True)
+                        NewResults = ECRadResults(False)
+                        NewResults.from_netcdf(filename)
+                        NewResults.to_netcdf()
+                        output_queue.put([True, NewResults])
+                    except:
+                        print("Failed to run remotely. Please check .o and .e files at")
+                        print(scratch_dir)
+                        output_queue.put([False, Results])
+                else:
+                    Results = ECRad_inferface.process_single_timepoint(Results, args[2])
+                    output_queue.put([True, Results])
             except Exception as e:
                 print(e)
                 output_queue.put([False, Results])
@@ -513,13 +533,21 @@ class Main_Panel(scrolled.ScrolledPanel):
     def OnProcessEnded(self, evt):
         self.ECRad_running = False
         if(evt.success):
+            if(self.Results.Config["Execution"]["batch"]):
+                self.index = self.Results.Scenario["dimensions"]["N_time"]
             # Append times twice to track which time points really do have results in case of crashes
             self.index += 1
         else:
-            print("Sorry, ECRad crashed. Please send the log console output to Severin Denk")
-            print("Skipping current time point {0:1.4f} and continuing".format(self.Results.Scenario["time"][self.index]))
-            self.Results.Scenario.drop_time_point(self.index)
-            self.ProgressBar.SetRange(self.Results.Scenario["dimensions"]["N_time"])
+            if(self.Results.Config["Execution"]["batch"]):
+                # If batch crashes we have to dump everything
+                self.index = 0
+                while self.index < self.Results.Scenario["dimensions"]["N_time"]:
+                    self.Results.Scenario.drop_time_point(self.index)
+            else:
+                print("Sorry, ECRad crashed. Please send the log console output to Severin Denk")
+                print("Skipping current time point {0:1.4f} and continuing".format(self.Results.Scenario["time"][self.index]))
+                self.Results.Scenario.drop_time_point(self.index)
+                self.ProgressBar.SetRange(self.Results.Scenario["dimensions"]["N_time"])
         if(self.index < len(self.Results.Scenario["time"]) and not self.stop_current_evaluation):
             evt = NewStatusEvt(Unbound_EVT_NEXT_TIME_STEP, self.GetId())
             wx.PostEvent(self, evt)
@@ -549,10 +577,11 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.stop_current_evaluation = True
             self.StartECRadButton.Enable()
             return
-        # Remove time points in case of early termination
-        for i in range(self.index, self.Results.Scenario["dimensions"]["N_time"]):
-            self.Results.Scenario.drop_time_point(i)
-        self.Results.tidy_up(False)
+        if(not self.Results.Config["Execution"]["batch"]):
+            # Remove time points in case of early termination
+            for i in range(self.index, self.Results.Scenario["dimensions"]["N_time"]):
+                self.Results.Scenario.drop_time_point(i)
+            self.Results.tidy_up(False)
         self.TimeBox.Clear()
         for t in self.Results.Scenario["time"]:
             self.TimeBox.Append("{0:1.4f}".format(t))
@@ -567,9 +596,10 @@ class Main_Panel(scrolled.ScrolledPanel):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('ECRad has Finished!')
         wx.PostEvent(self, evt)
-        print("Now saving results")
-        print("This takes a moment please wait")
-        WorkerThread(self.SavingThread, [])
+        if(not self.Results.Config["Execution"]["batch"]):
+            print("Now saving results")
+            print("This takes a moment please wait")
+            WorkerThread(self.SavingThread, [])
         evt_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
         evt_2.SetResults(self.Results)
         if(globalsettings.AUG):

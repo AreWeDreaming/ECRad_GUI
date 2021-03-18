@@ -841,8 +841,8 @@ class ScenarioSelectPanel(wx.Panel):
                         Scenario["plasma"]["rhot_prof"].append(old_rhot_prof_list[np.argmin(np.abs(np.array(old_time_list) - time))])
             elif(Scenario.data_source == "aug_database" and globalsettings.AUG == True):
                 if(self.plasma_dict["eq_data_2D"] is None):
-                    self.plasma_dict["eq_data_2D"] = EQData(self. Scenario["shot"], EQ_exp=Scenario["AUG"]["EQ_exp"], EQ_diag=Scenario["AUG"]["EQ_diag"], \
-                                                            EQ_ed=Scenario["AUG"]["EQ_ed"])
+                    self.plasma_dict["eq_data_2D"] = EQData(Scenario["shot"], EQ_exp=Scenario["AUG"]["EQ_exp"], \
+                                                            EQ_diag=Scenario["AUG"]["EQ_diag"], EQ_ed=Scenario["AUG"]["EQ_ed"])
                     if("rhot_prof" not in self.plasma_dict):
                         Scenario["plasma"]["rhot_prof"].append(self.plasma_dict["eq_data_2D"].rhop_to_rhot(time, Scenario["plasma"]["rhop_prof"]))
                 Scenario["plasma"]["eq_data_2D"].insert_slices_from_ext([time], [self.plasma_dict["eq_data_2D"].GetSlice(time)])
