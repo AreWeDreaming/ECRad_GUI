@@ -635,7 +635,7 @@ class ScenarioSelectPanel(wx.Panel):
         print("Scaling factors of rhop, Te and ne are ignored in this plot!")
         self.GetEventHandler().ProcessEvent(evt)
 
-    def OnLoadScenarioFromMat(self, evt):
+    def OnLoadScenario(self, evt):
         try:
             self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
             self.Parent.Parent.config_panel.DisableExtRays()
@@ -654,9 +654,9 @@ class ScenarioSelectPanel(wx.Panel):
         self.used = []
         self.used_list.Clear()
         self.unused_list.Clear()
-        dlg = wx.FileDialog(self, message="Choose a .mat file for input", \
+        dlg = wx.FileDialog(self, message="Choose a .mat or .nc file for input", \
                             defaultDir=self.Config["Execution"]["working_dir"], \
-                            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+                            wildcard=("Matlab and Netcdf4 files (*.mat;*.nc)|*.mat;*.nc"),
                             style=wx.FD_OPEN)
         if(dlg.ShowModal() != wx.ID_OK):
             dlg.Destroy()
@@ -664,7 +664,7 @@ class ScenarioSelectPanel(wx.Panel):
         else:
             NewScenario = ECRadScenario(True)
             try:
-                NewScenario.from_mat(path_in=dlg.GetPath())
+                NewScenario.load(path_in=dlg.GetPath())
                 path = dlg.GetPath()
                 self.SetFromNewScenario(NewScenario, path)
                 dlg.Destroy()
@@ -714,7 +714,7 @@ class ScenarioSelectPanel(wx.Panel):
         print("Scaling factors of rhop, Te and ne are ignored in this plot!")
         self.GetEventHandler().ProcessEvent(evt)
         
-    def OnLoadResultFromMat(self, evt):
+    def OnLoadResult(self, evt):
         try:
             self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
             self.Parent.Parent.config_panel.DisableExtRays()
@@ -733,9 +733,9 @@ class ScenarioSelectPanel(wx.Panel):
         self.used = []
         self.used_list.Clear()
         self.unused_list.Clear()
-        dlg = wx.FileDialog(self, message="Choose a .mat file for input", \
+        dlg = wx.FileDialog(self, message="Choose a .nc or .mat file for input", \
                             defaultDir=self.Config["Execution"]["working_dir"], \
-                            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+                            wildcard=("Matlab and Netcdf4 files (*.mat;*.nc)|*.mat;*.nc"),
                             style=wx.FD_OPEN)
         if(dlg.ShowModal() != wx.ID_OK):
             dlg.Destroy()
@@ -744,7 +744,7 @@ class ScenarioSelectPanel(wx.Panel):
             NewResult = ECRadResults()
             try:
                 self.Result_for_ext_launch = NewResult
-                self.Result_for_ext_launch.from_mat_file(dlg.GetPath())
+                self.Result_for_ext_launch.load(dlg.GetPath())
                 path = dlg.GetPath()
                 dlg.Destroy()
             except Exception as e:
