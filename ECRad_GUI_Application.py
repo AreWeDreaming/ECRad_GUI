@@ -20,11 +20,12 @@ if(not found_lib):
 from Global_Settings import globalsettings
 globalsettings.ECRadGUIRoot = os.getcwd()
 globalsettings.ECRadPylibRoot = ECRadPylibFolder
-try:
-    import Equilibrium_Utils_AUG
-except (OSError,ModuleNotFoundError):
-    globalsettings.AUG = False
-    print("Failed to load AUG libraries continuing in non-AUG mode.")
+if(globalsettings.AUG):
+    try:
+        import Equilibrium_Utils_AUG
+    except (OSError,ModuleNotFoundError):
+        globalsettings.AUG = False
+        print("Failed to load AUG libraries continuing in non-AUG mode.")
 import wx.lib.scrolledpanel as scrolled
 from ECRad_GUI_LaunchPanel import LaunchPanel
 from ECRad_GUI_ScenarioPanel import ScenarioSelectPanel
@@ -287,8 +288,6 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.UpperBook.AddPage(self.calib_panel, "ECRad Calibration")
             self.calib_evolution_Panel = CalibEvolutionPanel(self.UpperBook, self.Results.Config["Execution"]["working_dir"])
             self.UpperBook.AddPage(self.calib_evolution_Panel, "Plotting for calibration")
-        else:
-            print("AUG shotfile system inaccessible -> Cross calibration disabled")
         self.sizer.Add(self.UpperBook, 1, wx.ALL | \
             wx.LEFT, 5)
 

@@ -14,8 +14,6 @@ from Plotting_Core import PlottingCore
 if(globalsettings.AUG):
     from Shotfile_Handling_AUG import shotfile_exists, get_data_calib, AUG_profile_diags,\
                                       load_IDA_data, get_Thomson_data
-else:
-    print("AUG shotfile system inaccessible -> Cannot plot diagnostic data!")                                
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 import numpy as np
 from TB_Communication import Ray, make_TORBEAM_no_data_load

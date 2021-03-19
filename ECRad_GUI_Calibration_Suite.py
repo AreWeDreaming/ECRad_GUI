@@ -21,8 +21,6 @@ from ECRad_Results import ECRadResults
 if(globalsettings.AUG):
     from Shotfile_Handling_AUG import get_data_calib, moving_average
     from Get_ECRH_Config import get_ECRH_viewing_angles
-else:
-    print("AUG shotfile system inaccessible -> Cross-calibration not supported at the moment.")
 from Diag_Types import Diag
 
 
