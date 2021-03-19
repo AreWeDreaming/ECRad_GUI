@@ -90,11 +90,11 @@ class ScenarioSelectPanel(wx.Panel):
         self.control_sizer.Add(self.line_shot_data, 0, \
                                wx.EXPAND | wx.ALL, 5)
         self.load_Scenario_from_mat_button = wx.Button(self, wx.ID_ANY, "Load ECRadScenario")
-        self.load_Scenario_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadScenarioFromMat)
+        self.load_Scenario_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadScenario)
         self.load_from_mat_button = wx.Button(self, wx.ID_ANY, "Load from .mat")
         self.load_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadfromMat)
         self.load_Result_from_mat_button = wx.Button(self, wx.ID_ANY, "Load ECRadResult")
-        self.load_Result_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadResultFromMat)
+        self.load_Result_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadResult)
         self.use_3D_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.use_3D_cb = wx.CheckBox(self, wx.ID_ANY, "Use 3D equilibrium")
         self.use_3D_cb.Bind(wx.EVT_CHECKBOX, self.OnUse3D)
