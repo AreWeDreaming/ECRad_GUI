@@ -664,7 +664,7 @@ class ScenarioSelectPanel(wx.Panel):
         else:
             NewScenario = ECRadScenario(True)
             try:
-                NewScenario.load(path_in=dlg.GetPath())
+                NewScenario.load(filename=dlg.GetPath())
                 path = dlg.GetPath()
                 self.SetFromNewScenario(NewScenario, path)
                 dlg.Destroy()
