@@ -49,6 +49,7 @@ class ConfigPanel(wx.Panel):
                     self.widgets[sub_key].SetValue(Config[key][sub_key])
                 except ValueError:
                     print("ERROR: Could not setup " + key + "/" + sub_key + " in the ECRad Config panel")
+                    print("Value: ", Config[key][sub_key], "expected type: ", self.widgets[sub_key].value_type)
         
     def EnableExtRays(self):
         self.widgets["use_ext_rays"].Enable()
