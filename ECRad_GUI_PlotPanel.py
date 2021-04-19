@@ -77,6 +77,21 @@ class PlotPanel(wx.Panel):
         self.ray_sizer.Add(self.lb_widgets["ray"], 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
         self.controlgrid.Add(self.ray_sizer, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.multiple["ray"] = True
+        self.x_group_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.x_group_label = wx.StaticText(self, wx.ID_ANY, "x group")
+        self.lb_widgets["x_group"] = wx.ListBox(self, wx.ID_ANY, size=(120,100), style=wx.LB_SINGLE)
+        self.x_group_sizer.Add(self.x_group_label, 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
+        self.x_group_sizer.Add(self.lb_widgets["x_group"], 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
+        self.lb_widgets["x_group"].Bind(wx.EVT_LISTBOX, self.OnXGroupSelected)
+        self.multiple["x_group"] = False
+        self.controlgrid.Add(self.x_group_sizer, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
+        self.x_quant_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.x_quant_label = wx.StaticText(self, wx.ID_ANY, "x quantity")
+        self.lb_widgets["x_quant"] = wx.ListBox(self, wx.ID_ANY, size=(120,100), style=wx.LB_SINGLE)
+        self.x_quant_sizer.Add(self.x_quant_label, 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
+        self.x_quant_sizer.Add(self.lb_widgets["x_quant"], 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
+        self.controlgrid.Add(self.x_quant_sizer, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
+        self.multiple["x_quant"] = False
         self.y_group_sizer = wx.BoxSizer(wx.VERTICAL)
         self.y_group_label = wx.StaticText(self, wx.ID_ANY, "y group")
         self.lb_widgets["y_group"] = wx.ListBox(self, wx.ID_ANY, size=(120,100), style=wx.LB_SINGLE)
@@ -93,21 +108,6 @@ class PlotPanel(wx.Panel):
         self.lb_widgets["y_quant"].Bind(wx.EVT_LISTBOX, self.OnYQuantSelected)
         self.multiple["y_quant"] = True
         self.controlgrid.Add(self.y_quant_sizer, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
-        self.x_group_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.x_group_label = wx.StaticText(self, wx.ID_ANY, "x group")
-        self.lb_widgets["x_group"] = wx.ListBox(self, wx.ID_ANY, size=(120,100), style=wx.LB_SINGLE)
-        self.x_group_sizer.Add(self.x_group_label, 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
-        self.x_group_sizer.Add(self.lb_widgets["x_group"], 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
-        self.lb_widgets["x_group"].Bind(wx.EVT_LISTBOX, self.OnXGroupSelected)
-        self.multiple["x_group"] = False
-        self.controlgrid.Add(self.x_group_sizer, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
-        self.x_quant_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.x_quant_label = wx.StaticText(self, wx.ID_ANY, "x quantity")
-        self.lb_widgets["x_quant"] = wx.ListBox(self, wx.ID_ANY, size=(120,100), style=wx.LB_SINGLE)
-        self.x_quant_sizer.Add(self.x_quant_label, 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
-        self.x_quant_sizer.Add(self.lb_widgets["x_quant"], 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
-        self.controlgrid.Add(self.x_quant_sizer, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
-        self.multiple["x_quant"] = False
         self.eq_aspect_ratio_cb = simple_label_cb(self, "Equal aspect ratio", False)
         self.figure_width_tc = simple_label_tc(self, "Figure width", 12.0, "real")
         self.figure_height_tc = simple_label_tc(self, "Figure height", 8.5, "real")

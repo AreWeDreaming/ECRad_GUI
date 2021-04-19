@@ -39,7 +39,9 @@ class LaunchPanel(wx.Panel):
         self.load_launch_panel.sizer = wx.BoxSizer(wx.VERTICAL)
         self.load_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from ECRad result/scenario")
         self.load_from_old_button.Bind(wx.EVT_BUTTON, self.LoadLaunch)
-        self.load_launch_panel.sizer.Add(self.load_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
+        self.load_from_omas_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from OMAS file")
+        self.load_from_omas_button.Bind(wx.EVT_BUTTON, self.LoadFromOMAS)
+        self.load_launch_panel.sizer.Add(self.load_from_omas_button, 1, wx.ALL | wx.EXPAND, 5)
         self.gen_ext_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Generate Ext launch from ECRad result")
         self.gen_ext_from_old_button.Bind(wx.EVT_BUTTON, self.GenExtFromOld)
         self.load_launch_panel.sizer.Add(self.gen_ext_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
@@ -132,24 +134,58 @@ class LaunchPanel(wx.Panel):
         dlg = wx.FileDialog(\
             self, message="Choose a preexisting calculation", \
             defaultDir=self.working_dir, \
-            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+            wildcard=("Matlab and Netcdf4 files (*.mat;*.nc)|*.mat;*.nc"),
             style=wx.FD_OPEN)
         if(dlg.ShowModal() == wx.ID_OK):
             path = dlg.GetPath()
             NewScenario = ECRadScenario(noLoad=True)
-            NewScenario.from_mat(path_in=path, load_plasma_dict=False)
+            NewScenario.load(filename=path)
             self.SetScenario(NewScenario, os.path.dirname(path))
+
+    def LoadFromOMAS(self, evt):
+        dlg = wx.FileDialog(\
+            self, message="Choose an OMAS file", \
+            defaultDir=self.working_dir, \
+            wildcard=("Pickle and Netcdf4 files (*.pkl;*.nc)|*.pkl;*.nc"),
+            style=wx.FD_OPEN)
+        if(dlg.ShowModal() == wx.ID_OK):
+            path = dlg.GetPath()
+            NewSceario = ECRadScenario(noLoad=True)
+            try:
+                from omas import ODS
+                ods = ODS()
+                ods.load(path)
+                NewSceario.set_up_launch_from_ods(ods)
+                newExtDiag = EXT_diag("EXT")
+                if(len( ods['ece']['channel']['time']) == 1):
+                    itime = 0
+                else:
+                    timepoint_dlg = Select_Raylaunch_timepoint(self, ods['ece']['channel']['time'])
+                    if(not (timepoint_dlg.ShowModal() == wx.ID_OK)):
+                        print("Aborted")
+                        return
+                    itime = timepoint_dlg.itime
+            except Exception as e:
+                print("Failed to load launch from OMAS")
+                print(e)
+                return
+            newExtDiag.set_from_scenario_diagnostic(NewSceario["diagnostic"], itime, set_only_EXT=False)
+            NewSceario.avail_diags_dict.update({"EXT": newExtDiag})
+            curScenario = self.GetCurScenario()
+            curScenario["avail_diags_dict"].update({"EXT": newExtDiag})
+            curScenario["used_diags_dict"].update({"EXT": newExtDiag})
+            self.SetScenario(curScenario, self.working_dir)
 
     def GenExtFromOld(self, evt):
         dlg = wx.FileDialog(\
             self, message="Choose a preexisting calculation", \
             defaultDir=self.working_dir, \
-            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+            wildcard=("Matlab and Netcdf4 files (*.mat;*.nc)|*.mat;*.nc"),
             style=wx.FD_OPEN)
         if(dlg.ShowModal() == wx.ID_OK):
             path = dlg.GetPath()
             NewSceario = ECRadScenario(noLoad=True)
-            NewSceario.from_mat(path_in=path, load_plasma_dict=False)
+            NewSceario.load(filename=path)
             newExtDiag = EXT_diag("EXT")
             if(len(NewSceario["time"]) == 1):
                 itime = 0
@@ -159,7 +195,7 @@ class LaunchPanel(wx.Panel):
                     print("Aborted")
                     return
                 itime = timepoint_dlg.itime
-            newExtDiag.set_from_ray_launch(NewSceario.ray_launch, itime, set_only_EXT=False)
+            newExtDiag.set_from_scenario_diagnostic(NewSceario["diagnostic"], itime, set_only_EXT=False)
             NewSceario.avail_diags_dict.update({"EXT":  newExtDiag})
             curScenario = self.GetCurScenario()
             curScenario["avail_diags_dict"].update({"EXT":  newExtDiag})
@@ -170,7 +206,7 @@ class LaunchPanel(wx.Panel):
         dlg = wx.FileDialog(\
             self, message="Choose a file with raylaunch data", \
             defaultDir=self.working_dir, \
-            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+            wildcard=("Matlab and Netcdf4 files (*.mat;*.nc)|*.mat;*.nc"),
             style=wx.FD_OPEN)
         if(dlg.ShowModal() == wx.ID_OK):
             path = dlg.GetPath()

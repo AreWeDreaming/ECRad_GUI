@@ -65,7 +65,6 @@ class Select_GENE_timepoints_dlg(wx.Dialog):
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
 
-
     def OnRemoveSelection(self, evt):
         sel = self.used_list.GetSelections()
         for i_sel in sel:
@@ -113,6 +112,39 @@ class TextEntryDialog(wx.Dialog):
 
     def EvtAccept(self, Event):
         self.val = self.val_tc.GetValue()
+        self.EndModal(wx.ID_OK)
+
+class OMASTimeBaseSelectDlg(wx.Dialog):
+    def __init__(self, parent):
+        wx.Dialog.__init__(self, parent, wx.ID_ANY)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)        
+        self.label = wx.StaticText(self, wx.ID_ANY, "Use time base from:")
+        self.sizer.Add(self.label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.choice = "core_profiles"
+        self.FromProfilesBtn = wx.Button(self, wx.ID_ANY, 'core_profiles')
+        self.Bind(wx.EVT_BUTTON, self.OnFromProfiles, self.FromProfilesBtn)
+        self.FromEquilibriumBtn = wx.Button(self, wx.ID_ANY, 'equilibrum')
+        self.Bind(wx.EVT_BUTTON, self.OnFromEquilibrium, self.FromEquilibriumBtn)
+        self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
+        self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
+        self.ButtonSizer.Add(self.FromProfilesBtn, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.ButtonSizer.Add(self.FromEquilibriumBtn, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
+                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.SetSizer(self.sizer)
+        self.SetClientSize(self.GetEffectiveMinSize())
+
+    def EvtClose(self, Event):
+        self.EndModal(wx.ID_ABORT)
+
+    def OnFromProfiles(self, Event):
+        self.choice = "core_profiles"
+        self.EndModal(wx.ID_OK)
+    
+    def OnFromEquilibrium(self, Event):
+        self.choice = "equilibrum"
         self.EndModal(wx.ID_OK)
         
 class Use3DConfigDialog(wx.Dialog):
@@ -174,6 +206,8 @@ class Use3DConfigDialog(wx.Dialog):
             self.eq_data_3D[key] = self.widgets[key].GetValue()        
         self.EndModal(wx.ID_OK)
         
+
+
 # class ECRHFreqAndHarmonicDlg(wx.Dialog):
 #     def __init__(self, parent, message, default_val = ""):
 #         wx.Dialog.__init__(self, parent, wx.ID_ANY)

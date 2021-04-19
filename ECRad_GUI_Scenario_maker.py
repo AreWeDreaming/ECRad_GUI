@@ -9,7 +9,6 @@ import sys
 import numpy as np
 from scipy.io import savemat
 from glob import glob
-from ECRad_Scenario import ECRadScenario
 library_list = glob("../*pylib") + glob("../*PyLib")
 found_lib = False
 ECRadPylibFolder = None
@@ -25,51 +24,137 @@ if(not found_lib):
     print("Additionally, the ECRad_Pylib must be in the parent directory of the GUI and must contain one of ECRad, ecrad and Pylib or pylib")
     exit(-1)
 from Global_Settings import globalsettings
+from ECRad_Scenario import ECRadScenario
 from Basic_Methods.Equilibrium_Utils import EQDataExt, EQDataSlice
 from TB_Communication import make_mdict_from_TB_files
 
 from scipy.interpolate import InterpolatedUnivariateSpline
 from Diag_Types import EXT_diag
 from ECRad_Interface import load_plasma_from_mat
+from netCDF4 import Dataset
 
 if(globalsettings.AUG):
     from Equilibrium_Utils_AUG import EQData
     from Shotfile_Handling_AUG import load_IDA_data
     
-    
-    
-    def make_plasma_mat_for_testing(filename, shot, times, eq_exp, eq_diag, eq_ed, \
-                                    IDA_exp="AUGD", IDA_ed=0):
-        plasma_dict = load_IDA_data(shot, timepoints=times, exp=IDA_exp, ed=IDA_ed)
-        EQ_obj = EQData(shot, EQ_exp=eq_exp, EQ_diag=eq_diag, EQ_ed=eq_ed)
-        plasma_dict["eq_data_2D"] = EQDataExt(shot, Ext_data=True)
-        for time in times:
-            plasma_dict["eq_data_2D"].insert_slices_from_ext([time] , [EQ_obj.GetSlice(time)])
-        make_plasma_mat(filename, plasma_dict)
-   
-def make_plasma_mat_from_variables_2D(mat_out_name, shot, time, R, z, Te, ne, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
+def make_netcdf_plasma(filename, plasma):
+    rootgrp = Dataset(filename, "w", format="NETCDF4")
+    rootgrp.createGroup("Plasma")
+    rootgrp["Plasma"].createDimension('str_dim', 1)
+    N_time = len(plasma["time"])
+    rootgrp["Plasma"].createDimension("N_time", N_time)
+    if(plasma["eq_dim"] == 2):
+        example_slice = plasma["eq_data_2D"].GetSlice(0)
+        rootgrp["Plasma"].createDimension("N_eq_2D_R", len(example_slice.R))
+        rootgrp["Plasma"].createDimension("N_eq_2D_z", len(example_slice.z))
+        rootgrp["Plasma"].createDimension("N_vessel_bd", len(plasma['vessel_bd'][...,0]))
+        rootgrp["Plasma"].createDimension("N_vessel_dim", 2)
+    if(not plasma["2D_prof"]):
+        rootgrp["Plasma"].createDimension("N_profiles", len(plasma["Te"][0]))
+    var = rootgrp["Plasma"].createVariable("2D_prof", "b")
+    var[...] = int(plasma["2D_prof"])
+    var = rootgrp["Plasma"].createVariable("time", "f8", ("N_time",))
+    var[...] = plasma["time"]
+    var = rootgrp["Plasma"].createVariable("shot", "i8")
+    var[...] = plasma["shot"]
+    for sub_key in ["Te", "ne"]:
+        if(not plasma["2D_prof"]):
+            var = rootgrp["Plasma"].createVariable(sub_key, \
+                                                        "f8", ("N_time", "N_profiles"))
+        else:
+            var = rootgrp["Plasma"].createVariable(sub_key, "f8", \
+                                                        ("N_time", "N_eq_2D_R", "N_eq_2D_z"))
+        var[:] = plasma[sub_key]
+    if(not plasma["2D_prof"]):
+        var = rootgrp["Plasma"].createVariable("prof_reference", str, ('str_dim',))
+        var[0] = plasma["prof_reference"]
+        sub_key = plasma["prof_reference"]
+        var = rootgrp["Plasma"].createVariable(sub_key, "f8", \
+                                                    ("N_time", "N_profiles"))
+        var[:] = plasma[sub_key]
+    var = rootgrp["Plasma"].createVariable("eq_dim", "i8")
+    var[...] = plasma["eq_dim"]
+    if(plasma["eq_dim"] == 3):
+        for sub_key in ["B_ref", "s_plus", "s_max", \
+                        "interpolation_acc", "fourier_coeff_trunc", \
+                        "h_mesh", "delta_phi_mesh"]:
+            var = rootgrp["Plasma"].createVariable(\
+                                                        "eq_data_3D" + "_" +  sub_key, "f8")
+            var[...] = plasma["eq_data_3D"][sub_key]
+        for sub_key in ["use_mesh", "use_symmetry"]:
+            var = rootgrp["Plasma"].createVariable(\
+                                                        "eq_data_3D" + "_" +  sub_key, "b")
+            var[...] = plasma["eq_data_3D"][sub_key]
+        for sub_key in ["equilibrium_type", "vessel_filename"]:
+            var = rootgrp["Plasma"].createVariable(\
+                                                        "eq_data_3D" + "_" +  sub_key, str, ('str_dim',))
+            var[0] = plasma["eq_data_3D"][sub_key]
+        var = rootgrp["Plasma"].createVariable(\
+                                                    "eq_data_3D" + "_" + \
+                                                    "equilibrium_files", str, ('N_time',))
+        var[:] = plasma["eq_data_3D"]["equilibrium_files"]
+    else:
+        for sub_key in ["R", "z"]:
+            var = rootgrp["Plasma"].createVariable(\
+                                                        "eq_data_2D" + "_" +  sub_key, "f8", \
+                                                        ("N_time", "N_eq_2D_" + sub_key))
+            var[:] = plasma['eq_data_2D'].get_single_attribute_from_all_slices(sub_key)
+        for sub_key in ["Psi", "rhop", "Br", "Bt", "Bz"]:
+            var = rootgrp["Plasma"].createVariable(\
+                                                        "eq_data_2D" + "_" +  sub_key, "f8", \
+                                                        ("N_time", "N_eq_2D_R", "N_eq_2D_z"))
+            var[:] = plasma['eq_data_2D'].get_single_attribute_from_all_slices(sub_key)
+        for sub_key in ["R_ax", "z_ax", "R_sep", "z_sep", "Psi_ax", "Psi_sep"]:
+            var = rootgrp["Plasma"].createVariable(\
+                                                        "eq_data_2D" + "_" +  sub_key, "f8", \
+                                                        ("N_time",))
+            var[:] = plasma['eq_data_2D'].get_single_attribute_from_all_slices(sub_key)
+        var = rootgrp["Plasma"].createVariable(\
+                                                    "vessel_bd", "f8", \
+                                                    ("N_vessel_bd", "N_vessel_dim"))
+        var[...,0] = plasma['vessel_bd'][...,0]
+        var[...,1] = plasma['vessel_bd'][...,1]
+    rootgrp.close()
+
+def make_netcdf_launch(filename, launch):
+    rootgrp = Dataset(filename, "w", format="NETCDF4")
+    rootgrp.createGroup("Diagnostic")
+    N_time = len(launch["f"])
+    rootgrp["Plasma"].createDimension("N_time", N_time)
+    N_ch = len(launch["f"][0])
+    rootgrp["Plasma"].createDimension("N_ch", N_ch)
+    for sub_key in launch.keys():
+        if(sub_key == "diag_name"):
+            var = rootgrp["Diagnostic"].createVariable("diagnostic_" +  sub_key, str, \
+                                                       ("N_time","N_ch"))
+            var[:] = launch[sub_key]
+        else:
+            var = rootgrp["Diagnostic"].createVariable("diagnostic_" +  sub_key, "f8", \
+                                                       ("N_time","N_ch"))
+            var[:] = launch[sub_key]
+
+def make_plasma_from_variables_single_time(filename, shot, time, rhop_profiles, Te, ne, R, z, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
     # Vessel data has to be a ndarray of points (shape = (n,2)) with R,z points of the machine wall
     # Alternatively a standard ECRad vessel file can be used like ASDEX_Upgrade_vessel.txt
+    # rhop_profiles can be none for 2D profiles
     plasma_dict = {}
     plasma_dict["shot"] = shot
     plasma_dict["time"] = np.array([time])
-    plasma_dict["prof_reference"] = "2D"
-    plasma_dict["rhop_prof"] = None
-    # N2D [m^{-3}]
-    plasma_dict["ne"] = ne
-    # T2D [eV]
-    plasma_dict["Te"] = Te
-    #R = self.omfit_eq['AuxQuantities']['R']
-    #z = self.omfit_eq['AuxQuantities']['Z']
-    #rhop = self.omfit_eq['AuxQuantities']["RHOpRZ"].T
-    #Br = self.omfit_eq['AuxQuantities']["Br"].T
-    #Bt = self.omfit_eq['AuxQuantities']["Bt"].T
-    #Bz = self.omfit_eq['AuxQuantities']["Bz"].T
-    #vessel_data = np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T
+    plasma_dict["prof_reference"] = "rhop_prof"
+    plasma_dict["eq_dim"] = 2
+    plasma_dict["2D_prof"] = len(Te.shape) > 2
+    if(not plasma_dict["2D_prof"]):
+        plasma_dict["prof_reference"] = "rhop_prof"
+        plasma_dict["rhop_prof"] = np.array([rhop_profiles])
+    else:
+        plasma_dict["prof_reference"] = "2D"
+        plasma_dict["rhop_prof"] = None
+    plasma_dict["ne"] = np.array([ne])
+    plasma_dict["Te"] = np.array([Te])
     EQObj = EQDataExt(shot, Ext_data=True)
     EQObj.insert_slices_from_ext(np.array([time]), \
                                  [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, \
-                                              Psi_ax=0.0, Psi_sep=0.0, rhop=rhop)], False)
+                                              Psi_ax=0.0, Psi_sep=1.0, rhop=rhop)], False)
     plasma_dict["eq_data_2D"] = EQObj
     if(vessel_data is not None):
         plasma_dict["vessel_bd"] = np.array(vessel_data).T
@@ -81,7 +166,16 @@ def make_plasma_mat_from_variables_2D(mat_out_name, shot, time, R, z, Te, ne, Br
         plasma_dict["vessel_bd"] = np.array(plasma_dict["vessel_bd"])
     else:
         raise ValueError("vessel_data and vessel_bd_file cannot both be None")
-    make_plasma_mat(mat_out_name, plasma_dict)
+    make_netcdf_plasma(filename, plasma_dict)
+    
+def make_plasma_mat_for_testing(filename, shot, times, eq_exp, eq_diag, eq_ed, \
+                                IDA_exp="AUGD", IDA_ed=0):
+    plasma_dict = load_IDA_data(shot, timepoints=times, exp=IDA_exp, ed=IDA_ed)
+    EQ_obj = EQData(shot, EQ_exp=eq_exp, EQ_diag=eq_diag, EQ_ed=eq_ed)
+    plasma_dict["eq_data_2D"] = EQDataExt(shot, Ext_data=True)
+    for time in times:
+        plasma_dict["eq_data_2D"].insert_slices_from_ext([time] , [EQ_obj.GetSlice(time)])
+    make_plasma_mat(filename, plasma_dict)
         
 def make_plasma_mat_from_variables(mat_out_name, shot, time, rhop_profiles, Te, ne, R, z, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
     # Vessel data has to be a ndarray of points (shape = (n,2)) with R,z points of the machine wall
@@ -96,7 +190,7 @@ def make_plasma_mat_from_variables(mat_out_name, shot, time, rhop_profiles, Te, 
     EQObj = EQDataExt(shot, Ext_data=True)
     EQObj.insert_slices_from_ext(np.array([time]), \
                                  [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, \
-                                              Psi_ax=0.0, Psi_sep=0.0, rhop=rhop)], False)
+                                              Psi_ax=0.0, Psi_sep=01.0, rhop=rhop)], False)
     plasma_dict["eq_data_2D"] = EQObj
     if(vessel_data is not None):
         plasma_dict["vessel_bd"] = np.array(vessel_data).T
@@ -138,26 +232,27 @@ def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     plasma_dict["prof_reference"] = "rhop_prof"
     make_plasma_mat(os.path.join(path, mat_out_name), plasma_dict)
     
-def make_ECRadScenario_for_DIII_D(mat_out_name, shot, time, eqdsk_file, derived_file=None, ped_prof=None):
-    from omfit.classes.omfit_eqdsk import OMFITeqdsk
+def make_Plasma_for_DIII_D(filename, shot, time, eqdsk_file, derived_file=None, ped_prof=None):
+    sys.path.append("../Pylicon")
+    from omfit.omfit_classes.omfit_eqdsk import OMFITeqdsk
     from Profile_Utils import make_profile
-    from netCDF4 import Dataset
-    profile = make_profile(derived = derived_file, ped_prof = ped_prof, time = time)
+    profile = make_profile(derived = derived_file, ped_prof = ped_prof, \
+                           touch_up={"rhop_cut": 1.04, "rhop_ant": 1.1, \
+                           "n_ant": 1e+16, "T_ant": 0.001}, time = time* 1.e3, check_profiles=True)
     omfit_eq = OMFITeqdsk(eqdsk_file)
     plasma_dict = {}
     plasma_dict["shot"] = shot
-    rhop = np.sqrt(profile.axes["T_e"])
+    rhop = profile.axes["T_e"]
     ne = profile.profs["n_e"]
     Te = profile.profs["T_e"]
-    np.savetxt("vessel_bd", np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T, fmt='% 1.12E')
-    make_plasma_mat_from_variables(mat_out_name, shot, time, rhop, Te, ne, \
-                                   omfit_eq['AuxQuantities']["R"], \
-                                   omfit_eq['AuxQuantities']["Z"], \
-                                   omfit_eq['AuxQuantities']["Br"].T, \
-                                   omfit_eq['AuxQuantities']["Bt"].T ,\
-                                   omfit_eq['AuxQuantities']["Bz"].T ,\
-                                   omfit_eq['AuxQuantities']["RHOpRZ"].T,\
-                                   vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
+    make_plasma_from_variables_single_time(filename, shot, time, rhop, Te, ne, \
+                                           omfit_eq['AuxQuantities']["R"], \
+                                           omfit_eq['AuxQuantities']["Z"], \
+                                           omfit_eq['AuxQuantities']["Br"].T, \
+                                           omfit_eq['AuxQuantities']["Bt"].T ,\
+                                           omfit_eq['AuxQuantities']["Bz"].T ,\
+                                           omfit_eq['AuxQuantities']["RHOpRZ"].T,\
+                                           vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
 
 def put_TRANSP_U_profiles_in_Scenario(Scenario, filename, time, scenario_name):
     from ufilelib import UFILELIB
@@ -310,6 +405,12 @@ def make_W7X_Scenario(ScenarioName, shot, time, folder, \
     Scenario.to_mat_file(ScenarioName)
     
 
+def scale_launch_parameter(Scenario_file_in, scenario_file_out, para_name, scale):
+    Scenario = ECRadScenario(True)
+    Scenario.load(filename=Scenario_file_in)
+    Scenario["diagnostic"][para_name] *= scale
+    Scenario.to_netcdf(filename=scenario_file_out)
+
 def make_test_launch(filename):
     f = np.array([110.e9, 130.e9])
     df = np.array([0.2e9, 0.2e9])
@@ -324,8 +425,13 @@ def make_test_launch(filename):
     make_launch_mat_single_timepoint(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
     
 if (__name__ == "__main__"):
-    fix_ne_Te_in_plasma_mat("/mnt/c/Users/Severin/ECRad/Yu/plasma_179328_3.4_v2.mat", \
-                            "/mnt/c/Users/Severin/ECRad/Yu/plasma_179328_3.4_v3.mat")
+    # make_Plasma_for_DIII_D("/mnt/c/Users/Severin/ECRad/DIII-D_176898.nc", 176898, 3.990, \
+    #                        "/mnt/c/Users/Severin/Scenarios/176898_3_990/g176898_03990", \
+    #                        derived_file="/mnt/c/Users/Severin/Scenarios/176898_3_990/OMFITprofiles_176898_DERIVED.nc")
+    scale_launch_parameter("/mnt/c/Users/Severin/ECRad/ECRad_176898_EXT_ed4.nc", \
+                            "/mnt/c/Users/Severin/ECRad/DIIID_CECE_example.nc", "f", 0.98)
+    # fix_ne_Te_in_plasma_mat("/mnt/c/Users/Severin/ECRad/Yu/plasma_179328_3.4_v2.mat", \
+    #                         "/mnt/c/Users/Severin/ECRad/Yu/plasma_179328_3.4_v3.mat")
 #     Scenario = ECRadScenario(noLoad=True)
 #     Scenario.from_mat(path_in="/mnt/c/Users/Severin/ECRad_regression/GENE/ECRad_33585_EXT_ed2.mat")
 #     put_TRANSP_U_profiles_in_Scenario(Scenario, "/mnt/c/Users/Severin/ECRad_regression/GENE/33585.u", \

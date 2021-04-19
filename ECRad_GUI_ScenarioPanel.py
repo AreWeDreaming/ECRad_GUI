@@ -6,12 +6,13 @@ Created on Mar 21, 2019
 from Global_Settings import globalsettings
 import os
 from ECRad_GUI_Widgets import simple_label_tc
+from ECRad_GUI_Dialogs import OMASTimeBaseSelectDlg
 import wx
 from WX_Events import EVT_UPDATE_DATA, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
                       Unbound_EVT_REPLOT, LockExportEvt, Unbound_EVT_LOCK_EXPORT
 from Plotting_Core import PlottingCore
 import numpy as np
-from ECRad_Interface import load_plasma_from_mat
+from ECRad_Interface import load_from_plasma, load_plasma_from_mat
 from Plotting_Configuration import plt
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from ECRad_GUI_Dialogs import Use3DConfigDialog
@@ -91,8 +92,10 @@ class ScenarioSelectPanel(wx.Panel):
                                wx.EXPAND | wx.ALL, 5)
         self.load_Scenario_from_mat_button = wx.Button(self, wx.ID_ANY, "Load ECRadScenario")
         self.load_Scenario_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadScenario)
-        self.load_from_mat_button = wx.Button(self, wx.ID_ANY, "Load from .mat")
-        self.load_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadfromMat)
+        self.load_Scenario_from_omas_button = wx.Button(self, wx.ID_ANY, "Load from OMAS file")
+        self.load_Scenario_from_omas_button.Bind(wx.EVT_BUTTON, self.OnLoadOMAS)
+        self.load_from_mat_button = wx.Button(self, wx.ID_ANY, "Load from *.nc/*.mat")
+        self.load_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadfromFile)
         self.load_Result_from_mat_button = wx.Button(self, wx.ID_ANY, "Load ECRadResult")
         self.load_Result_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadResult)
         self.use_3D_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -113,6 +116,8 @@ class ScenarioSelectPanel(wx.Panel):
 #        self.load_data_sizer.Add(self.load_GENE_button, 0, \
 #                         wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.control_sizer.Add(self.load_Scenario_from_mat_button, 0, \
+                               wx.EXPAND |  wx.ALL, 5)
+        self.control_sizer.Add(self.load_Scenario_from_omas_button, 0, \
                                wx.EXPAND |  wx.ALL, 5)
         self.control_sizer.Add(self.load_from_mat_button, 0, \
                                wx.EXPAND |  wx.ALL, 5)
@@ -553,7 +558,7 @@ class ScenarioSelectPanel(wx.Panel):
         print("Scaling factors of rhop, Te and ne are ignored in this plot!")
         self.GetEventHandler().ProcessEvent(evt)
 
-    def OnLoadfromMat(self, evt):
+    def OnLoadfromFile(self, evt):
         try:
             self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
             self.Parent.Parent.config_panel.DisableExtRays()
@@ -568,13 +573,21 @@ class ScenarioSelectPanel(wx.Panel):
         self.unused_list.Clear()
         dlg = wx.FileDialog(self, message="Choose a .mat file for input", \
                             defaultDir=self.Config["Execution"]["working_dir"], \
-                            wildcard=('Matlab files (*.mat)|*.mat|All fiels (*.*)|*.*'),
+                            wildcard=("Matlab and Netcdf4 files (*.mat;*.nc)|*.mat;*.nc"),
                             style=wx.FD_OPEN)
         if(dlg.ShowModal() != wx.ID_OK):
             return
         path = dlg.GetPath()
         dlg.Destroy()
-        self.plasma_dict = load_plasma_from_mat(path)
+        ext = os.path.splitext(path)[1]
+        if(ext == ".mat"):
+            self.plasma_dict = load_plasma_from_mat(path)
+        elif(ext == ".nc"):
+            self.plasma_dict = load_from_plasma(path)
+        else:
+            print("Extension " + ext + " is unknown")
+            raise(ValueError)
+        
         if(self.plasma_dict is None):
             return
         print("Updated equilibrium settings with values from .mat")
@@ -666,10 +679,58 @@ class ScenarioSelectPanel(wx.Panel):
             except Exception as e:
                 print(e)
                 print("Failed to load Scenario -- does the selected file contain a Scenario?")
-                print("I fthis file only contains profiles and equilibria try load from .mat instead.")
+                print("If this file only contains profiles and equilibria try load from .mat instead.")
                 dlg.Destroy()
                 return
         
+    def OnLoadOmas(self, evt):
+        try:
+            self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
+            self.Parent.Parent.config_panel.DisableExtRays()
+        except ValueError as e:
+            print("Failed to parse Configuration")
+            print("Reason: " + e)
+            return
+#         try:
+#             Scenario = self.Parent.Parent.launch_panel.UpdateScenario(self.Scenario)
+#         except ValueError as e:
+#             print("Failed to parse Configuration")
+#             print("Reason: " + e)
+#             return
+        self.OnUnlockSelection(None)
+        self.unused = []
+        self.used = []
+        self.used_list.Clear()
+        self.unused_list.Clear()
+        dlg = wx.FileDialog(self, message="Choose a .pkl or .nc file for input", \
+                            defaultDir=self.Config["Execution"]["working_dir"], \
+                            wildcard=("Matlab and Netcdf4 files (*.pkl;*.nc)|*.pkl;*.nc"),
+                            style=wx.FD_OPEN)
+        if(dlg.ShowModal() != wx.ID_OK):
+            dlg.Destroy()
+            return
+        try:
+            from omas import ODS
+            ods = ODS()
+            ods.load(filename=dlg.GetPath())
+            time_base_dlg = OMASTimeBaseSelectDlg(self)
+            if(time_base_dlg.ShowModal() != wx.ID_OK):
+                time_base_dlg.Destroy()
+                return
+            time_base_source = time_base_dlg.choice
+            time_base_dlg.Destroy()
+            times = ods[time_base_source]['time']
+            NewScenario = ECRadScenario(True)
+            NewScenario.set_up_profiles_from_ods(ods,times)
+            NewScenario.set_up_equilibrium_from_ods(ods,times)
+            self.SetFromNewScenario(NewScenario, dlg.GetPath())
+            dlg.Destroy()
+        except Exception as e:
+            print(e)
+            print("Failed to load Scenario -- does the selected file contain a Scenario?")
+            print("I fthis file only contains profiles and equilibria try load from .mat instead.")
+            dlg.Destroy()
+            return
         
     def SetFromNewScenario(self, NewScenario, path):
         self.UpdateContent(NewScenario, diag_name=NewScenario.default_diag)
