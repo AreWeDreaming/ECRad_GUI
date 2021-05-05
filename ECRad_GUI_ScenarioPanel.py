@@ -1230,10 +1230,7 @@ class ScenarioSelectPanel(wx.Panel):
 
 
     def ChangeCursor(self, event):
-        if(globalsettings.Phoenix):
-            self.canvas.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
-        else:
-            self.canvas.SetCursor(wx.StockCursor(wx.CURSOR_CROSS))
+        self.canvas.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
 
     def UpdateCoords(self, event):
         if event.inaxes:

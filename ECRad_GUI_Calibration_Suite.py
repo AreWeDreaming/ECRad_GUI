@@ -54,10 +54,7 @@ class CalibPanel(wx.Panel):
         self.calibrate_button.Bind(wx.EVT_BUTTON, self.OnCalibrate)
         self.plot_avg_button = wx.Button(self, 0, "Plot avg.")
         self.plot_avg_button.Bind(wx.EVT_BUTTON, self.OnPlotAvg)
-        if(globalsettings.Phoenix):
-            self.plot_avg_button.SetToolTip("Plot avg. calib factors once they are loaded")
-        else:
-            self.plot_avg_button.SetToolTipString("Plot avg. calib factors once they are loaded")
+        self.plot_avg_button.SetToolTip("Plot avg. calib factors once they are loaded")
         self.reset_plot_button = wx.Button(self, 0, "Reset Plot")
         self.reset_plot_button.Bind(wx.EVT_BUTTON, self.OnResetPlot)
         self.button_sizer.Add(self.calibrate_button, 0, wx.ALL | \
@@ -251,10 +248,7 @@ class CalibPanel(wx.Panel):
             self.unused_list.AppendItems(self.unused)
 
     def ChangeCursor(self, event):
-        if(globalsettings.Phoenix):
-            self.canvas.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
-        else:
-            self.canvas.SetCursor(wx.StockCursor(wx.CURSOR_CROSS))
+        self.canvas.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
 
     def UpdateCoords(self, event):
         if event.inaxes:
@@ -872,10 +866,7 @@ class CalibEvolutionPanel(wx.Panel):
         self.channel_ch.clear()
 
     def ChangeCursor(self, event):
-        if(globalsettings.Phoenix):
-            self.canvas.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
-        else:
-            self.canvas.SetCursor(wx.StockCursor(wx.CURSOR_CROSS))
+        self.canvas.SetCursor(wx.Cursor(wx.CURSOR_CROSS))
 
     def UpdateCoords(self, event):
         if event.inaxes:

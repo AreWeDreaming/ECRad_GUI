@@ -39,6 +39,7 @@ class LaunchPanel(wx.Panel):
         self.load_launch_panel.sizer = wx.BoxSizer(wx.VERTICAL)
         self.load_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from ECRad result/scenario")
         self.load_from_old_button.Bind(wx.EVT_BUTTON, self.LoadLaunch)
+        self.load_launch_panel.sizer.Add(self.load_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
         self.load_from_omas_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from OMAS file")
         self.load_from_omas_button.Bind(wx.EVT_BUTTON, self.LoadFromOMAS)
         self.load_launch_panel.sizer.Add(self.load_from_omas_button, 1, wx.ALL | wx.EXPAND, 5)
@@ -53,7 +54,7 @@ class LaunchPanel(wx.Panel):
         self.Notebook.Spawn_Pages(Scenario["avail_diags_dict"])
         self.diag_config_sizer.Add(self.Notebook, 0, wx.ALL | wx.LEFT, 5)
         self.sizer.Add(self.diag_config_sizer,0, wx.EXPAND | wx.ALL,5)
-        self.sizer.Add(self.load_launch_panel,1, wx.ALIGN_CENTER_VERTICAL | wx.ALL,5)
+        self.sizer.Add(self.load_launch_panel,1, wx.TOP | wx.ALL,5)
         self.SetSizer(self.sizer)
         self.new_data_available = False
 

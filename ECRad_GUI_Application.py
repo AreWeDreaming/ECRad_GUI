@@ -78,11 +78,10 @@ class ECRad_GUI_App(wx.App):
 
     def OnInit(self):
         self.SetAppName("ECRad GUI")
-        if(globalsettings.Phoenix):
-            frame = ECRad_GUI_MainFrame(self, 'ECRad GUI', self.ECRad_runner_process, \
-                                        self.ECRad_input_queue, self.ECRad_output_queue)
-            self.SetTopWindow(frame)
-            frame.Show(True)
+        frame = ECRad_GUI_MainFrame(self, 'ECRad GUI', self.ECRad_runner_process, \
+                                    self.ECRad_input_queue, self.ECRad_output_queue)
+        self.SetTopWindow(frame)
+        frame.Show(True)
         return True
 
 class ECRad_GUI_MainFrame(wx.Frame):
@@ -134,12 +133,8 @@ class ECRad_GUI_MainFrame(wx.Frame):
             'Show the Input Mask')
         self.ECRad_quit = wx.MenuItem(self._fileMenu, wx.ID_ANY, \
                                 "&Close\tCtrl-Q", "Close ECRad_GUI")
-        if(globalsettings.Phoenix):
-            self._fileMenu.Append(self.ECRad_config_load)
-            self._fileMenu.Append(self.ECRad_quit)
-        else:
-            self._fileMenu.AppendItem(self.ECRad_config_load)
-            self._fileMenu.AppendItem(self.ECRad_quit)
+        self._fileMenu.Append(self.ECRad_config_load)
+        self._fileMenu.Append(self.ECRad_quit)
         self._menuBar.Append(self._fileMenu, "&File")
         # self._fileMenu.AppendItem(self.Hide_Config)
         # self._fileMenu.AppendItem(self.Show_Config)
@@ -217,10 +212,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.KillECRadButton.Bind(wx.EVT_BUTTON, self.OnKillECRad)
         self.KillECRadButton.Disable()
         self.ExportButton = wx.Button(self, wx.ID_ANY, 'Save results')
-        if(globalsettings.Phoenix):
-            self.ExportButton.SetToolTip("If this is grayed out there is no (new) data to save!")
-        else:
-            self.ExportButton.SetToolTipString("If this is grayed out there is no (new) data to save!")
+        self.ExportButton.SetToolTip("If this is grayed out there is no (new) data to save!")
         self.ExportButton.Bind(wx.EVT_BUTTON, self.OnExport)
         self.ExportButton.Disable()
         self.NameButton = wx.Button(self, wx.ID_ANY, 'Comment Results')
