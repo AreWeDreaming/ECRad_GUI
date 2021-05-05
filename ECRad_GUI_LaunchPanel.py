@@ -21,7 +21,7 @@ class LaunchPanel(wx.Panel):
         self.diag_select_panel.sizer = wx.BoxSizer(wx.VERTICAL)
         self.diag_select_panel.SetSizer(self.diag_select_panel.sizer)
         self.diag_select_label = wx.StaticText(self.diag_select_panel, wx.ID_ANY, "Select diagnostics to model")
-        self.diag_select_panel.sizer.Add(self.diag_select_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self.diag_select_panel.sizer.Add(self.diag_select_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
         self.grid = wx.GridSizer(0, 10, 0, 0)
         self.diag_cb_dict = od()
         self.working_dir = working_dir
@@ -34,7 +34,7 @@ class LaunchPanel(wx.Panel):
                 self.diag_cb_dict[Diagkey].SetValue(True)
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.diag_config_sizer = wx.BoxSizer(wx.VERTICAL)
-        self.diag_select_panel.sizer.Add(self.grid, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self.diag_select_panel.sizer.Add(self.grid, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
         self.load_launch_panel = wx.Panel(self, wx.ID_ANY, style=wx.SUNKEN_BORDER)
         self.load_launch_panel.sizer = wx.BoxSizer(wx.VERTICAL)
         self.load_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from ECRad result/scenario")
@@ -53,7 +53,7 @@ class LaunchPanel(wx.Panel):
         self.Notebook.Spawn_Pages(Scenario["avail_diags_dict"])
         self.diag_config_sizer.Add(self.Notebook, 0, wx.ALL | wx.LEFT, 5)
         self.sizer.Add(self.diag_config_sizer,0, wx.EXPAND | wx.ALL,5)
-        self.sizer.Add(self.load_launch_panel,1, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL,5)
+        self.sizer.Add(self.load_launch_panel,1, wx.ALIGN_CENTER_VERTICAL | wx.ALL,5)
         self.SetSizer(self.sizer)
         self.new_data_available = False
 

@@ -683,7 +683,7 @@ class ScenarioSelectPanel(wx.Panel):
                 dlg.Destroy()
                 return
         
-    def OnLoadOmas(self, evt):
+    def OnLoadOMAS(self, evt):
         try:
             self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
             self.Parent.Parent.config_panel.DisableExtRays()

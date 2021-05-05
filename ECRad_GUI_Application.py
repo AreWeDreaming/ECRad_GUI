@@ -268,7 +268,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.Progress_label = wx.StaticText(self, wx.ID_ANY, "No ECRad run in progress")
         self.Progress_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.Progress_sizer.Add(self.ProgressBar, 1, wx.ALL | wx.EXPAND, 5)
-        self.Progress_sizer.Add(self.Progress_label, 0, wx.ALL | wx.ALIGN_RIGHT, 5)
+        self.Progress_sizer.Add(self.Progress_label, 0, wx.ALL, 5)
         self.Redirector = Redirect_Text(self.Log_Box)
         sys.stdout = self.Redirector
         self.index = 0  # Index for the iteration over timepoints

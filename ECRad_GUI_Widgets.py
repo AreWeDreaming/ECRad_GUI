@@ -100,8 +100,7 @@ class simple_label_tc(wx.Panel):
         self.tc.Bind(wx.EVT_SET_FOCUS, self.OnFocus)
         self.tc.Bind(wx.EVT_KILL_FOCUS, self.OnKillFocus)
         self.tc.Bind(wx.EVT_TEXT, self.OnNewValByUser)
-        self.sizer.Add(self.label, 0, \
-                       wx.ALIGN_CENTER_HORIZONTAL| wx.ALL | wx.EXPAND, 5)
+        self.sizer.Add(self.label, 0, wx.ALL | wx.EXPAND, 5)
         self.sizer.Add(self.tc, 0, \
             wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 5)
         if(len(label_text) < 25):
