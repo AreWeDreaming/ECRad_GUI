@@ -142,7 +142,7 @@ class PlotPanel(wx.Panel):
         self.aux_data_box_sizer.Add(self.scenario_quant_box, 0, wx.ALL | wx.EXPAND, 5)
         self.scenario_quant_box.Bind(wx.EVT_LISTBOX, self.OnScenarioQuantSelected)
         self.sizer.Add(self.controlplotsizer, 1, wx.ALL | wx.EXPAND, 10)
-        self.sizer.Add(self.aux_data_box_sizer, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
+        self.sizer.Add(self.aux_data_box_sizer, 0, wx.ALL | wx.TOP, 10)
         self.FigureControlPanel.Show(True)
         self.cur_selected_index = 0
         self.compare_data = {}
