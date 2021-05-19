@@ -266,7 +266,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.index = 0  # Index for the iteration over timepoints
         self.UpperBook = wx.Notebook(self)
         self.scenario_select_panel = ScenarioSelectPanel(self.UpperBook, self.Results.Scenario, self.Results.Config)
-        self.UpperBook.AddPage(self.scenario_select_panel, "Select IDA time points")
+        self.UpperBook.AddPage(self.scenario_select_panel, "Select scenario time points")
         self.launch_panel = LaunchPanel(self.UpperBook, self.Results.Scenario, self.Results.Config["Execution"]["working_dir"])
         self.UpperBook.AddPage(self.launch_panel, "Diagnostic configuration")
         self.config_panel = ConfigPanel(self.UpperBook, self.Results.Config)

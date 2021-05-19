@@ -341,6 +341,7 @@ class PlotPanel(wx.Panel):
         y_axis_labels = [""]
         marker_type_list = []
         first_iter = True
+        added_scenario_data = False
         for n_selected in selections["y_quant"]:
             sub_key = self.lb_widgets["y_quant"].GetString(n_selected)
             compact_index = ()
@@ -433,7 +434,8 @@ class PlotPanel(wx.Panel):
                 if(self.Results.labels[self.y_key][sub_key] not in y_axis_labels[i_axis].split("/")):
                     y_axis_labels[i_axis] += "/" + self.Results.labels[self.y_key][sub_key]
             # Add additional scenario data for the plot
-            if(add_scenario_data):
+            if(add_scenario_data and not added_scenario_data):
+                added_scenario_data = True
                 if(scenario_selection[0] in ["Te","ne"] and not self.Results.Scenario["plasma"]["2D_prof"]):
                     if(not selections["x_quant"].startswith("rho")):
                         print("Cannot plot Te/ne if x_axis is not rhop/rhot")
@@ -464,7 +466,7 @@ class PlotPanel(wx.Panel):
                                     y_list.append(self.Results.Scenario["plasma"][scenario_select][itime] / 1.e19 * \
                                                         self.Results.Scenario["scaling"]["ne_scale"])  
                                 label_list.append(self.Results.Scenario.labels[scenario_select] + r" $t =$ " + \
-                                                  "{0:1.3f}".format(self.Results.Scenario["time"][itime]))
+                                                  "{0:1.3f} s".format(self.Results.Scenario["time"][itime]))
                                 axis_ref_list.append(i_axis)
                                 marker_type_list.append("line")
                                 if(len(y_axis_labels) == 1 and i_axis > 0):
@@ -666,7 +668,7 @@ class PlotContainer(wx.Panel):
                 self.axlist[0].set_ylim(lower,upper)
                 self.canvas.draw_idle()
             else:
-                if(len(self.axislist) > 1):
+                if(len(self.axlist) > 1):
                     self.axlist[1].set_ylim(lower,upper)
                     self.canvas.draw_idle()
         except Exception as e:

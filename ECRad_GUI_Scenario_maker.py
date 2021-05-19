@@ -104,7 +104,7 @@ def make_netcdf_plasma(filename, plasma):
                                                         "eq_data_2D" + "_" +  sub_key, "f8", \
                                                         ("N_time", "N_eq_2D_R", "N_eq_2D_z"))
             var[:] = plasma['eq_data_2D'].get_single_attribute_from_all_slices(sub_key)
-        for sub_key in ["R_ax", "z_ax", "R_sep", "z_sep", "Psi_ax", "Psi_sep"]:
+        for sub_key in ["R_ax", "z_ax", "Psi_ax", "Psi_sep"]:
             var = rootgrp["Plasma"].createVariable(\
                                                         "eq_data_2D" + "_" +  sub_key, "f8", \
                                                         ("N_time",))
@@ -133,7 +133,8 @@ def make_netcdf_launch(filename, launch):
                                                        ("N_time","N_ch"))
             var[:] = launch[sub_key]
 
-def make_plasma_from_variables_single_time(filename, shot, time, rhop_profiles, Te, ne, R, z, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
+def make_plasma_from_variables_single_time(filename, shot, time, rhop_profiles, Te, 
+        ne, R, z, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
     # Vessel data has to be a ndarray of points (shape = (n,2)) with R,z points of the machine wall
     # Alternatively a standard ECRad vessel file can be used like ASDEX_Upgrade_vessel.txt
     # rhop_profiles can be none for 2D profiles
@@ -234,12 +235,12 @@ def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     
 def make_Plasma_for_DIII_D(filename, shot, time, eqdsk_file, derived_file=None, ped_prof=None):
     sys.path.append("../Pylicon")
-    from omfit.omfit_classes.omfit_eqdsk import OMFITeqdsk
+    from omfit.omfit_classes.omfit_eqdsk import OMFITgeqdsk
     from Profile_Utils import make_profile
     profile = make_profile(derived = derived_file, ped_prof = ped_prof, \
                            touch_up={"rhop_cut": 1.04, "rhop_ant": 1.1, \
                            "n_ant": 1e+16, "T_ant": 0.001}, time = time* 1.e3, check_profiles=True)
-    omfit_eq = OMFITeqdsk(eqdsk_file)
+    omfit_eq = OMFITgeqdsk(eqdsk_file)
     plasma_dict = {}
     plasma_dict["shot"] = shot
     rhop = profile.axes["T_e"]
@@ -253,6 +254,52 @@ def make_Plasma_for_DIII_D(filename, shot, time, eqdsk_file, derived_file=None, 
                                            omfit_eq['AuxQuantities']["Bz"].T ,\
                                            omfit_eq['AuxQuantities']["RHOpRZ"].T,\
                                            vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
+
+def make_Plasma_for_SPARC(filename, Te_file, ne_file, eqdsk_file):
+    from omfit.omfit_classes.omfit_eqdsk import OMFITgeqdsk
+    from Plotting_Configuration import plt
+    omfit_eq = OMFITgeqdsk(eqdsk_file)
+    omfit_eq.addAuxQuantities()
+    psi_Te, Te = np.loadtxt(Te_file, skiprows=1, unpack=True)
+    psi_ne, ne = np.loadtxt(ne_file, skiprows=1, unpack=True)
+    ne_spl = InterpolatedUnivariateSpline(psi_ne, np.log(ne))
+    rhop = np.sqrt(psi_Te)
+    ne_int = np.exp(ne_spl(psi_Te))
+    make_plasma_from_variables_single_time(filename, 0, 1.0, rhop, Te*1.e3, ne_int*1.e20, \
+                                           omfit_eq['AuxQuantities']["R"], \
+                                           omfit_eq['AuxQuantities']["Z"], \
+                                           omfit_eq['AuxQuantities']["Br"].T, \
+                                           omfit_eq['AuxQuantities']["Bt"].T ,\
+                                           omfit_eq['AuxQuantities']["Bz"].T ,\
+                                           omfit_eq['AuxQuantities']["RHOpRZ"].T,\
+                                           vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]))
+
+def make_Launch_from_freq_and_points(filename, input_file):
+    launch_data = np.loadtxt(input_file)
+    f = launch_data.T[0]
+    df = f * 0.1
+    x1 = np.array(launch_data.T[1:4])
+    x2 = np.array(launch_data.T[4:])
+    phi_tor = x2[1] - x1[1]
+    phi_tor[np.abs(phi_tor) < 0.1] = 0.1
+    theta_pol = np.rad2deg(np.arctan((x2[2] - x1[2])
+            / np.sqrt((x2[2] - x1[2])**2 +
+                      (x2[0] - x1[0])**2)))
+    make_launch_mat_single_timepoint(filename, f, df, x1[0], x1[1], x1[2], theta_pol, phi_tor, 
+            np.ones(f.shape), np.ones(f.shape) * 0.02, -np.ones(f.shape))
+    
+def set_launch_in_Scenario(scenario_file_in, scenario_file_out, launch_dict):
+    Scenario = ECRadScenario(noLoad=True)
+    Scenario.load(scenario_file_in)
+    for key in Scenario["diagnostic"]:
+        Scenario["diagnostic"][key] = []
+        for time in Scenario["time"]:
+            Scenario["diagnostic"][key].append(launch_dict[key])
+        Scenario["diagnostic"][key] = np.array(Scenario["diagnostic"][key])
+    Scenario['diagnostic']["diag_name"] = np.array(Scenario["diagnostic"]["f"].shape, dtype="|S3")
+    Scenario['diagnostic']["diag_name"][:] = "EXT"
+    Scenario.to_netcdf(filename=scenario_file_out)
+
 
 def put_TRANSP_U_profiles_in_Scenario(Scenario, filename, time, scenario_name):
     from ufilelib import UFILELIB
@@ -425,11 +472,18 @@ def make_test_launch(filename):
     make_launch_mat_single_timepoint(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
     
 if (__name__ == "__main__"):
+    # make_Launch_from_freq_and_points("/mnt/c/Users/Severin/ECRad/SPARC/SPARC_launch.mat",
+    #         "/mnt/c/Users/Severin/ECRad/SPARC/ece_chans")
+    # make_Plasma_for_SPARC(
+    #         "/mnt/c/Users/Severin/ECRad/SPARC/SPARC_fbdry_new_profiles.nc", 
+    #         "/mnt/c/Users/Severin/ECRad/SPARC/te_out", 
+    #         "/mnt/c/Users/Severin/ECRad/SPARC/ne_out", 
+    #         "/mnt/c/Users/Severin/ECRad/SPARC/sparcV2-Free")
     # make_Plasma_for_DIII_D("/mnt/c/Users/Severin/ECRad/DIII-D_176898.nc", 176898, 3.990, \
     #                        "/mnt/c/Users/Severin/Scenarios/176898_3_990/g176898_03990", \
     #                        derived_file="/mnt/c/Users/Severin/Scenarios/176898_3_990/OMFITprofiles_176898_DERIVED.nc")
-    scale_launch_parameter("/mnt/c/Users/Severin/ECRad/ECRad_176898_EXT_ed4.nc", \
-                            "/mnt/c/Users/Severin/ECRad/DIIID_CECE_example.nc", "f", 0.98)
+    scale_launch_parameter("/mnt/c/Users/Severin/ECRad/SPARC/ECRad_    0_EXT_ed7.nc", \
+                            "/mnt/c/Users/Severin/ECRad/SPARC/SPARC_X2_launch.nc", "f", 2)
     # fix_ne_Te_in_plasma_mat("/mnt/c/Users/Severin/ECRad/Yu/plasma_179328_3.4_v2.mat", \
     #                         "/mnt/c/Users/Severin/ECRad/Yu/plasma_179328_3.4_v3.mat")
 #     Scenario = ECRadScenario(noLoad=True)

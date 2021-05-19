@@ -197,7 +197,7 @@ class LaunchPanel(wx.Panel):
                     return
                 itime = timepoint_dlg.itime
             newExtDiag.set_from_scenario_diagnostic(NewSceario["diagnostic"], itime, set_only_EXT=False)
-            NewSceario.avail_diags_dict.update({"EXT":  newExtDiag})
+            NewSceario["avail_diags_dict"].update({"EXT":  newExtDiag})
             curScenario = self.GetCurScenario()
             curScenario["avail_diags_dict"].update({"EXT":  newExtDiag})
             curScenario["used_diags_dict"].update({"EXT":  newExtDiag})
