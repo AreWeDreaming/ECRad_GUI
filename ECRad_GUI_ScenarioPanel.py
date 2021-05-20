@@ -755,6 +755,10 @@ class ScenarioSelectPanel(wx.Panel):
         if(dlg.ShowModal() == wx.ID_OK):
             try:
                 ids = dlg.ids
+                check=ids.open()
+                if check[0]!=0:
+                    print('ERROR: Could not open the IMAS file with plasma')
+                    return
                 try:
                     eq_ids = ids.get('equilibrium')
                 except Exception as e:

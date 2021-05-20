@@ -182,6 +182,10 @@ class LaunchPanel(wx.Panel):
         dlg = IMASSelectDialog(self)
         if(dlg.ShowModal() == wx.ID_OK):
             ids = dlg.ids
+            check=ids.open()
+            if check[0]!=0:
+                print('ERROR: Could not open the IMAS file with plasma')
+                return
             try:
                 ece_ids = ids.get('ece')
             except Exception as e:
