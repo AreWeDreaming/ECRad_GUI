@@ -182,9 +182,13 @@ class LaunchPanel(wx.Panel):
         dlg = IMASSelectDialog(self)
         if(dlg.ShowModal() == wx.ID_OK):
             ids = dlg.ids
+            try:
+                ece_ids = ids.get('ece')
+            except:
+                print("Cannot access ECE in IDS")
             NewSceario = ECRadScenario(noLoad=True)
             try:
-                NewSceario.set_up_launch_from_imas(ids)
+                NewSceario.set_up_launch_from_imas(ece_ids)
                 newExtDiag = EXT_diag("EXT")
                 if(len( ids['ece']['channel']['time']) == 1):
                     itime = 0
@@ -196,7 +200,7 @@ class LaunchPanel(wx.Panel):
                     itime = timepoint_dlg.itime
             except Exception as e:
                 print("ERROR: Failed to load launch from IMAS!")
-                print("ERROR: Does the specified data base entry have an ece IDS?")
+                print("ERROR: There are probably required entries missing in the IDS")
                 print(e)
                 return
             newExtDiag.set_from_scenario_diagnostic(NewSceario["diagnostic"], itime, set_only_EXT=False)

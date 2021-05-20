@@ -122,7 +122,7 @@ class IMASSelectDialog(wx.Dialog):
         self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
         self.user_dir_tc = simple_label_tc(self, "Stored under", "public", "string")
         self.tc_sizer.Add(self.user_dir_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.database_tc = simple_label_tc(self, "Database", "ITER_MD", "string")
+        self.database_tc = simple_label_tc(self, "Database", "iter", "string")
         self.tc_sizer.Add(self.database_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
         self.shot_tc = simple_label_tc(self, "shot", 0, "integer")
         self.tc_sizer.Add(self.shot_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)

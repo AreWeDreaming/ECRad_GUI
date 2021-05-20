@@ -755,6 +755,14 @@ class ScenarioSelectPanel(wx.Panel):
         if(dlg.ShowModal() == wx.ID_OK):
             try:
                 ids = dlg.ids
+                try:
+                    eq_ids = ids.get('equilibrium')
+                except:
+                    print("Cannot access equlibrium in IDS")
+                try:    
+                    prof_ids = ids.get['core_profiles']
+                except:
+                    print("Cannot access profiles in IDS")
                 time_base_dlg = IMASTimeBaseSelectDlg(self)
                 if(time_base_dlg.ShowModal() != wx.ID_OK):
                     time_base_dlg.Destroy()
@@ -763,13 +771,13 @@ class ScenarioSelectPanel(wx.Panel):
                 time_base_dlg.Destroy()
                 times = ids[time_base_source]['time']
                 NewScenario = ECRadScenario(True)
-                NewScenario.set_up_profiles_from_imas(ids, times)
-                NewScenario.set_up_equilibrium_from_imas(ids, times)
+                NewScenario.set_up_profiles_from_imas(prof_ids, times)
+                NewScenario.set_up_equilibrium_from_imas(eq_ids, times)
                 self.SetFromNewScenario(NewScenario, dlg.GetPath())
             except Exception as e:
                 print(e)
-                print("ERROR: Failed to load Scenario -- does the specified data base entry have ")
-                print("an equilbrium and profile IDS?")
+                print("ERROR: Failed to load Scenario -- there are probably required ")
+                print("entries missing in the IDS.")
                 return
         dlg.Destroy()
 
