@@ -12,6 +12,7 @@ from ECRad_Interface import get_diag_launch
 import os
 from Diag_Types import EXT_diag
 from ECRad_Scenario import ECRadScenario
+from ECRad_GUI_Dialogs import IMASSelectDialog
 
 class LaunchPanel(wx.Panel):
     def __init__(self, parent, Scenario, working_dir):
@@ -156,7 +157,7 @@ class LaunchPanel(wx.Panel):
                 from omas import ODS
                 ods = ODS()
                 ods.load(path)
-                NewSceario.set_up_launch_from_ods(ods)
+                NewSceario.set_up_launch_from_imas(ods)
                 newExtDiag = EXT_diag("EXT")
                 if(len( ods['ece']['channel']['time']) == 1):
                     itime = 0
@@ -167,7 +168,7 @@ class LaunchPanel(wx.Panel):
                         return
                     itime = timepoint_dlg.itime
             except Exception as e:
-                print("Failed to load launch from OMAS")
+                print("ERROR: Failed to load launch from OMAS")
                 print(e)
                 return
             newExtDiag.set_from_scenario_diagnostic(NewSceario["diagnostic"], itime, set_only_EXT=False)
@@ -176,6 +177,35 @@ class LaunchPanel(wx.Panel):
             curScenario["avail_diags_dict"].update({"EXT": newExtDiag})
             curScenario["used_diags_dict"].update({"EXT": newExtDiag})
             self.SetScenario(curScenario, self.working_dir)
+
+    def LoadFromIMAS(self, evt):
+        dlg = IMASSelectDialog(self)
+        if(dlg.ShowModal() == wx.ID_OK):
+            ids = dlg.ids
+            NewSceario = ECRadScenario(noLoad=True)
+            try:
+                NewSceario.set_up_launch_from_imas(ids)
+                newExtDiag = EXT_diag("EXT")
+                if(len( ids['ece']['channel']['time']) == 1):
+                    itime = 0
+                else:
+                    timepoint_dlg = Select_Raylaunch_timepoint(self, ids['ece']['channel']['time'])
+                    if(not (timepoint_dlg.ShowModal() == wx.ID_OK)):
+                        print("Aborted")
+                        return
+                    itime = timepoint_dlg.itime
+            except Exception as e:
+                print("ERROR: Failed to load launch from IMAS!")
+                print("ERROR: Does the specified data base entry have an ece IDS?")
+                print(e)
+                return
+            newExtDiag.set_from_scenario_diagnostic(NewSceario["diagnostic"], itime, set_only_EXT=False)
+            NewSceario.avail_diags_dict.update({"EXT": newExtDiag})
+            curScenario = self.GetCurScenario()
+            curScenario["avail_diags_dict"].update({"EXT": newExtDiag})
+            curScenario["used_diags_dict"].update({"EXT": newExtDiag})
+            self.SetScenario(curScenario, self.working_dir)
+        dlg.Destroy()
 
     def GenExtFromOld(self, evt):
         dlg = wx.FileDialog(\

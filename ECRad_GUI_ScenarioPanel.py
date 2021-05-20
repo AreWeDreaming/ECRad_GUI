@@ -6,7 +6,7 @@ Created on Mar 21, 2019
 from Global_Settings import globalsettings
 import os
 from ECRad_GUI_Widgets import simple_label_tc
-from ECRad_GUI_Dialogs import OMASTimeBaseSelectDlg
+from ECRad_GUI_Dialogs import IMASTimeBaseSelectDlg,IMASSelectDialog
 import wx
 from WX_Events import EVT_UPDATE_DATA, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
                       Unbound_EVT_REPLOT, LockExportEvt, Unbound_EVT_LOCK_EXPORT
@@ -92,6 +92,8 @@ class ScenarioSelectPanel(wx.Panel):
                                wx.EXPAND | wx.ALL, 5)
         self.load_Scenario_from_mat_button = wx.Button(self, wx.ID_ANY, "Load ECRadScenario")
         self.load_Scenario_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadScenario)
+        self.load_Scenario_from_imas_button = wx.Button(self, wx.ID_ANY, "Load from IMAS database")
+        self.load_Scenario_from_imas_button.Bind(wx.EVT_BUTTON, self.OnLoadIMAS)
         self.load_Scenario_from_omas_button = wx.Button(self, wx.ID_ANY, "Load from OMAS file")
         self.load_Scenario_from_omas_button.Bind(wx.EVT_BUTTON, self.OnLoadOMAS)
         self.load_from_mat_button = wx.Button(self, wx.ID_ANY, "Load from *.nc/*.mat")
@@ -116,6 +118,8 @@ class ScenarioSelectPanel(wx.Panel):
 #        self.load_data_sizer.Add(self.load_GENE_button, 0, \
 #                         wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.control_sizer.Add(self.load_Scenario_from_mat_button, 0, \
+                               wx.EXPAND |  wx.ALL, 5)
+        self.control_sizer.Add(self.load_Scenario_from_imas_button, 0, \
                                wx.EXPAND |  wx.ALL, 5)
         self.control_sizer.Add(self.load_Scenario_from_omas_button, 0, \
                                wx.EXPAND |  wx.ALL, 5)
@@ -727,11 +731,48 @@ class ScenarioSelectPanel(wx.Panel):
             dlg.Destroy()
         except Exception as e:
             print(e)
-            print("Failed to load Scenario -- does the selected file contain a Scenario?")
+            print("ERROR: Failed to load Scenario -- does the selected file contain a Scenario?")
             print("I fthis file only contains profiles and equilibria try load from .mat instead.")
             dlg.Destroy()
             return
         
+    def OnLoadIMAS(self, evt):
+        
+        try:
+            self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
+            self.Parent.Parent.config_panel.DisableExtRays()
+        except ValueError as e:
+            print("Failed to parse Configuration")
+            print("Reason: " + e)
+            return
+#         try:
+#             Scenario = self.Parent.Parent.launch_panel.UpdateScenario(self.Scenario)
+#         except ValueError as e:
+#             print("Failed to parse Configuration")
+#             print("Reason: " + e)
+#             return
+        dlg = IMASSelectDialog(self)
+        if(dlg.ShowModal() == wx.ID_OK):
+            try:
+                ids = dlg.ids
+                time_base_dlg = IMASTimeBaseSelectDlg(self)
+                if(time_base_dlg.ShowModal() != wx.ID_OK):
+                    time_base_dlg.Destroy()
+                    return
+                time_base_source = time_base_dlg.choice
+                time_base_dlg.Destroy()
+                times = ids[time_base_source]['time']
+                NewScenario = ECRadScenario(True)
+                NewScenario.set_up_profiles_from_imas(ids, times)
+                NewScenario.set_up_equilibrium_from_imas(ids, times)
+                self.SetFromNewScenario(NewScenario, dlg.GetPath())
+            except Exception as e:
+                print(e)
+                print("ERROR: Failed to load Scenario -- does the specified data base entry have ")
+                print("an equilbrium and profile IDS?")
+                return
+        dlg.Destroy()
+
     def SetFromNewScenario(self, NewScenario, path):
         self.UpdateContent(NewScenario, diag_name=NewScenario.default_diag)
         self.plasma_dict = NewScenario["plasma"]

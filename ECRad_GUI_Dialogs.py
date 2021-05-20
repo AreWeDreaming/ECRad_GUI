@@ -114,7 +114,58 @@ class TextEntryDialog(wx.Dialog):
         self.val = self.val_tc.GetValue()
         self.EndModal(wx.ID_OK)
 
-class OMASTimeBaseSelectDlg(wx.Dialog):
+class IMASSelectDialog(wx.Dialog):
+    def __init__(self, parent):
+        wx.Dialog.__init__(self, parent, wx.ID_ANY)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)        
+        self.tc_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.user_dir_tc = simple_label_tc(self, "Stored under", "public", "string")
+        self.tc_sizer.Add(self.user_dir_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.database_tc = simple_label_tc(self, "Database", "ITER_MD", "string")
+        self.tc_sizer.Add(self.database_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.shot_tc = simple_label_tc(self, "shot", 0, "integer")
+        self.tc_sizer.Add(self.shot_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.run_tc = simple_label_tc(self, "run", 0, "integer")
+        self.tc_sizer.Add(self.run_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.LoadButton = wx.Button(self, wx.ID_ANY, 'Load')
+        self.Bind(wx.EVT_BUTTON, self.OnLoad, self.LoadButton)
+        self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
+        self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
+        self.ButtonSizer.Add(self.LoadButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.sizer.Add(self.tc_sizer, 0, wx.ALL | \
+                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
+                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.SetSizer(self.sizer)
+        self.SetClientSize(self.GetEffectiveMinSize())
+
+    def EvtClose(self, Event):
+        self.EndModal(wx.ID_ABORT)
+
+    def OnLoad(self, Event):
+        try:
+            import imas
+        except ImportError:
+            print("IMAS not accessible!")
+            return
+        try:
+            self.ids = imas.DBEntry(
+                    imas.imasdef.MDSPLUS_BACKEND,
+                    self.database_tc.GetValue(),
+                    self.shot_tc.GetValue(),
+                    self.run_tc.GetValue(),
+                    self.user_dir_tc.GetValue())
+            self.EndModal(wx.ID_OK)
+        except Exception as e:
+            print("Failed to load IMAS entry")
+            print(e)
+            self.EndModal(wx.ID_ABORT)
+        
+
+
+class IMASTimeBaseSelectDlg(wx.Dialog):
     def __init__(self, parent):
         wx.Dialog.__init__(self, parent, wx.ID_ANY)
         self.sizer = wx.BoxSizer(wx.VERTICAL)        
