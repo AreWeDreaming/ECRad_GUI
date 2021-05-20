@@ -184,8 +184,10 @@ class LaunchPanel(wx.Panel):
             ids = dlg.ids
             try:
                 ece_ids = ids.get('ece')
-            except:
-                print("Cannot access ECE in IDS")
+            except Exception as e:
+                print(e)
+                print("ERROR: Cannot access ECE in IDS")
+                return
             NewSceario = ECRadScenario(noLoad=True)
             try:
                 NewSceario.set_up_launch_from_imas(ece_ids)
