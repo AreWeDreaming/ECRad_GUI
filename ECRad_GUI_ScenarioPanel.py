@@ -326,6 +326,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.RemoveButton.Disable()
         self.UnlockButton.Enable()
         self.new_data_available = False
+        self.loaded = True
         
     def UpdateContent(self, Scenario, diag_name="ECE"):
         # Sets the content of textboxes without updating the scenario
