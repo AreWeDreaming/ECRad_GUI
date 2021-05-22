@@ -805,7 +805,7 @@ class ScenarioSelectPanel(wx.Panel):
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
         self.pc_obj.reset(True)
-        Te_indices = np.zeros((len(self.plasma_dict["Te"]), len(self.plasma_dict["Te"][0])), dtype=np.bool)
+        Te_indices = np.zeros(self.plasma_dict["Te"].shape, dtype=np.bool)
         IDA_labels = []
         rhop_range = [0.2, 0.95]
         if(not self.plasma_dict["2D_prof"]):
@@ -972,7 +972,12 @@ class ScenarioSelectPanel(wx.Panel):
         if(Scenario["plasma"]["eq_dim"] == 2): 
             Scenario["plasma"]["vessel_bd"] = self.plasma_dict["vessel_bd"]
         Scenario["time"] = np.array(Scenario["time"])
+        Scenario["plasma"]["Te"] = np.array(Scenario["plasma"]["Te"])
+        Scenario["plasma"]["ne"] = np.array(Scenario["plasma"]["ne"])
         Scenario["plasma"]["prof_reference"] = self.plasma_dict["prof_reference"]
+        if(not Scenario["plasma"]["2D_prof"]):
+            Scenario["plasma"][Scenario["plasma"]["prof_reference"]] = np.array(
+                Scenario["plasma"][Scenario["plasma"]["prof_reference"]])
         Scenario.plasma_set = True
         self.new_data_available = False
         return Scenario

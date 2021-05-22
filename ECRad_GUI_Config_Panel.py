@@ -65,4 +65,4 @@ class ConfigPanel(wx.Panel):
             self.widgets["working_dir"].SetValue(os.path.dirname(evt.path))
         if len(self.widgets["scratch_dir"].GetValue()) == 0:
             self.widgets["scratch_dir"].SetValue(os.path.dirname(evt.path))
-        self.config_panel.DisableExtRays()
+        self.DisableExtRays()
