@@ -771,6 +771,12 @@ class ScenarioSelectPanel(wx.Panel):
                     print(e)
                     print("ERROR: Cannot access profiles in IDS")
                     return
+                try:    
+                    prof_ids = ids.get('wall')
+                except Exception as e:
+                    print(e)
+                    print("ERROR: Cannot access wall in IDS")
+                    return
                 time_base_dlg = IMASTimeBaseSelectDlg(self)
                 if(time_base_dlg.ShowModal() != wx.ID_OK):
                     time_base_dlg.Destroy()
