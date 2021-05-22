@@ -6,10 +6,12 @@ Created on Apr 3, 2019
 import wx
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row
 import os
+from WX_Events import EVT_UPDATE_CONFIG
 class ConfigPanel(wx.Panel):
     def __init__(self, parent, Config, border=1, maxwidth=max_var_in_row, \
                     parentmode=False, style=wx.TAB_TRAVERSAL | wx.NO_BORDER):
         wx.Panel.__init__(self, parent, wx.ID_ANY, style=style)
+        self.Bind(EVT_UPDATE_CONFIG, self.OnConfigLoaded)
         self.name = "ECRad settings"
         columns = 8
         self.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -56,3 +58,11 @@ class ConfigPanel(wx.Panel):
 
     def DisableExtRays(self):
         self.widgets["use_ext_rays"].Disable()
+
+    def OnConfigLoaded(self, evt):
+        self.SetConfig(evt.config)
+        if len(self.widgets["working_dir"].GetValue()) == 0:
+            self.widgets["working_dir"].SetValue(os.path.dirname(evt.path))
+        if len(self.widgets["scratch_dir"].GetValue()) == 0:
+            self.widgets["scratch_dir"].SetValue(os.path.dirname(evt.path))
+        self.config_panel.DisableExtRays()

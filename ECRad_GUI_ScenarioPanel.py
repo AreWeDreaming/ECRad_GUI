@@ -310,23 +310,20 @@ class ScenarioSelectPanel(wx.Panel):
         Config_Dlg.Destroy()
 
     def OnUpdate(self, evt):
-        self.UpdateContent(evt.Results.Scenario)
-        self.Config = evt.Results.Config
-        self.pc_obj.reset(False)
-        self.canvas.draw()
-        self.UpdateContent(evt.Results.Scenario)
-        self.post_run = True
-        self.used = list(np.array(evt.Results.Scenario["time"], dtype="|U5"))
+        self.unused = []
+        self.used = []
         self.used_list.Clear()
-        self.used_list.AppendItems(np.array(evt.Results.Scenario["time"], dtype="|U5"))
         self.unused_list.Clear()
+        self.Config = evt.Results.Config
+        self.SetFromNewScenario(evt.Results.Scenario, evt.Results.data_origin)
+        while self.unused_list.GetCount() > 0:
+            self.add_to_used(0)
+        self.post_run = True
         self.used_list.Disable()
         self.unused_list.Disable()
         self.AddButton.Disable()
         self.RemoveButton.Disable()
         self.UnlockButton.Enable()
-        self.new_data_available = False
-        self.loaded = True
         
     def UpdateContent(self, Scenario, diag_name="ECE"):
         # Sets the content of textboxes without updating the scenario
@@ -1246,11 +1243,9 @@ class ScenarioSelectPanel(wx.Panel):
                 self.unused_list.AppendItems(self.unused)
             self.new_data_available = True
 
-    def OnAddSelection(self, evt):
-        sel = self.unused_list.GetSelections()
-        for i_sel in sel:
-            string = self.unused_list.GetString(i_sel)
-            self.used.append(self.unused.pop(self.unused.index(string)))
+    def add_to_used(self, i_select):
+        string = self.unused_list.GetString(i_select)
+        self.used.append(self.unused.pop(self.unused.index(string)))
         self.used = list(set(self.used))
         self.used.sort()
         self.unused = list(set(self.unused))
@@ -1262,6 +1257,26 @@ class ScenarioSelectPanel(wx.Panel):
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
         self.new_data_available = True
+
+    def add_to_unused(self, i_select):
+        string = self.used_list.GetString(i_select)
+        self.unused.append(self.used.pop(self.used.index(string)))
+        self.used = list(set(self.used))
+        self.used.sort()
+        self.unused = list(set(self.unused))
+        self.unused.sort()
+        self.used_list.Clear()
+        if(len(self.used) > 0):
+            self.used_list.AppendItems(self.used)
+        self.unused_list.Clear()
+        if(len(self.unused) > 0):
+            self.unused_list.AppendItems(self.unused)
+        self.new_data_available = True
+
+    def OnAddSelection(self, evt):
+        sel = self.unused_list.GetSelections()
+        for i_sel in sel:
+            self.add_to_used(i_sel)
 
     def OnUnlockSelection(self, evt):
         self.post_run = False
@@ -1278,19 +1293,7 @@ class ScenarioSelectPanel(wx.Panel):
     def OnRemoveSelection(self, evt):
         sel = self.used_list.GetSelections()
         for i_sel in sel:
-            string = self.used_list.GetString(i_sel)
-            self.unused.append(self.used.pop(self.used.index(string)))
-        self.used = list(set(self.used))
-        self.used.sort()
-        self.unused = list(set(self.unused))
-        self.unused.sort()
-        self.used_list.Clear()
-        if(len(self.used) > 0):
-            self.used_list.AppendItems(self.used)
-        self.unused_list.Clear()
-        if(len(self.unused) > 0):
-            self.unused_list.AppendItems(self.unused)
-        self.new_data_available = True
+            self.add_to_unused(i_sel)
 
 
     def ChangeCursor(self, event):

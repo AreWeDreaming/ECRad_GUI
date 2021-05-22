@@ -3,7 +3,7 @@ Created on Mar 21, 2019
 
 @author: sdenk
 '''
-from WX_Events import NewStatusEvt, Unbound_EVT_NEW_STATUS
+from WX_Events import NewStatusEvt, Unbound_EVT_NEW_STATUS, EVT_UPDATE_DATA
 import wx
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row
 from collections import OrderedDict as od
@@ -17,6 +17,7 @@ from ECRad_GUI_Dialogs import IMASSelectDialog
 class LaunchPanel(wx.Panel):
     def __init__(self, parent, Scenario, working_dir):
         wx.Panel.__init__(self, parent, wx.ID_ANY)
+        self.Bind(EVT_UPDATE_DATA, self.OnUpdate)
         self.Notebook = Diag_Notebook(self)
         self.diag_select_panel = wx.Panel(self, wx.ID_ANY, style=wx.SUNKEN_BORDER)
         self.diag_select_panel.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -58,6 +59,9 @@ class LaunchPanel(wx.Panel):
         self.sizer.Add(self.load_launch_panel,1, wx.TOP | wx.ALL,5)
         self.SetSizer(self.sizer)
         self.new_data_available = False
+
+    def OnUpdate(self, evt):
+        self.SetScenario(evt.Results.Scenario, os.path.dirname(evt.path))
 
     def RecreateNb(self):
         self.Notebook.DeleteAllPages()

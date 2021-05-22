@@ -191,7 +191,6 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.Bind(EVT_MAKE_ECRAD, self.OnProcessTimeStep)
         self.Bind(EVT_ECRAD_FINISHED, self.OnProcessEnded)
         self.Bind(EVT_NEXT_TIME_STEP, self.OnNextTimeStep)
-        self.Bind(EVT_UPDATE_CONFIG, self.OnConfigLoaded)
         self.Bind(EVT_UPDATE_DATA, self.OnUpdate)
         self.Bind(EVT_LOCK_EXPORT, self.OnLockExport)
         self.Bind(wx.EVT_IDLE, self.OnIdle)
@@ -234,7 +233,6 @@ class Main_Panel(scrolled.ScrolledPanel):
                         wx.LEFT, 5)
         self.ButtonSizer.Add(self.NameButton, 0, wx.ALL | \
                         wx.LEFT, 5)
-        
         self.ControlSizer.Add(self.ButtonSizer, 0, wx.ALIGN_TOP)
         self.Log_Box = wx.TextCtrl(self, wx.ID_ANY, size=(200, 100), \
                 style=wx.TE_MULTILINE | wx.TE_READONLY)
@@ -656,12 +654,16 @@ class Main_Panel(scrolled.ScrolledPanel):
             for time in self.Results.Scenario["time"]:
                 self.TimeBox.Append("{0:1.5f}".format(time))
             evt_out = UpdateConfigEvt(Unbound_EVT_UPDATE_CONFIG, self.GetId())
-            wx.PostEvent(self,evt_out)
+            evt_out.set_config(self.Results.Config)
+            evt_out.set_data_origin(self.Results.data_origin)
+            wx.PostEvent(self.config_panel, evt_out)
             evt_out_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
             evt_out_2.SetResults(self.Results)
+            evt_out_2.SetPath(self.Results.data_origin)
             if(globalsettings.AUG):
-                wx.PostEvent(evt_out_2, self.calib_panel)
+                wx.PostEvent(self.calib_panel, evt_out_2)
             wx.PostEvent(self.scenario_select_panel, evt_out_2)
+            wx.PostEvent(self.launch_panel, evt_out_2)
             wx.PostEvent(self.plot_panel, evt_out_2)
         else:
             print("ERROR: Failed to load Results")
@@ -724,10 +726,6 @@ class Main_Panel(scrolled.ScrolledPanel):
 #             self.ECRad_running = False
 #             self.OnProcessEnded(None) 
 
-    def OnConfigLoaded(self, evt):
-        self.config_panel.SetConfig(self.Results.Config)
-        self.config_panel.DisableExtRays()
-        self.launch_panel.SetScenario(self.Results.Scenario, self.Results.Config["Execution"]["working_dir"])
         
     def OnName(self, evt):
         if(self.Results.comment == None):
