@@ -20,6 +20,7 @@ from ECRad_Scenario import ECRadScenario
 from ECRad_Results import ECRadResults
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 from Basic_Methods.Equilibrium_Utils import EQDataExt
+from copy import deepcopy
 if(globalsettings.AUG):
     from Equilibrium_Utils_AUG import EQData, vessel_bd_file, check_Bt_vac_source
     from Shotfile_Handling_AUG import load_IDA_data, get_diag_data_no_calib, get_divertor_currents, filter_CTA
@@ -270,6 +271,8 @@ class ScenarioSelectPanel(wx.Panel):
             self.plasma_dict["time"] = Scenario["time"]
             self.plasma_dict["shot"] = Scenario["shot"]
             if(globalsettings.AUG):
+                self.plasma_dict["IDA_exp"] = Scenario["AUG"]["IDA_exp"]
+                self.plasma_dict["IDA_ed"] = Scenario["AUG"]["IDA_ed"]
                 self.plasma_dict["EQ_exp"] = Scenario["AUG"]["EQ_exp"]
                 self.plasma_dict["EQ_diag"] = Scenario["AUG"]["EQ_diag"]
                 self.plasma_dict["EQ_ed"] = Scenario["AUG"]["EQ_ed"]
@@ -386,12 +389,8 @@ class ScenarioSelectPanel(wx.Panel):
         self.plasma_dict["AUG"] = {}
         self.plasma_dict["AUG"]["IDA_exp"] = self.IDA_exp_tc.GetValue()
         self.plasma_dict["AUG"]["IDA_ed"] = self.plasma_dict["ed"]
-        vessel_bd = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
+        self.plasma_dict["vessel_bd"] = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
         self.plasma_dict["prof_reference"] = "rhop_prof"
-        self.plasma_dict["vessel_bd"] = []
-        self.plasma_dict["vessel_bd"].append(vessel_bd.T[0])
-        self.plasma_dict["vessel_bd"].append(vessel_bd.T[1])
-        self.plasma_dict["vessel_bd"] = np.array(self.plasma_dict["vessel_bd"])
         self.plasma_dict["AUG"]["EQ_exp"] = self.plasma_dict["EQ_exp"]
         self.plasma_dict["AUG"]["EQ_diag"] = self.plasma_dict["EQ_diag"]
         self.plasma_dict["AUG"]["EQ_ed"] = self.plasma_dict["EQ_ed"]
@@ -795,9 +794,9 @@ class ScenarioSelectPanel(wx.Panel):
 
     def SetFromNewScenario(self, NewScenario, path):
         self.UpdateContent(NewScenario, diag_name=NewScenario.default_diag)
-        self.plasma_dict = NewScenario["plasma"]
-        self.plasma_dict["time"] = NewScenario["time"]
-        self.plasma_dict["shot"] = NewScenario["shot"]
+        self.plasma_dict = deepcopy(NewScenario["plasma"])
+        self.plasma_dict["time"] = np.copy(NewScenario["time"])
+        self.plasma_dict["shot"] = np.copy(NewScenario["shot"])
         for t in self.plasma_dict["time"]:
             self.unused.append("{0:2.5f}".format(t))
         self.unused = list(set(self.unused))
@@ -902,7 +901,7 @@ class ScenarioSelectPanel(wx.Panel):
         old_time_list = []
         old_eq = []
         old_rhot_prof_list = []
-        if(globalsettings.AUG and Scenario.data_source == "aug_database"):
+        if(globalsettings.AUG and self.data_source == "aug_database"):
             # Reset the equilibrium for AUG to make sure we get the one requested by the user
             self.plasma_dict["eq_data_2D"] = None
             # Get rid of the old stuff it will be updated now
@@ -910,9 +909,10 @@ class ScenarioSelectPanel(wx.Panel):
                Scenario["AUG"]["EQ_diag"] == self.EQ_diag_tc.GetValue() and \
                Scenario["AUG"]["EQ_ed"] == self.EQ_ed_tc.GetValue()):
                 old_time_list = np.copy(Scenario["time"])
-                old_eq = old_eq = EQDataExt(Scenario["shot"], Ext_data=True)
+                old_eq = EQDataExt(Scenario["shot"], Ext_data=True)
                 for time in old_time_list:
-                    old_eq.insert_slices_from_ext([time], [Scenario["plasma"]["eq_data_2D"].GetSlice(time)])
+                    old_eq.insert_slices_from_ext(
+                            [time], [Scenario["plasma"]["eq_data_2D"].GetSlice(time)])
                 if(len(Scenario["plasma"]["rhot_prof"]) > 0):
                     old_rhot_prof_list = Scenario["plasma"]["rhot_prof"]
                 else:
@@ -931,8 +931,8 @@ class ScenarioSelectPanel(wx.Panel):
             Scenario["plasma"]["eq_dim"] = 2
         Scenario["shot"] = self.plasma_dict["shot"]
         if(globalsettings.AUG and Scenario.data_source == "aug_database"):
-            Scenario["AUG"]["IDA_exp"] = self.plasma_dict["AUG"]["IDA_exp"]
-            Scenario["AUG"]["IDA_ed"] = self.plasma_dict["AUG"]["IDA_ed"]
+            Scenario["AUG"]["IDA_exp"] = self.plasma_dict["IDA_exp"]
+            Scenario["AUG"]["IDA_ed"] = self.plasma_dict["IDA_ed"]
             Scenario.default_diag = self.diag_tc.GetValue()
             Scenario["AUG"]["EQ_exp"] = self.EQ_exp_tc.GetValue()
             Scenario["AUG"]["EQ_diag"] = self.EQ_diag_tc.GetValue()

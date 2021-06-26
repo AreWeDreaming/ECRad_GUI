@@ -154,16 +154,16 @@ class CalibPanel(wx.Panel):
 
     def OnUpdate(self, evt):
         self.Results = evt.Results
-        self.shot = self.Results.Scenario.shot
-        self.time = self.Results.time
-        if(len(list(self.Results.Scenario.used_diags_dict)) > 0 and len(self.time) > 0):
+        self.shot = self.Results.Scenario["shot"]
+        self.time = self.Results.Scenario["time"]
+        if(len(list(self.Results.Scenario["used_diags_dict"])) > 0 and len(self.time) > 0):
             self.calib_diag_dict = {}
-            if(self.last_used_diag_name in self.Results.Scenario.used_diags_dict):
+            if(self.last_used_diag_name in self.Results.Scenario["used_diags_dict"]):
                 self.last_used_diag_name = None
             self.diag_select_choice.Clear()
-            for key in self.Results.Scenario.used_diags_dict:
-                self.diag_select_choice.Append(self.Results.Scenario.used_diags_dict[key].name)
-                self.calib_diag_dict[key] = deepcopy(self.Results.Scenario.used_diags_dict[key])
+            for key in self.Results.Scenario["used_diags_dict"]:
+                self.diag_select_choice.Append(self.Results.Scenario["used_diags_dict"][key].name)
+                self.calib_diag_dict[key] = deepcopy(self.Results.Scenario["used_diags_dict"][key])
             self.used = list(self.time.astype("|U7"))
             self.unused = []
             self.used_list.Clear()
@@ -188,7 +188,7 @@ class CalibPanel(wx.Panel):
     def OnNewDiagSelected(self, evt):
         if(self.Results is None):
             return
-        if(len(list(self.Results.Scenario.used_diags_dict))==0):
+        if(len(list(self.Results.Scenario["used_diags_dict"]))==0):
             return
         if(self.last_used_diag_name == self.diag_select_choice.GetStringSelection()):
             return
@@ -203,15 +203,14 @@ class CalibPanel(wx.Panel):
             self.mode_filter_cb.SetValue(self.calib_diag_dict[self.last_used_diag_name].mode_filter)
             self.mode_width_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].mode_width)
             self.freq_cut_off_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].freq_cut_off)
-        if(self.last_used_diag_name in list(self.Results.masked_time_points)):
-            self.used = list(self.time[self.Results.masked_time_points[self.last_used_diag_name]].astype("|U7"))
-            self.unused = list(self.time[self.Results.masked_time_points[self.last_used_diag_name] == False].astype("|U7"))
-            self.used_list.Clear()
-            if(len(self.used) > 0):
-                self.used_list.AppendItems(self.used)
-            self.unused_list.Clear()
-            if(len(self.unused) > 0):
-                self.unused_list.AppendItems(self.unused)
+        self.used = []
+        self.unused = list(self.time.astype("|U7"))
+        self.used_list.Clear()
+        if(len(self.used) > 0):
+            self.used_list.AppendItems(self.used)
+        self.unused_list.Clear()
+        if(len(self.unused) > 0):
+            self.unused_list.AppendItems(self.unused)
         self.OnResetPlot(None)      
         
 
@@ -265,24 +264,24 @@ class CalibPanel(wx.Panel):
         if(len(self.used) == 0):
             print("No time points designated for calibration --  aborting")
             return
-        self.cur_diag=None #  Diag in self.Results.Scenario.used_diags_dict that corresponds to the currently select diagnostic
+        self.cur_diag=None #  Diag in self.Results.Scenario["used_diags_dict"] that corresponds to the currently select diagnostic
         self.last_used_diag_name = self.diag_select_choice.GetStringSelection()
         try:
-            for key in list(self.Results.Scenario.used_diags_dict):
+            for key in list(self.Results.Scenario["used_diags_dict"]):
                 if(key == self.last_used_diag_name):
-                    self.cur_diag = self.Results.Scenario.used_diags_dict[key]
+                    self.cur_diag = self.Results.Scenario["used_diags_dict"][key]
                 elif(self.overwrite_diag_cb.GetValue() and key == "EXT"):
-                    self.Results.Scenario.used_diags_dict[self.cur_diag.name] = deepcopy(self.calib_diag_dict[self.last_used_diag_name])
+                    self.Results.Scenario["used_diags_dict"][self.cur_diag.name] = deepcopy(self.calib_diag_dict[self.last_used_diag_name])
                     for itime in range(len(self.Results.time)):
                         self.Results.Scenario.ray_launch["diag_name"][itime][self.Results.Scenario.ray_launch["diag_name"][itime] == "EXT"] = self.calib_diag_dict[self.last_used_diag_name].name
-                    del(self.Results.Scenario.used_diags_dict[key])
+                    del(self.Results.Scenario["used_diags_dict"][key])
         except AttributeError as e:
             print("ERROR! Nothing to calibrate!")
             print(e)
             return
         if(self.cur_diag is None):
             print("Could not find any data for {0:s} in current ECRad data set".format(self.calib_diag_dict[self.last_used_diag_name].name))
-            print("Available diagnostics are", list(self.Results.Scenario.used_diags_dict))
+            print("Available diagnostics are", list(self.Results.Scenario["used_diags_dict"]))
             return
         if(self.calib_diag_dict[self.last_used_diag_name].exp != self.cur_diag.exp):
             print("Warning experiment of diagnostic not consistent with ECRad configuration")
