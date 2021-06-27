@@ -496,7 +496,13 @@ class Main_Panel(scrolled.ScrolledPanel):
                     scratch_dir = Results.Config["Execution"]["scratch_dir"]
                     Results.Scenario.to_netcdf(filename=os.path.join(scratch_dir, "Scenario.nc"))
                     Results.Config.to_netcdf(filename=os.path.join(scratch_dir, "Config.nc"))
-                    run_ECRad = SetupECRadBatch(Results.Config, Results.Scenario, Results.Scenario["time"][args[2]])
+                    run_ECRad = SetupECRadBatch(Results.Config, Results.Scenario)
+                    ECRad_invoke_str = ""
+                    for sub_str in run_ECRad:
+                        ECRad_invoke_str += sub_str + " "
+                    print("ECRad batch submission with command: ")
+                    print(ECRad_invoke_str)
+                    print("Please do not forget to set ECRad_WORKING_DIR and ECRad_DRIVER_DIR environment variables")
                     ECRad_batch = Popen(run_ECRad)
                     ECRad_batch.wait()
                     try:
@@ -506,7 +512,7 @@ class Main_Panel(scrolled.ScrolledPanel):
                         NewResults.to_netcdf()
                         output_queue.put([True, NewResults])
                     except:
-                        print("Failed to run remotely. Please check .o and .e files at")
+                        print("Failed to run remotely. Please check .stdout and .stderr files at")
                         print(scratch_dir)
                         output_queue.put([False, Results])
                 else:
