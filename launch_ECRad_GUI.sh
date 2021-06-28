@@ -1,5 +1,5 @@
 #!/bin/bash
-if [[ $HOSTNAME == *"mpg"* ]]; then
+if [[ $HOSTNAME == *"mpg"* ]]
   then
   module purge
   module load intel
