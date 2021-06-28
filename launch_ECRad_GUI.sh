@@ -34,7 +34,7 @@ elif [[ $HOSTNAME == *"cm.cluster"* ]]
   # <<< conda initialize <<<
   conda activate ECRad_conda
   setenv LD_LIBRARY_PATH $MKLROOT/lib/intel64/
-else if [[ $HOSTNAME == *"iter"* ]]; then
+elif [[ $HOSTNAME == *"iter"* ]]; then
   module purge
   module load IMAS
   module load texlive
