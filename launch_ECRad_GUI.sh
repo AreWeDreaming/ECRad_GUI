@@ -34,7 +34,6 @@ elif [[ $HOSTNAME == *"cm.cluster"* ]]
   unset __conda_setup
   # <<< conda initialize <<<
   conda activate ECRad_conda
-  export LD_LIBRARY_PATH=$MKLROOT/lib/intel64/
 elif [[ $HOSTNAME == *"iter"* ]]; then
   module purge
   module load IMAS
