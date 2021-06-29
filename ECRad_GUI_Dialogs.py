@@ -122,11 +122,11 @@ class IMASSelectDialog(wx.Dialog):
         self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
         self.user_dir_tc = simple_label_tc(self, "Stored under", "public", "string")
         self.tc_sizer.Add(self.user_dir_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.database_tc = simple_label_tc(self, "Database", "iter", "string")
+        self.database_tc = simple_label_tc(self, "Database", "ITER_MD", "string")
         self.tc_sizer.Add(self.database_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.shot_tc = simple_label_tc(self, "shot", 0, "integer")
+        self.shot_tc = simple_label_tc(self, "shot", 150601, "integer") #100003
         self.tc_sizer.Add(self.shot_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.run_tc = simple_label_tc(self, "run", 0, "integer")
+        self.run_tc = simple_label_tc(self, "run", 1, "integer")
         self.tc_sizer.Add(self.run_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
         self.LoadButton = wx.Button(self, wx.ID_ANY, 'Load')
         self.Bind(wx.EVT_BUTTON, self.OnLoad, self.LoadButton)
@@ -175,7 +175,7 @@ class IMASTimeBaseSelectDlg(wx.Dialog):
         self.choice = "core_profiles"
         self.FromProfilesBtn = wx.Button(self, wx.ID_ANY, 'core_profiles')
         self.Bind(wx.EVT_BUTTON, self.OnFromProfiles, self.FromProfilesBtn)
-        self.FromEquilibriumBtn = wx.Button(self, wx.ID_ANY, 'equilibrum')
+        self.FromEquilibriumBtn = wx.Button(self, wx.ID_ANY, 'equilibrium')
         self.Bind(wx.EVT_BUTTON, self.OnFromEquilibrium, self.FromEquilibriumBtn)
         self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
         self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
@@ -195,7 +195,7 @@ class IMASTimeBaseSelectDlg(wx.Dialog):
         self.EndModal(wx.ID_OK)
     
     def OnFromEquilibrium(self, Event):
-        self.choice = "equilibrum"
+        self.choice = "equilibrium"
         self.EndModal(wx.ID_OK)
         
 class Use3DConfigDialog(wx.Dialog):

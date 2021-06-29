@@ -45,6 +45,9 @@ class LaunchPanel(wx.Panel):
         self.load_from_omas_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from OMAS file")
         self.load_from_omas_button.Bind(wx.EVT_BUTTON, self.LoadFromOMAS)
         self.load_launch_panel.sizer.Add(self.load_from_omas_button, 1, wx.ALL | wx.EXPAND, 5)
+        self.load_from_imas_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from IMAS")
+        self.load_from_imas_button.Bind(wx.EVT_BUTTON, self.LoadFromIMAS)
+        self.load_launch_panel.sizer.Add(self.load_from_imas_button, 1, wx.ALL | wx.EXPAND, 5)
         self.gen_ext_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Generate Ext launch from ECRad result")
         self.gen_ext_from_old_button.Bind(wx.EVT_BUTTON, self.GenExtFromOld)
         self.load_launch_panel.sizer.Add(self.gen_ext_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
@@ -200,10 +203,11 @@ class LaunchPanel(wx.Panel):
             try:
                 NewSceario.set_up_launch_from_imas(ece_ids)
                 newExtDiag = EXT_diag("EXT")
-                if(len( ids['ece']['channel']['time']) == 1):
+                print(ece_ids.channel[0].time)
+                if(len( ece_ids.channel[0].time) == 0):
                     itime = 0
                 else:
-                    timepoint_dlg = Select_Raylaunch_timepoint(self, ids['ece']['channel']['time'])
+                    timepoint_dlg = Select_Raylaunch_timepoint(self, ece_ids.channel[0].time)
                     if(not (timepoint_dlg.ShowModal() == wx.ID_OK)):
                         print("Aborted")
                         return
@@ -214,7 +218,7 @@ class LaunchPanel(wx.Panel):
                 print(e)
                 return
             newExtDiag.set_from_scenario_diagnostic(NewSceario["diagnostic"], itime, set_only_EXT=False)
-            NewSceario.avail_diags_dict.update({"EXT": newExtDiag})
+            NewSceario["avail_diags_dict"].update({"EXT": newExtDiag})
             curScenario = self.GetCurScenario()
             curScenario["avail_diags_dict"].update({"EXT": newExtDiag})
             curScenario["used_diags_dict"].update({"EXT": newExtDiag})
