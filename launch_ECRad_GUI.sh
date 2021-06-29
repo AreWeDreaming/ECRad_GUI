@@ -38,7 +38,6 @@ elif [[ $HOSTNAME == *"iter"* ]]; then
   module purge
   module load IMAS
   module load texlive
-  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MKLROOT/lib/intel64/
 fi
 rm id
 git rev-parse HEAD > id
