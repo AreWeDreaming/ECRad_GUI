@@ -734,7 +734,7 @@ class ScenarioSelectPanel(wx.Panel):
             return
         
     def OnLoadIMAS(self, evt):
-        
+        import imas
         try:
             self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
             self.Parent.Parent.config_panel.DisableExtRays()
@@ -769,7 +769,10 @@ class ScenarioSelectPanel(wx.Panel):
                     print("ERROR: Cannot access profiles in IDS")
                     return
                 try:    
-                    prof_ids = ids.get('wall')
+                    ids_wall = imas.DBEntry(imas.imasdef.MDSPLUS_BACKEND,'ITER_MD',1180,17,'public')
+                    ids_wall.open()
+                    wall_ids = ids_wall.get_slice('wall', 0, 1)  
+                    ids_wall.close()                
                 except Exception as e:
                     print(e)
                     print("ERROR: Cannot access wall in IDS")
@@ -780,11 +783,14 @@ class ScenarioSelectPanel(wx.Panel):
                     return
                 time_base_source = time_base_dlg.choice
                 time_base_dlg.Destroy()
-                times = ids[time_base_source]['time']
+                times = ids.partial_get(ids_name=time_base_source,data_path='time')
+                print(times)
                 NewScenario = ECRadScenario(True)
-                NewScenario.set_up_profiles_from_imas(prof_ids, times)
-                NewScenario.set_up_equilibrium_from_imas(eq_ids, times)
-                self.SetFromNewScenario(NewScenario, dlg.GetPath())
+                NewScenario["time"]=times
+                NewScenario["shot"]= dlg.shot_tc.GetValue()
+                NewScenario.set_up_profiles_from_imas(prof_ids, eq_ids, times)
+                NewScenario.set_up_equilibrium_from_imas(eq_ids, wall_ids, times)
+                self.SetFromNewScenario(NewScenario, 'IMAS_file')
             except Exception as e:
                 print(e)
                 print("ERROR: Failed to load Scenario -- there are probably required ")
