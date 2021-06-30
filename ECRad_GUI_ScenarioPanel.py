@@ -391,15 +391,12 @@ class ScenarioSelectPanel(wx.Panel):
         self.plasma_dict["IDA_ed"] = self.IDA_ed_tc.GetValue()
         self.plasma_dict["vessel_bd"] = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
         self.plasma_dict["prof_reference"] = "rhop_prof"
-        self.plasma_dict["EQ_exp"] = self.plasma_dict["EQ_exp"]
-        self.plasma_dict["EQ_diag"] = self.plasma_dict["EQ_diag"]
-        self.plasma_dict["EQ_ed"] = self.plasma_dict["EQ_ed"]
         # Set to None now, load later with user updates on shotfile info
         self.plasma_dict["eq_data_2D"] = None
         print("Updated equilibrium settings with values from IDA shotfile")
-        self.EQ_exp_tc.SetValue(self.plasma_dict["AUG"]["EQ_exp"])
-        self.EQ_diag_tc.SetValue(self.plasma_dict["AUG"]["EQ_diag"])
-        self.EQ_ed_tc.SetValue(self.plasma_dict["AUG"]["EQ_ed"])
+        self.EQ_exp_tc.SetValue(self.plasma_dict["EQ_exp"])
+        self.EQ_diag_tc.SetValue(self.plasma_dict["EQ_diag"])
+        self.EQ_ed_tc.SetValue(self.plasma_dict["EQ_ed"])
         Success, bt_vac = check_Bt_vac_source(self.plasma_dict["shot"])
         if(Success):
             print("Setting Bt vac according to IDA defaults")
