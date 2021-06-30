@@ -388,7 +388,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.plasma_dict["shot"] = self.shot_tc.GetValue()                   
         self.plasma_dict= {}
         self.plasma_dict["IDA_exp"] = self.IDA_exp_tc.GetValue()
-        self.plasma_dict["IDA_ed"] = self.plasma_dict["ed"]
+        self.plasma_dict["IDA_ed"] = self.IDA_ed_tc.GetValue()
         self.plasma_dict["vessel_bd"] = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
         self.plasma_dict["prof_reference"] = "rhop_prof"
         self.plasma_dict["EQ_exp"] = self.plasma_dict["EQ_exp"]
@@ -423,10 +423,10 @@ class ScenarioSelectPanel(wx.Panel):
             print("IDA:", self.plasma_dict["RwallO"])
         if(self.Config["Physics"]["raytracing"] != self.plasma_dict["raytrace"]):
             print("WARNING! Refraction was not considered in IDA, but is considered in current ECRad configuation")
-        if(self.IDA_ed_tc.GetValue() != self.plasma_dict["ed"]):
-            print("IDA edition: ", self.plasma_dict["ed"])
+        if(self.IDA_ed_tc.GetValue() != self.plasma_dict["IDA_ed"]):
+            print("IDA edition: ", self.plasma_dict["IDA_ed"])
             print("ECRad GUI IDA edition updated")
-            self.IDA_ed_tc.SetValue(self.plasma_dict["ed"])
+            self.IDA_ed_tc.SetValue(self.plasma_dict["IDA_ed"])
         # except Exception as e:
         #     print("Could not load shotfile dd Error follows")
         #     print(e)
