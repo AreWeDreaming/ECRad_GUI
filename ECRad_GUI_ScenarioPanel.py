@@ -386,14 +386,14 @@ class ScenarioSelectPanel(wx.Panel):
         self.plasma_dict = load_IDA_data(self.shot_tc.GetValue(), None, self.IDA_exp_tc.GetValue(), \
                                             self.IDA_ed_tc.GetValue())
         self.plasma_dict["shot"] = self.shot_tc.GetValue()                   
-        self.plasma_dict["AUG"] = {}
-        self.plasma_dict["AUG"]["IDA_exp"] = self.IDA_exp_tc.GetValue()
-        self.plasma_dict["AUG"]["IDA_ed"] = self.plasma_dict["ed"]
+        self.plasma_dict= {}
+        self.plasma_dict["IDA_exp"] = self.IDA_exp_tc.GetValue()
+        self.plasma_dict["IDA_ed"] = self.plasma_dict["ed"]
         self.plasma_dict["vessel_bd"] = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
         self.plasma_dict["prof_reference"] = "rhop_prof"
-        self.plasma_dict["AUG"]["EQ_exp"] = self.plasma_dict["EQ_exp"]
-        self.plasma_dict["AUG"]["EQ_diag"] = self.plasma_dict["EQ_diag"]
-        self.plasma_dict["AUG"]["EQ_ed"] = self.plasma_dict["EQ_ed"]
+        self.plasma_dict["EQ_exp"] = self.plasma_dict["EQ_exp"]
+        self.plasma_dict["EQ_diag"] = self.plasma_dict["EQ_diag"]
+        self.plasma_dict["EQ_ed"] = self.plasma_dict["EQ_ed"]
         # Set to None now, load later with user updates on shotfile info
         self.plasma_dict["eq_data_2D"] = None
         print("Updated equilibrium settings with values from IDA shotfile")
@@ -600,8 +600,8 @@ class ScenarioSelectPanel(wx.Panel):
             self.EQ_exp_tc.SetValue("EXT")
             self.EQ_diag_tc.SetValue("EXT")
             self.plasma_dict["shot"] = self.shot_tc.GetValue()
-            self.plasma_dict["AUG"]["IDA_exp"] = "EXT"
-            self.plasma_dict["AUG"]["IDA_ed"] = -1
+            self.plasma_dict["IDA_exp"] = "EXT"
+            self.plasma_dict["IDA_ed"] = -1
             self.EQ_ed_tc.SetValue(-1)
         if(len(self.plasma_dict["time"]) > 1):
             self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - \
