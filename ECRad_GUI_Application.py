@@ -19,7 +19,6 @@ if(not found_lib):
     exit(-1)
 from Global_Settings import globalsettings
 globalsettings.ECRadGUIRoot = os.getcwd()
-globalsettings.ECRadPylibRoot = ECRadPylibFolder
 if(globalsettings.AUG):
     try:
         import Equilibrium_Utils_AUG
