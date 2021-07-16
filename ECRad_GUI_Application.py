@@ -381,7 +381,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.GetEventHandler().ProcessEvent(evt)
             return
         if(self.Results.Config["Physics"]["dstf"] == "Re"):
-            if(self.Results.Scenario["dist_obj"] is None):
+            if(self.Results.Scenario["plasma"]["dist_obj"] is None):
                 fileDialog=wx.FileDialog(self, "Selectr file with bounce averaged distribution data", \
                                                      defaultDir = self.Results.Config["Execution"]["working_dir"], \
                                                      wildcard="matlab files (*.mat)|*.mat",

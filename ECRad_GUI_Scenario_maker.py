@@ -482,8 +482,8 @@ if (__name__ == "__main__"):
     # make_Plasma_for_DIII_D("/mnt/c/Users/Severin/ECRad/DIII-D_176898.nc", 176898, 3.990, \
     #                        "/mnt/c/Users/Severin/Scenarios/176898_3_990/g176898_03990", \
     #                        derived_file="/mnt/c/Users/Severin/Scenarios/176898_3_990/OMFITprofiles_176898_DERIVED.nc")
-    scale_launch_parameter("/mnt/c/Users/Severin/ECRad/SPARC/ECRad_    0_EXT_ed7.nc", \
-                            "/mnt/c/Users/Severin/ECRad/SPARC/SPARC_X2_launch.nc", "f", 2)
+    # scale_launch_parameter("/mnt/c/Users/Severin/ECRad/SPARC/ECRad_    0_EXT_ed7.nc", \
+    #                         "/mnt/c/Users/Severin/ECRad/SPARC/SPARC_X2_launch.nc", "f", 2)
     # fix_ne_Te_in_plasma_mat("/mnt/c/Users/Severin/ECRad/Yu/plasma_179328_3.4_v2.mat", \
     #                         "/mnt/c/Users/Severin/ECRad/Yu/plasma_179328_3.4_v3.mat")
 #     Scenario = ECRadScenario(noLoad=True)
