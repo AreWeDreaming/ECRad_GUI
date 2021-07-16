@@ -502,16 +502,22 @@ class Main_Panel(scrolled.ScrolledPanel):
                     print("ECRad batch submission with command: ")
                     print(ECRad_invoke_str)
                     print("If you want to run this in a separate shell, please"
-                          +" do not forget to set the ECRad_WORKING_DIR={0:s} environment variable".format(
-                                Results.Config["Execution"]["scratch_dir"]))
+                          + " do not forget to set the ECRad_WORKING_DIR={0:s} ".format(
+                                Results.Config["Execution"]["scratch_dir"])
+                          + "and ECRad_RUN_ID={0:d} ".format(run_id)
+                          + "environment variables")
+                    if(globalsettings.batch_submission_cmd == "bash"):
+                        os.chdir(globalsettings.ECRadPylibRoot)
                     ECRad_batch = Popen(run_ECRad)
                     ECRad_batch.wait()
+                    if(globalsettings.batch_submission_cmd == "bash"):
+                        os.chdir(globalsettings.ECRadGUIRoot)
                     try:
-                        filename, ed = Results.get_default_filename_and_edition(True)
+                        filename, ed = Results.get_default_filename_and_edition(True, id=run_id)
                         NewResults = ECRadResults(False)
                         NewResults.from_netcdf(filename)
-                        NewResults.to_netcdf()
                         output_queue.put([True, NewResults])
+                        NewResults.to_netcdf()
                     except:
                         print("Failed to run remotely. Please check .stdout and .stderr files at")
                         print(scratch_dir)
