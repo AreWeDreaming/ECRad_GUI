@@ -448,7 +448,7 @@ class ScenarioSelectPanel(wx.Panel):
             for rhop in rhop_range:
                 Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
                 if(index == 0):
-                    IDA_labels.append(r"$T_\mathrm{e}$" + r"({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
+                    IDA_labels.append(r"$T_" + globalsettings.mathrm + r"{e}$" + r"({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
         if(len(self.plasma_dict["ECE_rhop"]) > 0):
             ECE_indices = np.zeros((len(self.plasma_dict["ECE_rhop"]), len(self.plasma_dict["ECE_rhop"][0])), dtype=np.bool)
             ECE_labels = []
@@ -461,8 +461,8 @@ class ScenarioSelectPanel(wx.Panel):
                 for rhop in rhop_range:
                     ECE_indices[index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))] = True
                     if(index == 0):
-                        ECE_labels.append(r"ECE $T_\mathrm{rad}$" + r"({0:1.2f})".format(self.plasma_dict["ECE_rhop"][index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))]))
-                        ECRad_labels.append(r"ECRad $T_\mathrm{rad}$" + "({0:1.2f})".format(self.plasma_dict["ECE_rhop"][index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))]))
+                        ECE_labels.append(r"ECE $T_" + globalsettings.mathrm + r"{rad}$" + r"({0:1.2f})".format(self.plasma_dict["ECE_rhop"][index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))]))
+                        ECRad_labels.append(r"ECRad $T_" + globalsettings.mathrm + r"{rad}$" + "({0:1.2f})".format(self.plasma_dict["ECE_rhop"][index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))]))
                 if(np.count_nonzero(ECE_indices[index]) != len(rhop_range)):
                     print("Could not find ECE measurements for t = {0:1.4f}".format(self.plasma_dict["time"][index]))
                     print("Choosing first and last channel")
@@ -619,7 +619,7 @@ class ScenarioSelectPanel(wx.Panel):
                 for rhop in rhop_range:
                     Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
                     if(index == 0):
-                        IDA_labels.append(r"$T_\mathrm{e}$" + r"({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
+                        IDA_labels.append(r"$T_" + globalsettings.mathrm + r"{e}$" + r"({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
             diag_time = None
             diag_data = None
             diag_labels = None
@@ -814,7 +814,7 @@ class ScenarioSelectPanel(wx.Panel):
                 for rhop in rhop_range:
                     Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
                     if(index == 0):
-                        IDA_labels.append(r"$T_\mathrm{e}$" + "({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
+                        IDA_labels.append(r"$T_" + globalsettings.mathrm + r"{e}$" + "({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
             diag_time = None
             diag_data = None
             diag_labels = None

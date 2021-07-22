@@ -82,10 +82,10 @@ class simple_label_choice(wx.Panel):
         self.selection = self.choice.GetSelection()
         return self.choice.GetStringSelection()
 
-    def SetValue(self, i):
+    def SetValue(self, item):
         self.NewvalueAvailable = False
-        self.selection = self.choice.GetSelection()
-        return self.choice.Select(i)
+        self.selection = self.choice.Items.index(item)
+        return self.choice.Select(self.selection)
 
     def OnNewChoiceByUser(self, evt):
         if(self.selection != self.choice.GetStringSelection()):
