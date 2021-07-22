@@ -4,7 +4,7 @@ Created on Apr 3, 2019
 @author: sdenk
 '''
 import wx
-from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row
+from ECRad_GUI_Widgets import simple_label_tc, simple_label_choice, simple_label_cb, max_var_in_row
 import os
 from WX_Events import EVT_UPDATE_CONFIG
 class ConfigPanel(wx.Panel):
@@ -29,7 +29,10 @@ class ConfigPanel(wx.Panel):
             self.sizer.Add(self.lines[-1], 0, wx.ALL | wx.EXPAND, 5)
             self.grid_list.append(wx.GridSizer(0, columns, 0, 0))
             for sub_key in Config.sub_keys[key]:
-                if(Config.types[sub_key] == "b"):
+                if(sub_key == "dstf"):
+                    self.widgets[sub_key] = simple_label_choice(self, Config.nice_labels[sub_key], 
+                            ["Th", "Re", "Ge", "GB"], Config[key][sub_key])
+                elif(Config.types[sub_key] == "b"):
                     self.widgets[sub_key] = simple_label_cb(self, Config.nice_labels[sub_key], Config[key][sub_key])
                 else:
                     self.widgets[sub_key] = simple_label_tc(self, Config.nice_labels[sub_key], Config[key][sub_key], None)

@@ -56,6 +56,47 @@ class simple_label_cb(wx.Panel):
     def CheckForNewValue(self):
         return self.NewvalueAvailable
 
+class simple_label_choice(wx.Panel):
+    def __init__(self, parent, label, items, item):
+        if(item not in items):
+            raise ValueError("Item {0:s} not in items: ".format(item) + str(items))
+        wx.Panel.__init__(self, parent, wx.ID_ANY)
+        self.selection = items.index(item)
+        self.SetAutoLayout(True)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(self.sizer)
+        self.label = wx.StaticText(self, wx.ID_ANY, label)
+        self.label.Wrap(160)
+        self.choice = wx.Choice(self, wx.ID_ANY, choices=items)
+        self.choice.Select(self.selection)
+        self.choice.Bind(wx.EVT_CHOICE, self.OnNewChoiceByUser)
+        self.sizer.Add(self.label, 0, \
+            wx.ALIGN_CENTER | wx.ALL, 5)
+        self.sizer.Add(self.choice, 0, \
+            wx.ALIGN_CENTER | wx.ALL, 5)
+        self.SetClientSize(self.GetEffectiveMinSize())
+        self.NewvalueAvailable = False
+
+    def GetValue(self):
+        self.NewvalueAvailable = False
+        self.selection = self.choice.GetSelection()
+        return self.choice.GetStringSelection()
+
+    def SetValue(self, i):
+        self.NewvalueAvailable = False
+        self.selection = self.choice.GetSelection()
+        return self.choice.Select(i)
+
+    def OnNewChoiceByUser(self, evt):
+        if(self.selection != self.choice.GetStringSelection()):
+            self.NewvalueAvailable = True
+        else:
+            self.NewvalueAvailable = False
+
+    def CheckForNewValue(self):
+        return self.NewvalueAvailable
+
+
 class simple_label_tc(wx.Panel):
     def __init__(self, parent, label, value, value_type, border=0, tooltip=None, scale=None, readonly=False):
         if(value_type is None):
