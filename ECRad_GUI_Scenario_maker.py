@@ -133,29 +133,31 @@ def make_netcdf_launch(filename, launch):
                                                        ("N_time","N_ch"))
             var[:] = launch[sub_key]
 
-def make_plasma_from_variables_single_time(filename, shot, time, rhop_profiles, Te, 
+def make_plasma_from_variables(filename, shot, times, rhop_profiles, Te, 
         ne, R, z, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
     # Vessel data has to be a ndarray of points (shape = (n,2)) with R,z points of the machine wall
     # Alternatively a standard ECRad vessel file can be used like ASDEX_Upgrade_vessel.txt
     # rhop_profiles can be none for 2D profiles
     plasma_dict = {}
     plasma_dict["shot"] = shot
-    plasma_dict["time"] = np.array([time])
+    plasma_dict["time"] = np.array(times)
     plasma_dict["prof_reference"] = "rhop_prof"
     plasma_dict["eq_dim"] = 2
-    plasma_dict["2D_prof"] = len(Te.shape) > 2
+    plasma_dict["2D_prof"] = len(Te[0].shape) > 2
     if(not plasma_dict["2D_prof"]):
         plasma_dict["prof_reference"] = "rhop_prof"
         plasma_dict["rhop_prof"] = np.array([rhop_profiles])
     else:
         plasma_dict["prof_reference"] = "2D"
         plasma_dict["rhop_prof"] = None
-    plasma_dict["ne"] = np.array([ne])
-    plasma_dict["Te"] = np.array([Te])
+    plasma_dict["ne"] = ne
+    plasma_dict["Te"] = Te
     EQObj = EQDataExt(shot, Ext_data=True)
-    EQObj.insert_slices_from_ext(np.array([time]), \
-                                 [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, \
-                                              Psi_ax=0.0, Psi_sep=1.0, rhop=rhop)], False)
+    slices = []
+    for index, time in enumerate(times):
+        slices.append(EQDataSlice(time, R[index], z[index], rhop[index]**2, Br[index], Bt[index], Bz[index], \
+                                  Psi_ax=0.0, Psi_sep=1.0, rhop=rhop[index]))
+    EQObj.insert_slices_from_ext(times, slices, False)
     plasma_dict["eq_data_2D"] = EQObj
     if(vessel_data is not None):
         plasma_dict["vessel_bd"] = np.array(vessel_data).T
@@ -255,24 +257,35 @@ def make_Plasma_for_DIII_D(filename, shot, time, eqdsk_file, derived_file=None, 
                                            omfit_eq['AuxQuantities']["RHOpRZ"].T,\
                                            vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
 
-def make_Plasma_for_SPARC(filename, Te_file, ne_file, eqdsk_file):
+def make_Plasma_for_SPARC(times, filename, Te_files, ne_files, eqdsk_files):
     from omfit.omfit_classes.omfit_eqdsk import OMFITgeqdsk
     from Plotting_Configuration import plt
-    omfit_eq = OMFITgeqdsk(eqdsk_file)
-    omfit_eq.addAuxQuantities()
-    psi_Te, Te = np.loadtxt(Te_file, skiprows=1, unpack=True)
-    psi_ne, ne = np.loadtxt(ne_file, skiprows=1, unpack=True)
-    ne_spl = InterpolatedUnivariateSpline(psi_ne, np.log(ne))
-    rhop = np.sqrt(psi_Te)
-    ne_int = np.exp(ne_spl(psi_Te))
-    make_plasma_from_variables_single_time(filename, 0, 1.0, rhop, Te*1.e3, ne_int*1.e20, \
-                                           omfit_eq['AuxQuantities']["R"], \
-                                           omfit_eq['AuxQuantities']["Z"], \
-                                           omfit_eq['AuxQuantities']["Br"].T, \
-                                           omfit_eq['AuxQuantities']["Bt"].T ,\
-                                           omfit_eq['AuxQuantities']["Bz"].T ,\
-                                           omfit_eq['AuxQuantities']["RHOpRZ"].T,\
-                                           vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]))
+    keys = ["rhop", "Te", "ne", "R", "z", "Br", "Bt", "Bz", "RHOpRZ"]
+    quants = {}
+    for key in keys:
+        quants[key] = []
+    N_prof_pnts = None
+    for Te_file, ne_file, eqdsk_file in zip(Te_files, ne_files, eqdsk_files):
+        omfit_eq = OMFITgeqdsk(eqdsk_file)
+        omfit_eq.addAuxQuantities()
+        psi_Te, Te_scen = np.loadtxt(Te_file, skiprows=1, unpack=True)
+        psi_ne, ne_scen = np.loadtxt(ne_file, skiprows=1, unpack=True)
+        if(N_prof_pnts is None):
+            N_prof_pnts = len(psi_Te)
+        quants["rhop"].append(np.linspace(0.0, np.max(psi_Te), N_prof_pnts))
+        Te_spl = InterpolatedUnivariateSpline(psi_Te, np.log(Te_scen))
+        ne_spl = InterpolatedUnivariateSpline(psi_ne, np.log(ne_scen))
+        quants["Te"].append(np.exp(Te_spl(quants["rhop"][-1]))*1.e3)
+        quants["ne"].append(np.exp(ne_spl(quants["rhop"][-1]))*1.e20)
+        for key in ["R", "z", "Br", "Bt", "Bz", "RHOpRZ"]:
+            # Works also for R and z cause .T does not do anything
+            quants[key].append(omfit_eq['AuxQuantities'][key].T)
+    for key in keys:
+        quants[key] = np.array(quants[key])
+    make_plasma_from_variables(filename, 0, times, quants["rhop"], quants["Te"], quants["ne"],
+                quants["R"], quants["z"], quants["Br"], quants["Bt"],
+                quants["Bz"], quants["RHOpRZ"],
+                vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]))
 
 def make_Launch_from_freq_and_points(filename, input_file):
     launch_data = np.loadtxt(input_file)
@@ -472,13 +485,13 @@ def make_test_launch(filename):
     make_launch_mat_single_timepoint(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
     
 if (__name__ == "__main__"):
-    make_Launch_from_freq_and_points("/mnt/c/Users/Severin/ECRad/SPARC/SPARC_launch.mat",
-            "/mnt/c/Users/Severin/ECRad/SPARC/ece_chans")
-    # make_Plasma_for_SPARC(
-    #         "/mnt/c/Users/Severin/ECRad/SPARC/SPARC_fbdry_new_profiles.nc", 
-    #         "/mnt/c/Users/Severin/ECRad/SPARC/te_out", 
-    #         "/mnt/c/Users/Severin/ECRad/SPARC/ne_out", 
-    #         "/mnt/c/Users/Severin/ECRad/SPARC/sparcV2-Free")
+    # make_Launch_from_freq_and_points("/mnt/c/Users/Severin/ECRad/SPARC/SPARC_launch.mat",
+    #         "/mnt/c/Users/Severin/ECRad/SPARC/ece_chans")
+    make_Plasma_for_SPARC([1.0],
+            "/mnt/c/Users/Severin/ECRad/SPARC/SPARC_fbdry_new_profiles.nc", 
+            ["/mnt/c/Users/Severin/ECRad/SPARC/te_out"], 
+            ["/mnt/c/Users/Severin/ECRad/SPARC/ne_out"], 
+            ["/mnt/c/Users/Severin/ECRad/SPARC/sparcV2-Free"])
     # make_Plasma_for_DIII_D("/mnt/c/Users/Severin/ECRad/DIII-D_176898.nc", 176898, 3.990, \
     #                        "/mnt/c/Users/Severin/Scenarios/176898_3_990/g176898_03990", \
     #                        derived_file="/mnt/c/Users/Severin/Scenarios/176898_3_990/OMFITprofiles_176898_DERIVED.nc")
@@ -507,5 +520,4 @@ if (__name__ == "__main__"):
 #     make_launch_from_ray_launch("/tokp/work/sdenk/ECRad/ray_launch_W7_X.dat","/tokp/work/sdenk/ECRad/W7_X_ECE_launch.mat")
 #     make_test_launch("/afs/ipp/u/sdenk/public/DIII-D_TB/test_launch.mat")
 #     make_ECRadScenario_from_TB_input(178512, 2.200,"/afs/ipp/u/sdenk/Documentation/Data/DIII-D_TB", "DIIID_input_test.mat")
-   pass 
     
