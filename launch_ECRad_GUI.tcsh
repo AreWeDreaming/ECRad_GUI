@@ -1,8 +1,6 @@
 #!/usr/bin/tcsh
 
-if ($HOSTNAME =~ *"mpg"* ) then
-  source ../ECRad_core/set_environment.tcsh
-endif
+source ../ECRad_core/set_environment.tcsh
 rm id
 git rev-parse HEAD > id
 cd ../ECRad_PyLib; rm id; git rev-parse HEAD > id; cd -
