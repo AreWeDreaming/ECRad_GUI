@@ -1,6 +1,5 @@
 '''
 Created on Apr 3, 2019
-
 @author: sdenk
 '''
 
@@ -258,9 +257,6 @@ class PlotPanel(wx.Panel):
             for key in self.Results.result_keys:
                 if(key != "dimensions"):
                     self.lb_widgets["y_group"].Append(key)
-            if(globalsettings.AUG):
-                self.load_diag_data_button.Enable()
-                self.OnClearDiags(None)
             self.load_other_results_button.Enable()
             self.scenario_quant_box.AppendItems(["Te", "ne", "rhop", "Br", "Bt", "Bz"])  
 
@@ -773,5 +769,3 @@ class PlotContainer(wx.Panel):
             x, y = event.xdata, event.ydata
             evt.SetStatus('x = {0:1.3e}: y = {1:1.3e}'.format(x, y))
             self.GetEventHandler().ProcessEvent(evt)
-            
-            

@@ -1,6 +1,5 @@
-'''
+''''
 Created on Mar 21, 2019
-
 @author: sdenk
 '''
 from WX_Events import NewStatusEvt, Unbound_EVT_NEW_STATUS, EVT_UPDATE_DATA
@@ -42,6 +41,9 @@ class LaunchPanel(wx.Panel):
         self.load_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from ECRad result/scenario")
         self.load_from_old_button.Bind(wx.EVT_BUTTON, self.LoadLaunch)
         self.load_launch_panel.sizer.Add(self.load_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
+        self.gen_ext_from_raylaunch_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Import launch from launch file")
+        self.gen_ext_from_raylaunch_button.Bind(wx.EVT_BUTTON, self.GenExtFromRaylaunch)
+        self.load_launch_panel.sizer.Add(self.gen_ext_from_raylaunch_button, 1, wx.ALL | wx.EXPAND, 5)
         self.load_from_omas_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from OMAS file")
         self.load_from_omas_button.Bind(wx.EVT_BUTTON, self.LoadFromOMAS)
         self.load_launch_panel.sizer.Add(self.load_from_omas_button, 1, wx.ALL | wx.EXPAND, 5)
@@ -51,9 +53,6 @@ class LaunchPanel(wx.Panel):
         self.gen_ext_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Generate Ext launch from ECRad result")
         self.gen_ext_from_old_button.Bind(wx.EVT_BUTTON, self.GenExtFromOld)
         self.load_launch_panel.sizer.Add(self.gen_ext_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
-        self.gen_ext_from_raylaunch_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Import ray_launch as EXT")
-        self.gen_ext_from_raylaunch_button.Bind(wx.EVT_BUTTON, self.GenExtFromRaylaunch)
-        self.load_launch_panel.sizer.Add(self.gen_ext_from_raylaunch_button, 1, wx.ALL | wx.EXPAND, 5)
         self.diag_config_sizer.Add(self.diag_select_panel, 0, wx.ALL | wx.EXPAND, 5)
         self.load_launch_panel.SetSizer(self.load_launch_panel.sizer)
         self.Notebook.Spawn_Pages(Scenario["avail_diags_dict"])
@@ -203,7 +202,6 @@ class LaunchPanel(wx.Panel):
             try:
                 NewSceario.set_up_launch_from_imas(ece_ids)
                 newExtDiag = EXT_diag("EXT")
-                print(ece_ids.channel[0].time)
                 if(len( ece_ids.channel[0].time) == 0):
                     itime = 0
                 else:
@@ -260,7 +258,13 @@ class LaunchPanel(wx.Panel):
         if(dlg.ShowModal() == wx.ID_OK):
             path = dlg.GetPath()
             newExtDiag = EXT_diag("EXT")
-            newExtDiag.set_from_mat(path)
+            ext = os.path.splitext(path)[1]
+            if(ext == ".mat"):
+                newExtDiag.set_from_mat(path)
+            elif(ext == ".nc"):
+                newExtDiag.set_from_NETCDF(path)
+            else:
+                raise ValueError("Only .mat and .nc files are supported")
             curScenario = self.GetCurScenario()
             curScenario["avail_diags_dict"].update({"EXT":  newExtDiag})
             curScenario["used_diags_dict"].update({"EXT":  newExtDiag})
@@ -530,4 +534,3 @@ class Select_Raylaunch_timepoint(wx.Dialog):
     def EvtAccept(self, Event):
         self.itime = self.time_ctrl.GetSelection()
         self.EndModal(wx.ID_OK)
-

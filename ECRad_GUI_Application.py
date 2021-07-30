@@ -19,7 +19,6 @@ if(not found_lib):
     exit(-1)
 from Global_Settings import globalsettings
 globalsettings.ECRadGUIRoot = os.getcwd()
-globalsettings.ECRadPylibRoot = ECRadPylibFolder
 if(globalsettings.AUG):
     try:
         import Equilibrium_Utils_AUG
@@ -494,19 +493,33 @@ class Main_Panel(scrolled.ScrolledPanel):
                 Results = args[1]
                 if(Results.Config["Execution"]["batch"]):
                     scratch_dir = Results.Config["Execution"]["scratch_dir"]
-                    Results.Scenario.to_netcdf(filename=os.path.join(scratch_dir, "Scenario.nc"))
-                    Results.Config.to_netcdf(filename=os.path.join(scratch_dir, "Config.nc"))
-                    run_ECRad = SetupECRadBatch(Results.Config, Results.Scenario, Results.Scenario["time"][args[2]])
+                    run_ECRad, run_id = SetupECRadBatch(Results.Config, Results.Scenario)
+                    Results.Scenario.to_netcdf(filename=os.path.join(scratch_dir, "Scenario_{0:d}.nc".format(run_id)))
+                    Results.Config.to_netcdf(filename=os.path.join(scratch_dir, "Config_{0:d}.nc".format(run_id)))
+                    ECRad_invoke_str = ""
+                    for sub_str in run_ECRad:
+                        ECRad_invoke_str += sub_str + " "
+                    print("ECRad batch submission with command: ")
+                    print(ECRad_invoke_str)
+                    print("If you want to run this in a separate shell, please"
+                          + " do not forget to set the ECRad_WORKING_DIR={0:s} ".format(
+                                Results.Config["Execution"]["scratch_dir"])
+                          + "and ECRad_RUN_ID={0:d} ".format(run_id)
+                          + "environment variables")
+                    if(globalsettings.batch_submission_cmd == "bash"):
+                        os.chdir(globalsettings.ECRadPylibRoot)
                     ECRad_batch = Popen(run_ECRad)
                     ECRad_batch.wait()
+                    if(globalsettings.batch_submission_cmd == "bash"):
+                        os.chdir(globalsettings.ECRadGUIRoot)
                     try:
-                        filename, ed = Results.get_default_filename_and_edition(True)
+                        filename, ed = Results.get_default_filename_and_edition(True, id=run_id)
                         NewResults = ECRadResults(False)
                         NewResults.from_netcdf(filename)
-                        NewResults.to_netcdf()
                         output_queue.put([True, NewResults])
+                        NewResults.to_netcdf()
                     except:
-                        print("Failed to run remotely. Please check .o and .e files at")
+                        print("Failed to run remotely. Please check .stdout and .stderr files at")
                         print(scratch_dir)
                         output_queue.put([False, Results])
                 else:

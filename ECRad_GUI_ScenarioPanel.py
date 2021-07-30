@@ -1,6 +1,5 @@
 '''
 Created on Mar 21, 2019
-
 @author: sdenk
 '''
 from Global_Settings import globalsettings
@@ -20,6 +19,7 @@ from ECRad_Scenario import ECRadScenario
 from ECRad_Results import ECRadResults
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 from Basic_Methods.Equilibrium_Utils import EQDataExt
+from copy import deepcopy
 if(globalsettings.AUG):
     from Equilibrium_Utils_AUG import EQData, vessel_bd_file, check_Bt_vac_source
     from Shotfile_Handling_AUG import load_IDA_data, get_diag_data_no_calib, get_divertor_currents, filter_CTA
@@ -270,6 +270,8 @@ class ScenarioSelectPanel(wx.Panel):
             self.plasma_dict["time"] = Scenario["time"]
             self.plasma_dict["shot"] = Scenario["shot"]
             if(globalsettings.AUG):
+                self.plasma_dict["IDA_exp"] = Scenario["AUG"]["IDA_exp"]
+                self.plasma_dict["IDA_ed"] = Scenario["AUG"]["IDA_ed"]
                 self.plasma_dict["EQ_exp"] = Scenario["AUG"]["EQ_exp"]
                 self.plasma_dict["EQ_diag"] = Scenario["AUG"]["EQ_diag"]
                 self.plasma_dict["EQ_ed"] = Scenario["AUG"]["EQ_ed"]
@@ -383,24 +385,16 @@ class ScenarioSelectPanel(wx.Panel):
         self.plasma_dict = load_IDA_data(self.shot_tc.GetValue(), None, self.IDA_exp_tc.GetValue(), \
                                             self.IDA_ed_tc.GetValue())
         self.plasma_dict["shot"] = self.shot_tc.GetValue()                   
-        self.plasma_dict["AUG"] = {}
-        self.plasma_dict["AUG"]["IDA_exp"] = self.IDA_exp_tc.GetValue()
-        self.plasma_dict["AUG"]["IDA_ed"] = self.plasma_dict["ed"]
-        vessel_bd = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
+        self.plasma_dict["IDA_exp"] = self.IDA_exp_tc.GetValue()
+        self.plasma_dict["IDA_ed"] = self.IDA_ed_tc.GetValue()
+        self.plasma_dict["vessel_bd"] = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
         self.plasma_dict["prof_reference"] = "rhop_prof"
-        self.plasma_dict["vessel_bd"] = []
-        self.plasma_dict["vessel_bd"].append(vessel_bd.T[0])
-        self.plasma_dict["vessel_bd"].append(vessel_bd.T[1])
-        self.plasma_dict["vessel_bd"] = np.array(self.plasma_dict["vessel_bd"])
-        self.plasma_dict["AUG"]["EQ_exp"] = self.plasma_dict["EQ_exp"]
-        self.plasma_dict["AUG"]["EQ_diag"] = self.plasma_dict["EQ_diag"]
-        self.plasma_dict["AUG"]["EQ_ed"] = self.plasma_dict["EQ_ed"]
         # Set to None now, load later with user updates on shotfile info
         self.plasma_dict["eq_data_2D"] = None
         print("Updated equilibrium settings with values from IDA shotfile")
-        self.EQ_exp_tc.SetValue(self.plasma_dict["AUG"]["EQ_exp"])
-        self.EQ_diag_tc.SetValue(self.plasma_dict["AUG"]["EQ_diag"])
-        self.EQ_ed_tc.SetValue(self.plasma_dict["AUG"]["EQ_ed"])
+        self.EQ_exp_tc.SetValue(self.plasma_dict["EQ_exp"])
+        self.EQ_diag_tc.SetValue(self.plasma_dict["EQ_diag"])
+        self.EQ_ed_tc.SetValue(self.plasma_dict["EQ_ed"])
         Success, bt_vac = check_Bt_vac_source(self.plasma_dict["shot"])
         if(Success):
             print("Setting Bt vac according to IDA defaults")
@@ -424,10 +418,10 @@ class ScenarioSelectPanel(wx.Panel):
             print("IDA:", self.plasma_dict["RwallO"])
         if(self.Config["Physics"]["raytracing"] != self.plasma_dict["raytrace"]):
             print("WARNING! Refraction was not considered in IDA, but is considered in current ECRad configuation")
-        if(self.IDA_ed_tc.GetValue() != self.plasma_dict["ed"]):
-            print("IDA edition: ", self.plasma_dict["ed"])
+        if(self.IDA_ed_tc.GetValue() != self.plasma_dict["IDA_ed"]):
+            print("IDA edition: ", self.plasma_dict["IDA_ed"])
             print("ECRad GUI IDA edition updated")
-            self.IDA_ed_tc.SetValue(self.plasma_dict["ed"])
+            self.IDA_ed_tc.SetValue(self.plasma_dict["IDA_ed"])
         # except Exception as e:
         #     print("Could not load shotfile dd Error follows")
         #     print(e)
@@ -453,7 +447,7 @@ class ScenarioSelectPanel(wx.Panel):
             for rhop in rhop_range:
                 Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
                 if(index == 0):
-                    IDA_labels.append(r"$T_\mathrm{e}$" + r"({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
+                    IDA_labels.append(r"$T_" + globalsettings.mathrm + r"{e}$" + r"({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
         if(len(self.plasma_dict["ECE_rhop"]) > 0):
             ECE_indices = np.zeros((len(self.plasma_dict["ECE_rhop"]), len(self.plasma_dict["ECE_rhop"][0])), dtype=np.bool)
             ECE_labels = []
@@ -466,8 +460,8 @@ class ScenarioSelectPanel(wx.Panel):
                 for rhop in rhop_range:
                     ECE_indices[index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))] = True
                     if(index == 0):
-                        ECE_labels.append(r"ECE $T_\mathrm{rad}$" + r"({0:1.2f})".format(self.plasma_dict["ECE_rhop"][index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))]))
-                        ECRad_labels.append(r"ECRad $T_\mathrm{rad}$" + "({0:1.2f})".format(self.plasma_dict["ECE_rhop"][index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))]))
+                        ECE_labels.append(r"ECE $T_" + globalsettings.mathrm + r"{rad}$" + r"({0:1.2f})".format(self.plasma_dict["ECE_rhop"][index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))]))
+                        ECRad_labels.append(r"ECRad $T_" + globalsettings.mathrm + r"{rad}$" + "({0:1.2f})".format(self.plasma_dict["ECE_rhop"][index][np.argmin(np.abs(self.plasma_dict["ECE_rhop"][index] - rhop))]))
                 if(np.count_nonzero(ECE_indices[index]) != len(rhop_range)):
                     print("Could not find ECE measurements for t = {0:1.4f}".format(self.plasma_dict["time"][index]))
                     print("Choosing first and last channel")
@@ -601,8 +595,8 @@ class ScenarioSelectPanel(wx.Panel):
             self.EQ_exp_tc.SetValue("EXT")
             self.EQ_diag_tc.SetValue("EXT")
             self.plasma_dict["shot"] = self.shot_tc.GetValue()
-            self.plasma_dict["AUG"]["IDA_exp"] = "EXT"
-            self.plasma_dict["AUG"]["IDA_ed"] = -1
+            self.plasma_dict["IDA_exp"] = "EXT"
+            self.plasma_dict["IDA_ed"] = -1
             self.EQ_ed_tc.SetValue(-1)
         if(len(self.plasma_dict["time"]) > 1):
             self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - \
@@ -624,7 +618,7 @@ class ScenarioSelectPanel(wx.Panel):
                 for rhop in rhop_range:
                     Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
                     if(index == 0):
-                        IDA_labels.append(r"$T_\mathrm{e}$" + r"({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
+                        IDA_labels.append(r"$T_" + globalsettings.mathrm + r"{e}$" + r"({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
             diag_time = None
             diag_data = None
             diag_labels = None
@@ -773,7 +767,7 @@ class ScenarioSelectPanel(wx.Panel):
                     ids_wall = imas.DBEntry(imas.imasdef.MDSPLUS_BACKEND,'ITER_MD',1180,17,'public')
                     ids_wall.open()
                     wall_ids = ids_wall.get_slice('wall', 0, 1)  
-                    ids_wall.close()
+                    ids_wall.close()                
                 except Exception as e:
                     print(e)
                     print("ERROR: Cannot access wall in IDS")
@@ -819,7 +813,7 @@ class ScenarioSelectPanel(wx.Panel):
                 for rhop in rhop_range:
                     Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
                     if(index == 0):
-                        IDA_labels.append(r"$T_\mathrm{e}$" + "({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
+                        IDA_labels.append(r"$T_" + globalsettings.mathrm + r"{e}$" + "({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
             diag_time = None
             diag_data = None
             diag_labels = None
@@ -908,7 +902,7 @@ class ScenarioSelectPanel(wx.Panel):
         old_time_list = []
         old_eq = []
         old_rhot_prof_list = []
-        if(globalsettings.AUG and Scenario.data_source == "aug_database"):
+        if(globalsettings.AUG and self.data_source == "aug_database"):
             # Reset the equilibrium for AUG to make sure we get the one requested by the user
             self.plasma_dict["eq_data_2D"] = None
             # Get rid of the old stuff it will be updated now
@@ -916,9 +910,10 @@ class ScenarioSelectPanel(wx.Panel):
                Scenario["AUG"]["EQ_diag"] == self.EQ_diag_tc.GetValue() and \
                Scenario["AUG"]["EQ_ed"] == self.EQ_ed_tc.GetValue()):
                 old_time_list = np.copy(Scenario["time"])
-                old_eq = old_eq = EQDataExt(Scenario["shot"], Ext_data=True)
+                old_eq = EQDataExt(Scenario["shot"], Ext_data=True)
                 for time in old_time_list:
-                    old_eq.insert_slices_from_ext([time], [Scenario["plasma"]["eq_data_2D"].GetSlice(time)])
+                    old_eq.insert_slices_from_ext(
+                            [time], [Scenario["plasma"]["eq_data_2D"].GetSlice(time)])
                 if(len(Scenario["plasma"]["rhot_prof"]) > 0):
                     old_rhot_prof_list = Scenario["plasma"]["rhot_prof"]
                 else:
@@ -937,8 +932,8 @@ class ScenarioSelectPanel(wx.Panel):
             Scenario["plasma"]["eq_dim"] = 2
         Scenario["shot"] = self.plasma_dict["shot"]
         if(globalsettings.AUG and Scenario.data_source == "aug_database"):
-            Scenario["AUG"]["IDA_exp"] = self.plasma_dict["AUG"]["IDA_exp"]
-            Scenario["AUG"]["IDA_ed"] = self.plasma_dict["AUG"]["IDA_ed"]
+            Scenario["AUG"]["IDA_exp"] = self.plasma_dict["IDA_exp"]
+            Scenario["AUG"]["IDA_ed"] = self.plasma_dict["IDA_ed"]
             Scenario.default_diag = self.diag_tc.GetValue()
             Scenario["AUG"]["EQ_exp"] = self.EQ_exp_tc.GetValue()
             Scenario["AUG"]["EQ_diag"] = self.EQ_diag_tc.GetValue()
@@ -1316,4 +1311,3 @@ class ScenarioSelectPanel(wx.Panel):
             x, y = event.xdata, event.ydata
             evt.SetStatus('x = {0:1.3e}: y = {1:1.3e}'.format(x, y))
             self.GetEventHandler().ProcessEvent(evt)
-
