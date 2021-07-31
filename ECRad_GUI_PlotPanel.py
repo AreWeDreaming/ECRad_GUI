@@ -72,7 +72,7 @@ class PlotPanel(wx.Panel):
         self.multiple["mode"] = True
         self.ray_sizer = wx.BoxSizer(wx.VERTICAL)
         self.ray_label = wx.StaticText(self, wx.ID_ANY, "ray #")
-        self.lb_widgets["ray"] = wx.ListBox(self, wx.ID_ANY, size=(30,100), style=wx.LB_MULTIPLE)
+        self.lb_widgets["ray"] = wx.ListBox(self, wx.ID_ANY, size=(50,100), style=wx.LB_MULTIPLE)
         self.ray_sizer.Add(self.ray_label, 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
         self.ray_sizer.Add(self.lb_widgets["ray"], 0, wx.ALIGN_CENTRE_HORIZONTAL | wx.ALL, 5)
         self.controlgrid.Add(self.ray_sizer, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
