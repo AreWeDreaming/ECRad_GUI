@@ -448,34 +448,48 @@ class PlotPanel(wx.Panel):
                                     if(len(self.Results.Scenario["plasma"]["rhot_prof"][itime]) > 0):
                                         x_list.append(self.Results.Scenario["plasma"]["rhot_prof"][itime] * \
                                                       self.Results.Scenario["scaling"][scenario_select + "_rhop_scale"])
+                                skipped = False
                                 if(scenario_select == "Te"):
-                                    if(primary_unit == "[keV]"):
+                                    if(primary_unit == self.Results.Scenario.units["Te"]):
                                         i_axis = 0
-                                    else:
+                                    elif(secondary_unit is None):
                                         i_axis = 1
+                                    elif(secondary_unit == self.Results.Scenario.units["Te"]):
+                                        i_axis = 1
+                                    else:
+                                        print("INFO: Both y axes are already occupied. Cannot plot Te.")
+                                        skipped = True
+                                        continue
                                     y_list.append(self.Results.Scenario["plasma"][scenario_select][itime] / 1.e3 * \
                                                         self.Results.Scenario["scaling"]["Te_scale"])
                                 else:
-                                    if(primary_unit == "[$\times 10^{19}$m$^{-3}$]"):
+                                    if(primary_unit == self.Results.Scenario.units["ne"]):
                                         i_axis = 0
-                                    else:
+                                    elif(secondary_unit is None):
                                         i_axis = 1
+                                    elif(secondary_unit == self.Results.Scenario.units["ne"]):
+                                        i_axis = 1
+                                    else:
+                                        print("INFO: Both y axes are already occupied. Cannot plot ne.")
+                                        skipped = True
+                                        continue
                                     y_list.append(self.Results.Scenario["plasma"][scenario_select][itime] / 1.e19 * \
-                                                        self.Results.Scenario["scaling"]["ne_scale"])  
-                                label_list.append(self.Results.Scenario.labels[scenario_select] + r" $t =$ " + \
-                                                  "{0:1.3f} s".format(self.Results.Scenario["time"][itime]))
-                                axis_ref_list.append(i_axis)
-                                marker_type_list.append("line")
-                                if(len(y_axis_labels) == 1 and i_axis > 0):
-                                    y_axis_labels.append("")
-                                if(y_axis_labels[i_axis] == ""):                
-                                    y_axis_labels[i_axis] = self.Results.Scenario.labels[scenario_select]
-                                else:
-                                    if(self.Results.Scenario.labels[scenario_select] not in y_axis_labels[i_axis].split("/")):
-                                        y_axis_labels[i_axis] += "/" + self.Results.Scenario.labels[scenario_select]
-                                if(secondary_unit is None and i_axis == 1):
-                                    secondary_unit = " " + self.Results.Scenario.units[scenario_select]
-                                z_list.append(None)
+                                                        self.Results.Scenario["scaling"]["ne_scale"]) 
+                                if(not skipped):
+                                    label_list.append(self.Results.Scenario.labels[scenario_select] + r" $t =$ " + \
+                                                    "{0:1.3f} s".format(self.Results.Scenario["time"][itime]))
+                                    axis_ref_list.append(i_axis)
+                                    marker_type_list.append("line")
+                                    if(len(y_axis_labels) == 1 and i_axis > 0):
+                                        y_axis_labels.append("")
+                                    if(y_axis_labels[i_axis] == ""):                
+                                        y_axis_labels[i_axis] = self.Results.Scenario.labels[scenario_select]
+                                    else:
+                                        if(self.Results.Scenario.labels[scenario_select] not in y_axis_labels[i_axis].split("/")):
+                                            y_axis_labels[i_axis] += "/" + self.Results.Scenario.labels[scenario_select]
+                                    if(secondary_unit is None and i_axis == 1):
+                                        secondary_unit = " " + self.Results.Scenario.units[scenario_select]
+                                    z_list.append(None)
                 elif((scenario_selection[0] in ["rhop", "Br", "Bt", "Bz"]) or \
                      (scenario_selection[0] in ["Te","ne"] and self.Results.Scenario["plasma"]["2D_prof"])):
                     if(selections["x_quant"] != "R" or sub_key != "z"):

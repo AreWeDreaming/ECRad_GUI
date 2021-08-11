@@ -799,6 +799,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.plasma_dict = deepcopy(NewScenario["plasma"])
         self.plasma_dict["time"] = np.copy(NewScenario["time"])
         self.plasma_dict["shot"] = np.copy(NewScenario["shot"])
+        self.plasma_dict["dist_obj"] = NewScenario["plasma"]["dist_obj"]
         for t in self.plasma_dict["time"]:
             self.unused.append("{0:2.5f}".format(t))
         self.unused = list(set(self.unused))
@@ -980,6 +981,10 @@ class ScenarioSelectPanel(wx.Panel):
         if(not Scenario["plasma"]["2D_prof"]):
             Scenario["plasma"][Scenario["plasma"]["prof_reference"]] = np.array(
                 Scenario["plasma"][Scenario["plasma"]["prof_reference"]])
+        if(len(Scenario["time"]) == 1 and Config["Physics"]["dstf"] == "Re"):
+            Scenario["plasma"]["dist_obj"] = self.plasma_dict["dist_obj"]
+        elif(Config["Physics"]["dstf"] == "Re"):
+            print("INFO: Not setting distribution data because more than one time point is selected")
         Scenario.plasma_set = True
         self.new_data_available = False
         return Scenario
