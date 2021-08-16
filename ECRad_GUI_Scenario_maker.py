@@ -9,6 +9,8 @@ import sys
 import numpy as np
 from scipy.io import savemat
 from glob import glob
+import scipy.constants as cnst
+from Distribution_Classes import Distribution
 library_list = glob("../*pylib") + glob("../*PyLib")
 found_lib = False
 ECRadPylibFolder = None
@@ -28,7 +30,7 @@ from ECRad_Scenario import ECRadScenario
 from Basic_Methods.Equilibrium_Utils import EQDataExt, EQDataSlice
 from TB_Communication import make_mdict_from_TB_files
 
-from scipy.interpolate import InterpolatedUnivariateSpline
+from scipy.interpolate import griddata, RectBivariateSpline, InterpolatedUnivariateSpline
 from Diag_Types import EXT_diag
 from ECRad_Interface import load_plasma_from_mat
 from netCDF4 import Dataset
@@ -109,9 +111,8 @@ def make_netcdf_plasma(filename, plasma):
                                                         "eq_data_2D" + "_" +  sub_key, "f8", \
                                                         ("N_time",))
             var[:] = plasma['eq_data_2D'].get_single_attribute_from_all_slices(sub_key)
-        var = rootgrp["Plasma"].createVariable(\
-                                                    "vessel_bd", "f8", \
-                                                    ("N_vessel_bd", "N_vessel_dim"))
+        var = rootgrp["Plasma"].createVariable("vessel_bd", "f8", \
+                                               ("N_vessel_bd", "N_vessel_dim"))
         var[...,0] = plasma['vessel_bd'][...,0]
         var[...,1] = plasma['vessel_bd'][...,1]
     rootgrp.close()
@@ -134,7 +135,7 @@ def make_netcdf_launch(filename, launch):
             var[:] = launch[sub_key]
 
 def make_plasma_from_variables(filename, shot, times, rhop_profiles, Te, 
-        ne, R, z, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
+            ne, R, z, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
     # Vessel data has to be a ndarray of points (shape = (n,2)) with R,z points of the machine wall
     # Alternatively a standard ECRad vessel file can be used like ASDEX_Upgrade_vessel.txt
     # rhop_profiles can be none for 2D profiles
@@ -143,7 +144,7 @@ def make_plasma_from_variables(filename, shot, times, rhop_profiles, Te,
     plasma_dict["time"] = np.array(times)
     plasma_dict["prof_reference"] = "rhop_prof"
     plasma_dict["eq_dim"] = 2
-    plasma_dict["2D_prof"] = len(Te[0].shape) > 2
+    plasma_dict["2D_prof"] = len(Te[0].shape) == 2
     if(not plasma_dict["2D_prof"]):
         plasma_dict["prof_reference"] = "rhop_prof"
         plasma_dict["rhop_prof"] = np.array([rhop_profiles])
@@ -166,7 +167,7 @@ def make_plasma_from_variables(filename, shot, times, rhop_profiles, Te,
         plasma_dict["vessel_bd"] = []
         plasma_dict["vessel_bd"].append(vessel_bd.T[0])
         plasma_dict["vessel_bd"].append(vessel_bd.T[1])
-        plasma_dict["vessel_bd"] = np.array(plasma_dict["vessel_bd"])
+        plasma_dict["vessel_bd"] = np.array(plasma_dict["vessel_bd"]).T
     else:
         raise ValueError("vessel_data and vessel_bd_file cannot both be None")
     make_netcdf_plasma(filename, plasma_dict)
@@ -248,18 +249,18 @@ def make_Plasma_for_DIII_D(filename, shot, time, eqdsk_file, derived_file=None, 
     rhop = profile.axes["T_e"]
     ne = profile.profs["n_e"]
     Te = profile.profs["T_e"]
-    make_plasma_from_variables_single_time(filename, shot, time, rhop, Te, ne, \
-                                           omfit_eq['AuxQuantities']["R"], \
-                                           omfit_eq['AuxQuantities']["Z"], \
-                                           omfit_eq['AuxQuantities']["Br"].T, \
-                                           omfit_eq['AuxQuantities']["Bt"].T ,\
-                                           omfit_eq['AuxQuantities']["Bz"].T ,\
-                                           omfit_eq['AuxQuantities']["RHOpRZ"].T,\
-                                           vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
+    make_plasma_from_variables(filename, shot, [time], [rhop], [Te], [ne], \
+                               [omfit_eq['AuxQuantities']["R"]], \
+                               [omfit_eq['AuxQuantities']["Z"]], \
+                               [omfit_eq['AuxQuantities']["Br"].T], \
+                               [omfit_eq['AuxQuantities']["Bt"].T],\
+                               [omfit_eq['AuxQuantities']["Bz"].T],\
+                               [omfit_eq['AuxQuantities']["RHOpRZ"].T],\
+                               vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
 
 def make_Plasma_for_SPARC(times, filename, Te_files, ne_files, eqdsk_files):
     from omfit.omfit_classes.omfit_eqdsk import OMFITgeqdsk
-    from Plotting_Configuration import plt
+    # from Plotting_Configuration import plt
     keys = ["rhop", "Te", "ne", "R", "z", "Br", "Bt", "Bz", "RHOpRZ"]
     quants = {}
     for key in keys:
@@ -293,7 +294,11 @@ def make_Launch_from_freq_and_points(filename, input_file):
     df = f * 0.1
     x1 = np.array(launch_data.T[1:4])
     x2 = np.array(launch_data.T[4:])
-    phi_tor = x2[1] - x1[1]
+    x_1 = x1[0] * np.cos(np.deg2rad(x1[1]))
+    x_2 = x1[0] * np.sin(np.deg2rad(x1[1]))
+    y_1 = x2[0] * np.cos(np.deg2rad(x2[1]))
+    y_2 = x2[0] * np.sin(np.deg2rad(x2[1]))
+    phi_tor = np.rad2deg(np.arctan2(y_2 - y_1, x_2 - x_1))
     phi_tor[np.abs(phi_tor) < 0.1] = 0.1
     theta_pol = np.rad2deg(np.arctan((x2[2] - x1[2])
             / np.sqrt((x2[2] - x1[2])**2 +
@@ -312,6 +317,86 @@ def set_launch_in_Scenario(scenario_file_in, scenario_file_out, launch_dict):
     Scenario['diagnostic']["diag_name"] = np.array(Scenario["diagnostic"]["f"].shape, dtype="|S3")
     Scenario['diagnostic']["diag_name"][:] = "EXT"
     Scenario.to_netcdf(filename=scenario_file_out)
+
+def make_DIIID_HFS_LHCD_Scenario(folder, Scenario_filename, Distribution_filename):
+    from omfit.omfit_classes.omfit_eqdsk import OMFITgeqdsk
+    f = np.load(os.path.join(folder,"f.npy"))
+    rho_f = np.load(os.path.join(folder,"rhosOfFluxSurfaces.npy"))
+    pitch = np.load(os.path.join(folder,"pitchAngleMesh.npy"))[0]
+    v = np.load(os.path.join(folder,"velocities.npy"))
+    u = v / cnst.c
+    Te, ne, rho_prof = np.load(os.path.join(folder,"profiles.npy"))
+    Te *= 1.e3
+    ne *= 1.e19
+    ne_spl = InterpolatedUnivariateSpline(rho_prof, np.log(ne/1.e19))
+    ne_f = 1.e19*np.exp(ne_spl(rho_f))
+    f = (f.T / ne_f).T
+    shot = 147634
+    time = 4.525
+    omfit_eq = OMFITgeqdsk(os.path.join(folder,"g147634.04525"))
+    psi = np.linspace(omfit_eq["SIMAG"], omfit_eq["SIBRY"], len(omfit_eq["QPSI"]))
+    rhop = np.sqrt((psi - omfit_eq["SIMAG"])/
+                   (omfit_eq["SIBRY"] - omfit_eq["SIMAG"]))
+    rhop_spl = InterpolatedUnivariateSpline(omfit_eq["RHOVN"], rhop)
+    rhop_prof = rhop_spl(rho_prof)
+    rhop_f = rhop_spl(rho_f)
+    make_plasma_from_variables(Scenario_filename, shot, [time], [rhop_prof], [Te], [ne], \
+                               [omfit_eq['AuxQuantities']["R"]], \
+                               [omfit_eq['AuxQuantities']["Z"]], \
+                               [omfit_eq['AuxQuantities']["Br"].T], \
+                               [omfit_eq['AuxQuantities']["Bt"].T],\
+                               [omfit_eq['AuxQuantities']["Bz"].T],\
+                               [omfit_eq['AuxQuantities']["RHOpRZ"].T],\
+                               vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
+    dist_obj = Distribution()
+    dist_obj.set(rho_f, rhop_f, u, pitch, f, rho_prof, rhop_prof, Te, ne)
+    dist_obj.post_process()
+    dist_obj.to_netcdf(filename=Distribution_filename)
+    from Plotting_Configuration import plt
+    for rho in np.arange(0.8, 0.95, 0.025):
+        plt.figure()
+        dist_obj.plot(rhop=rho)
+        plt.gca().set_xlim(0.0, 0.8)
+        plt.gca().set_ylim(-0.8, 0.8)
+    plt.show()
+    
+def put_JOREK_data_into_Scenario(filename, Scenario_filename, vessel_file):
+    from Plotting_Configuration import plt
+    jorek_data = np.loadtxt(filename,unpack=True)
+    R_0 = jorek_data[0]
+    z_0 = jorek_data[1]
+    scenario_grid_shape = ((400, 600))
+    mesh_points = np.array([R_0, z_0]).T
+    R_rect_grid = np.linspace(1.0, 2.4, scenario_grid_shape[0])
+    z_rect_grid = np.linspace(-1.5, 1.5, scenario_grid_shape[1])
+    R_mesh, z_mesh = np.meshgrid(R_rect_grid, z_rect_grid, indexing='ij')
+    rect_grid = np.array([R_mesh.flatten(), z_mesh.flatten()]).T
+    ne_grid = griddata(mesh_points, jorek_data[2], rect_grid, 
+                       method="linear", fill_value=1.e16).reshape(scenario_grid_shape)
+    Te_grid = griddata(mesh_points, jorek_data[3], rect_grid, \
+                       method="linear", fill_value=2.e-2).reshape(scenario_grid_shape)
+    Br_grid = griddata(mesh_points, jorek_data[4], rect_grid, \
+                       method="linear", fill_value=0.0).reshape(scenario_grid_shape)
+    Bz_grid = griddata(mesh_points, jorek_data[5], rect_grid, \
+                      method="linear", fill_value=0.0).reshape(scenario_grid_shape)
+    Bt_grid = griddata(mesh_points, jorek_data[6], rect_grid, \
+                       method="linear", fill_value=0.0).reshape(scenario_grid_shape)
+    psi_grid = griddata(mesh_points, jorek_data[7], rect_grid, \
+                        method="linear", fill_value=0.0).reshape(scenario_grid_shape)
+    rho_grid = griddata(mesh_points, jorek_data[8], rect_grid, \
+                        method="linear", fill_value=1.5).reshape(scenario_grid_shape)
+    # The rho grid has zeros as a fill value which will mess things up inside ECRad
+    # Luckile PSI is increasing with increasing small radius and non-zero at the center so we can use Psi to mask rho
+    rho_grid[psi_grid==0] = 1.5
+    # i_z = np.argmin(np.abs(z_rect_grid))
+    # for quant, range in zip([ne_grid/1.e19, Te_grid/1.e3, Br_grid, Bz_grid, Bt_grid, rho_grid], 
+    #                         [[0,10],[0,5],[-0.5, 0.5],[-0.5,0.5],[-3,3],[0.0, 1.6]]):
+    #     plt.figure()
+    #     # plt.contourf(R_rect_grid, z_rect_grid, quant.T, levels = np.linspace(range[0], range[1], 15))
+    #     plt.plot(R_rect_grid, quant[:,i_z])
+    # plt.show()
+    make_plasma_from_variables(Scenario_filename, 37632, [2.000], None, [Te_grid], [ne_grid], [R_rect_grid], [z_rect_grid],
+                               [Br_grid], [Bt_grid], [Bz_grid], [rho_grid], vessel_bd_file=vessel_file)
 
 
 def put_TRANSP_U_profiles_in_Scenario(Scenario, filename, time, scenario_name):
@@ -485,13 +570,19 @@ def make_test_launch(filename):
     make_launch_mat_single_timepoint(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
     
 if (__name__ == "__main__"):
+    put_JOREK_data_into_Scenario("/mnt/c/Users/Severin/ECRad/ECRad2D/jorek-plane_s08930.dat", 
+                                 "/mnt/c/Users/Severin/ECRad/ECRad2D/ECRad_JOREK_Scenario.nc", 
+                                 "/mnt/c/Users/Severin/git/ECRad_PyLib/ASDEX_Upgrade_vessel.txt")
+    # make_DIIID_HFS_LHCD_Scenario("/mnt/c/Users/Severin/ECRad/HFS_LHCD/", 
+    #                              "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_Scenario.nc", \
+    #                              "/mnt/c/Users/Severin/ECRad/HFS_LHCD/.nc")
     # make_Launch_from_freq_and_points("/mnt/c/Users/Severin/ECRad/SPARC/SPARC_launch.mat",
     #         "/mnt/c/Users/Severin/ECRad/SPARC/ece_chans")
-    make_Plasma_for_SPARC([1.0],
-            "/mnt/c/Users/Severin/ECRad/SPARC/SPARC_fbdry_new_profiles.nc", 
-            ["/mnt/c/Users/Severin/ECRad/SPARC/te_out"], 
-            ["/mnt/c/Users/Severin/ECRad/SPARC/ne_out"], 
-            ["/mnt/c/Users/Severin/ECRad/SPARC/sparcV2-Free"])
+    # make_Plasma_for_SPARC([1.0],
+    #         "/mnt/c/Users/Severin/ECRad/SPARC/SPARC_fbdry_new_profiles.nc", 
+    #         ["/mnt/c/Users/Severin/ECRad/SPARC/te_out"], 
+    #         ["/mnt/c/Users/Severin/ECRad/SPARC/ne_out"], 
+    #         ["/mnt/c/Users/Severin/ECRad/SPARC/sparcV2-Free"])
     # make_Plasma_for_DIII_D("/mnt/c/Users/Severin/ECRad/DIII-D_176898.nc", 176898, 3.990, \
     #                        "/mnt/c/Users/Severin/Scenarios/176898_3_990/g176898_03990", \
     #                        derived_file="/mnt/c/Users/Severin/Scenarios/176898_3_990/OMFITprofiles_176898_DERIVED.nc")
