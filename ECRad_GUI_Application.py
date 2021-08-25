@@ -383,7 +383,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             if(self.Results.Scenario["plasma"]["dist_obj"] is None):
                 fileDialog=wx.FileDialog(self, "Selectr file with bounce averaged distribution data", \
                                                      defaultDir = self.Results.Config["Execution"]["working_dir"], \
-                                                     wildcard="matlab files (*.mat)|*.mat",
+                                                     wildcard="Matlab and Netcdf4 files (*.mat;*.nc)|*.mat;*.nc",
                                                      style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
                 if(fileDialog.ShowModal() == wx.ID_CANCEL):
                     print("Launch aborted")

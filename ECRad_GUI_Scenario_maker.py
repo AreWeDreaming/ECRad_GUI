@@ -6,11 +6,9 @@ Created on Jul 3, 2019
 #Module independent of the main GUI which allows the user to easily create ECRad Scenarios from external data
 import os
 import sys
+print(sys.path)
 import numpy as np
-from scipy.io import savemat
 from glob import glob
-import scipy.constants as cnst
-from Distribution_Classes import Distribution
 library_list = glob("../*pylib") + glob("../*PyLib")
 found_lib = False
 ECRadPylibFolder = None
@@ -20,6 +18,9 @@ for folder in library_list:
         found_lib = True
         ECRadPylibFolder = folder
         break
+from scipy.io import savemat
+import scipy.constants as cnst
+from Distribution_Classes import Distribution
 if(not found_lib):
     print("Could not find pylib")
     print("Important: ECRad_GUI must be launched with its home directory as the current working directory")
@@ -121,9 +122,9 @@ def make_netcdf_launch(filename, launch):
     rootgrp = Dataset(filename, "w", format="NETCDF4")
     rootgrp.createGroup("Diagnostic")
     N_time = len(launch["f"])
-    rootgrp["Plasma"].createDimension("N_time", N_time)
+    rootgrp["Diagnostic"].createDimension("N_time", N_time)
     N_ch = len(launch["f"][0])
-    rootgrp["Plasma"].createDimension("N_ch", N_ch)
+    rootgrp["Diagnostic"].createDimension("N_ch", N_ch)
     for sub_key in launch.keys():
         if(sub_key == "diag_name"):
             var = rootgrp["Diagnostic"].createVariable("diagnostic_" +  sub_key, str, \
@@ -258,6 +259,15 @@ def make_Plasma_for_DIII_D(filename, shot, time, eqdsk_file, derived_file=None, 
                                [omfit_eq['AuxQuantities']["RHOpRZ"].T],\
                                vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
 
+def make_DIII_D_launch_omas(launch_file, shot, machine='d3d'):
+    import omas
+    ods = omas.ODS()
+    ods.open(machine, shot)
+    # machine_mappings("d3d",'').electron_cyclotron_emission_hardware(ods, pulse=shot)
+    Scenario = ECRadScenario(noLoad=True)
+    Scenario.set_up_launch_from_omas(ods, [2.5])
+    make_netcdf_launch(launch_file, Scenario["diagnostic"])
+
 def make_Plasma_for_SPARC(times, filename, Te_files, ne_files, eqdsk_files):
     from omfit.omfit_classes.omfit_eqdsk import OMFITgeqdsk
     # from Plotting_Configuration import plt
@@ -295,8 +305,8 @@ def make_Launch_from_freq_and_points(filename, input_file):
     x1 = np.array(launch_data.T[1:4])
     x2 = np.array(launch_data.T[4:])
     x_1 = x1[0] * np.cos(np.deg2rad(x1[1]))
-    x_2 = x1[0] * np.sin(np.deg2rad(x1[1]))
-    y_1 = x2[0] * np.cos(np.deg2rad(x2[1]))
+    y_2 = x1[0] * np.sin(np.deg2rad(x1[1]))
+    x_2 = x2[0] * np.cos(np.deg2rad(x2[1]))
     y_2 = x2[0] * np.sin(np.deg2rad(x2[1]))
     phi_tor = np.rad2deg(np.arctan2(y_2 - y_1, x_2 - x_1))
     phi_tor[np.abs(phi_tor) < 0.1] = 0.1
@@ -570,12 +580,13 @@ def make_test_launch(filename):
     make_launch_mat_single_timepoint(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
     
 if (__name__ == "__main__"):
-    put_JOREK_data_into_Scenario("/mnt/c/Users/Severin/ECRad/ECRad2D/jorek-plane_s08930.dat", 
-                                 "/mnt/c/Users/Severin/ECRad/ECRad2D/ECRad_JOREK_Scenario.nc", 
-                                 "/mnt/c/Users/Severin/git/ECRad_PyLib/ASDEX_Upgrade_vessel.txt")
+    # put_JOREK_data_into_Scenario("/mnt/c/Users/Severin/ECRad/ECRad2D/jorek-plane_s08930.dat", 
+    #                              "/mnt/c/Users/Severin/ECRad/ECRad2D/ECRad_JOREK_Scenario.nc", 
+    #                              "/mnt/c/Users/Severin/git/ECRad_PyLib/ASDEX_Upgrade_vessel.txt")
     # make_DIIID_HFS_LHCD_Scenario("/mnt/c/Users/Severin/ECRad/HFS_LHCD/", 
     #                              "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_Scenario.nc", \
-    #                              "/mnt/c/Users/Severin/ECRad/HFS_LHCD/.nc")
+    #                              "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_distribution.nc")
+    make_DIII_D_launch_omas("/mnt/c/Users/Severin/ECRad/ECE_launch.nc", 170325)
     # make_Launch_from_freq_and_points("/mnt/c/Users/Severin/ECRad/SPARC/SPARC_launch.mat",
     #         "/mnt/c/Users/Severin/ECRad/SPARC/ece_chans")
     # make_Plasma_for_SPARC([1.0],
