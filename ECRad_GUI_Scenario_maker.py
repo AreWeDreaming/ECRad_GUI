@@ -304,12 +304,15 @@ def make_Launch_from_freq_and_points(filename, input_file):
     df = f * 0.1
     x1 = np.array(launch_data.T[1:4])
     x2 = np.array(launch_data.T[4:])
-    x_1 = x1[0] * np.cos(np.deg2rad(x1[1]))
-    y_2 = x1[0] * np.sin(np.deg2rad(x1[1]))
-    x_2 = x2[0] * np.cos(np.deg2rad(x2[1]))
-    y_2 = x2[0] * np.sin(np.deg2rad(x2[1]))
-    phi_tor = np.rad2deg(np.arctan2(y_2 - y_1, x_2 - x_1))
-    phi_tor[np.abs(phi_tor) < 0.1] = 0.1
+    r_1 = np.array([
+            x1[0] * np.cos(np.deg2rad(x1[1])),
+            x1[0] * np.sin(np.deg2rad(x1[1]))])
+    r_2 = np.array([
+            x2[0] * np.cos(np.deg2rad(x2[1])),
+            x2[0] * np.sin(np.deg2rad(x2[1]))])
+    # Phi is defined as the angle between the k_1 = -r_1 and k_2 = r_2 - r_1
+    phi_tor = np.rad2deg(np.arccos((-r_1[0] * (r_2[0] - r_1[0]) - r_1[1] * (r_2[1] - r_1[1])) / 
+                                                    (np.linalg.norm(r_1, axis=0) * np.linalg.norm(r_2 - r_1, axis=0))))
     theta_pol = np.rad2deg(np.arctan((x2[2] - x1[2])
             / np.sqrt((x2[2] - x1[2])**2 +
                       (x2[0] - x1[0])**2)))
@@ -586,9 +589,9 @@ if (__name__ == "__main__"):
     # make_DIIID_HFS_LHCD_Scenario("/mnt/c/Users/Severin/ECRad/HFS_LHCD/", 
     #                              "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_Scenario.nc", \
     #                              "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_distribution.nc")
-    make_DIII_D_launch_omas("/mnt/c/Users/Severin/ECRad/ECE_launch.nc", 170325)
-    # make_Launch_from_freq_and_points("/mnt/c/Users/Severin/ECRad/SPARC/SPARC_launch.mat",
-    #         "/mnt/c/Users/Severin/ECRad/SPARC/ece_chans")
+    # make_DIII_D_launch_omas("/mnt/c/Users/Severin/ECRad/HFS_LHCD/ECE_launch.nc", 170325)
+    make_Launch_from_freq_and_points("/mnt/c/Users/Severin/ECRad/SPARC/SPARC_launch.mat",
+            "/mnt/c/Users/Severin/ECRad/SPARC/ece_chans")
     # make_Plasma_for_SPARC([1.0],
     #         "/mnt/c/Users/Severin/ECRad/SPARC/SPARC_fbdry_new_profiles.nc", 
     #         ["/mnt/c/Users/Severin/ECRad/SPARC/te_out"], 
