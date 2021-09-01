@@ -163,7 +163,67 @@ class IMASSelectDialog(wx.Dialog):
             print(e)
             self.EndModal(wx.ID_ABORT)
         
+class OMASLoadECEDataDialog(wx.Dialog):
+    def __init__(self, parent, times):
+        wx.Dialog.__init__(self, parent, wx.ID_ANY)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)        
+        self.tc_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.device_tc = simple_label_tc(self, "device", "d3d", "string")
+        self.tc_sizer.Add(self.device_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.shot_tc = simple_label_tc(self, "shot", 150601, "integer") #100003
+        self.tc_sizer.Add(self.shot_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.LoadButton = wx.Button(self, wx.ID_ANY, 'Load')
+        self.Bind(wx.EVT_BUTTON, self.OnLoad, self.LoadButton)
+        self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
+        self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
+        self.ButtonSizer.Add(self.LoadButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.sizer.Add(self.tc_sizer, 0, wx.ALL | \
+                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
+                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.SetSizer(self.sizer)
+        self.SetClientSize(self.GetEffectiveMinSize())
+        self.times = times
 
+    def EvtClose(self, Event):
+        self.EndModal(wx.ID_ABORT)
+
+    def OnLoad(self, Event):
+        try:
+            import omas
+        except ImportError:
+            print("OMAS not accessible!")
+            return
+        try:
+            ods = omas.ODS()
+            ods.open(self.device_tc.GetValue(), self.shot_tc.GetValue())
+            self.Trad = []
+            self.res = [] 
+            for time in self.times:
+                self.Trad.append([])
+                self.res.append([])
+                for ch in ods['ece']['channel'].values():
+                    itime = np.argmin(np.abs(self.time_tc.GetValue() - ch['time']))
+                    self.Trad[-1].append(ch['t_e.data'][itime])
+                    self.res[-1].append(ch['position.r'][itime], ch['position.z'][itime])
+            self.Trad = np.array(self.Trad)
+            self.res = np.array(self.res)
+            name_first = ods['ece']['channel[0].name']
+            name_last = ods['ece']['channel[{0:d}].name'.format(len(self.Trad) - 1)]
+            i = 0
+            while i < min(len(name_first), len(name_last)):
+                if(name_first[i] == name_last[i]):
+                    i += 1
+                else:
+                    break
+            self.diag_name = name_first[:i]
+            self.EndModal(wx.ID_OK)
+        except Exception as e:
+            print("Failed to load IMAS entry")
+            print(e)
+            self.EndModal(wx.ID_ABORT)
 
 class IMASTimeBaseSelectDlg(wx.Dialog):
     def __init__(self, parent):

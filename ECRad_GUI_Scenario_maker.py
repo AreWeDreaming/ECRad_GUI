@@ -162,7 +162,7 @@ def make_plasma_from_variables(filename, shot, times, rhop_profiles, Te,
     EQObj.insert_slices_from_ext(times, slices, False)
     plasma_dict["eq_data_2D"] = EQObj
     if(vessel_data is not None):
-        plasma_dict["vessel_bd"] = np.array(vessel_data).T
+        plasma_dict["vessel_bd"] = np.array(vessel_data)
     elif(vessel_bd_file is not None):
         vessel_bd = np.loadtxt(vessel_bd_file, skiprows=1)
         plasma_dict["vessel_bd"] = []
@@ -259,11 +259,10 @@ def make_Plasma_for_DIII_D(filename, shot, time, eqdsk_file, derived_file=None, 
                                [omfit_eq['AuxQuantities']["RHOpRZ"].T],\
                                vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
 
-def make_DIII_D_launch_omas(launch_file, shot, machine='d3d'):
+def make_DIII_D_launch_omas(launch_file, shot, device='d3d'):
     import omas
     ods = omas.ODS()
-    ods.open(machine, shot)
-    # machine_mappings("d3d",'').electron_cyclotron_emission_hardware(ods, pulse=shot)
+    ods.open(device, shot)
     Scenario = ECRadScenario(noLoad=True)
     Scenario.set_up_launch_from_omas(ods, [2.5])
     make_netcdf_launch(launch_file, Scenario["diagnostic"])
@@ -331,7 +330,7 @@ def set_launch_in_Scenario(scenario_file_in, scenario_file_out, launch_dict):
     Scenario['diagnostic']["diag_name"][:] = "EXT"
     Scenario.to_netcdf(filename=scenario_file_out)
 
-def make_DIIID_HFS_LHCD_Scenario(folder, Scenario_filename, Distribution_filename):
+def make_DIIID_HFS_LHCD_Scenario(folder, Scenario_filename, Distribution_filename, plot=False):
     from omfit.omfit_classes.omfit_eqdsk import OMFITgeqdsk
     f = np.load(os.path.join(folder,"f.npy"))
     rho_f = np.load(os.path.join(folder,"rhosOfFluxSurfaces.npy"))
@@ -365,13 +364,14 @@ def make_DIIID_HFS_LHCD_Scenario(folder, Scenario_filename, Distribution_filenam
     dist_obj.set(rho_f, rhop_f, u, pitch, f, rho_prof, rhop_prof, Te, ne)
     dist_obj.post_process()
     dist_obj.to_netcdf(filename=Distribution_filename)
-    from Plotting_Configuration import plt
-    for rho in np.arange(0.8, 0.95, 0.025):
-        plt.figure()
-        dist_obj.plot(rhop=rho)
-        plt.gca().set_xlim(0.0, 0.8)
-        plt.gca().set_ylim(-0.8, 0.8)
-    plt.show()
+    if(plot):
+        from Plotting_Configuration import plt
+        for rho in np.arange(0.8, 0.95, 0.025):
+            plt.figure()
+            dist_obj.plot(rhop=rho)
+            plt.gca().set_xlim(0.0, 0.8)
+            plt.gca().set_ylim(-0.8, 0.8)
+        plt.show()
     
 def put_JOREK_data_into_Scenario(filename, Scenario_filename, vessel_file):
     from Plotting_Configuration import plt
@@ -589,9 +589,9 @@ if (__name__ == "__main__"):
     # make_DIIID_HFS_LHCD_Scenario("/mnt/c/Users/Severin/ECRad/HFS_LHCD/", 
     #                              "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_Scenario.nc", \
     #                              "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_distribution.nc")
-    # make_DIII_D_launch_omas("/mnt/c/Users/Severin/ECRad/HFS_LHCD/ECE_launch.nc", 170325)
-    make_Launch_from_freq_and_points("/mnt/c/Users/Severin/ECRad/SPARC/SPARC_launch.mat",
-            "/mnt/c/Users/Severin/ECRad/SPARC/ece_chans")
+    make_DIII_D_launch_omas("/mnt/c/Users/Severin/ECRad/HFS_LHCD/ECE_launch.nc", 170325)
+    # make_Launch_from_freq_and_points("/mnt/c/Users/Severin/ECRad/SPARC/SPARC_launch.mat",
+    #         "/mnt/c/Users/Severin/ECRad/SPARC/ece_chans")
     # make_Plasma_for_SPARC([1.0],
     #         "/mnt/c/Users/Severin/ECRad/SPARC/SPARC_fbdry_new_profiles.nc", 
     #         ["/mnt/c/Users/Severin/ECRad/SPARC/te_out"], 

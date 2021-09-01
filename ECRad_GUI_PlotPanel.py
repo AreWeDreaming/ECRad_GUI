@@ -4,28 +4,18 @@ Created on Apr 3, 2019
 @author: sdenk
 '''
 
+from scipy.interpolate.fitpack2 import RectBivariateSpline
 from Global_Settings import globalsettings
 import wx
 import os
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
 from Plotting_Configuration import plt
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-from Plotting_Core import PlottingCore
-if(globalsettings.AUG):
-    from Shotfile_Handling_AUG import shotfile_exists, get_data_calib, AUG_profile_diags,\
-                                      load_IDA_data, get_Thomson_data
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 import numpy as np
-from TB_Communication import Ray, make_TORBEAM_no_data_load
 from Parallel_Utils import WorkerThread
-from Basic_Methods.Equilibrium_Utils import EQDataExt as EQData
-from Diag_Types import Diag
-from ECRad_GUI_Diagnostic import Diagnostic
 from ECRad_Results import ECRadResults
-from BDOP_3D import make_3DBDOP_cut_GUI
-from Diag_Efficiency import diag_weight
-from ECRH_Launcher import ECRHLauncher
-from ECRad_GUI_Dialogs import TextEntryDialog
+from ECRad_GUI_Dialogs import OMASLoadECEDataDialog
 from WX_Events import EVT_UPDATE_DATA, EVT_THREAD_FINISHED, EVT_DIAGNOSTICS_LOADED, \
                       EVT_OTHER_RESULTS_LOADED, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
                       Unbound_EVT_THREAD_FINISHED, UpdateDiagDataEvt, \
@@ -141,6 +131,16 @@ class PlotPanel(wx.Panel):
         self.scenario_quant_box = wx.ListBox(self, wx.ID_ANY, style=wx.LB_MULTIPLE, size=(100,200))
         self.aux_data_box_sizer.Add(self.scenario_quant_box, 0, wx.ALL | wx.EXPAND, 5)
         self.scenario_quant_box.Bind(wx.EVT_LISTBOX, self.OnScenarioQuantSelected)
+        if(globalsettings.omas):
+            self.load_ece_data_btn = wx.Button(self, wx.ID_ANY, "Load ECE data")
+            self.load_ece_data_btn.Bind(wx.EVT_BUTTON, self.OnLoadECEData)
+            self.aux_data_box_sizer.Add(self.load_ece_data_btn, 0, wx.ALL | wx.EXPAND, 5)
+            self.ece_data_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            self.ece_data_box = wx.ListBox(self, wx.ID_ANY, style=wx.LB_MULTIPLE, size=(100,200))
+            self.ece_data_sizer.Add(self.ece_data_box, 1, wx.ALL | wx.EXPAND, 10)
+            self.ece_data_res_cb = simple_label_cb(self, "Use ECRad resonances", True)
+            self.ece_data_sizer.Add(self.ece_data_res_cb, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 10)
+            self.aux_data_box_sizer.Add(self.ece_data_sizer, 0, wx.ALL | wx.EXPAND, 5)
         self.sizer.Add(self.controlplotsizer, 1, wx.ALL | wx.EXPAND, 10)
         self.sizer.Add(self.aux_data_box_sizer, 0, wx.ALL | wx.TOP, 10)
         self.FigureControlPanel.Show(True)
@@ -557,6 +557,25 @@ class PlotPanel(wx.Panel):
             if(len(paths) > 0):
                 WorkerThread(self.get_other_results, [paths])
                 self.load_other_results_button.Disable()
+
+    def OnLoadECEData(self, evt):
+        if(self.Results is None):
+            print("You first need to generate/load some ECRad results")
+            return
+        data_load_dlg = OMASLoadECEDataDialog(self, self.Results.Scenario["time"])
+        if(data_load_dlg.ShowModal() == wx.ID_OK):
+            self.ece_data[data_load_dlg.diag_name] = {}
+            self.ece_data[data_load_dlg.diag_name]["Trad"] = data_load_dlg.Trad
+            self.ece_data[data_load_dlg.diag_name]["rhop_res"] = []
+            for itime, time in enumerate(self.Results.Scenario["time"]):
+                slice = self.Results.Scenario["plasma"]["eq_data_2D"].GetSlice(time)
+                rhop_spl = RectBivariateSpline(slice.R, slice.z, slice.rhop)
+                self.ece_data[data_load_dlg.diag_name]["rhop_res"].append(
+                        rhop_spl(data_load_dlg.res[itime,:,0],
+                                 data_load_dlg.res[itime,:,1], grid=False))
+            self.ece_data[data_load_dlg.diag_name]["rhop_res"] = np.array(
+                    self.ece_data[data_load_dlg.diag_name]["rhop_res"])
+            self.ece_data_box.Append(data_load_dlg.diag_name)
         
     def get_other_results(self, args):
         paths = args[0]
