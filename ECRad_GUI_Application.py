@@ -31,6 +31,7 @@ from ECRad_GUI_ScenarioPanel import ScenarioSelectPanel
 from ECRad_GUI_Config_Panel import ConfigPanel
 from ECRad_GUI_Calibration_Suite import CalibPanel, CalibEvolutionPanel
 from ECRad_GUI_Dialogs import Select_GENE_timepoints_dlg
+from ECRad_GUI_Post_Processing_Panel import PostProcessingPanel
 # import  wx.lib.scrolledpanel as ScrolledPanel
 import numpy as np
 from WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unbound_EVT_LOAD_OLD_RESULT, \
@@ -270,6 +271,8 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.UpperBook.AddPage(self.config_panel, "ECRad configuration")
         self.plot_panel = PlotPanel(self.UpperBook)
         self.UpperBook.AddPage(self.plot_panel, "Misc. Plots")
+        self.post_processing_panel = PostProcessingPanel(self.UpperBook)
+        self.UpperBook.AddPage(self.post_processing_panel, "Post Processing")
         self.sizer.Add(self.Progress_sizer, 0, wx.ALL | wx.EXPAND, 5)
         self.SetScrollRate(20, 20)
         if(globalsettings.AUG):
@@ -609,6 +612,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.calib_panel.GetEventHandler().ProcessEvent(evt_2)
         wx.PostEvent(self.scenario_select_panel, evt_2)
         wx.PostEvent(self.plot_panel, evt_2)
+        wx.PostEvent(self.post_processing_panel, evt_2)
         self.StartECRadButton.Enable()
         
     def SavingThread(self, args):
@@ -678,6 +682,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             wx.PostEvent(self.scenario_select_panel, evt_out_2)
             wx.PostEvent(self.launch_panel, evt_out_2)
             wx.PostEvent(self.plot_panel, evt_out_2)
+            wx.PostEvent(self.post_processing_panel, evt_out_2)
         else:
             print("ERROR: Failed to load Results")
 

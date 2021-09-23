@@ -258,6 +258,7 @@ class PlotPanel(wx.Panel):
             for key in self.Results.result_keys:
                 if(key != "dimensions"):
                     self.lb_widgets["y_group"].Append(key)
+            
             self.load_other_results_button.Enable()
             self.scenario_quant_box.AppendItems(["Te", "ne", "rhop", "Br", "Bt", "Bz"])  
 

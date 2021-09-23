@@ -336,13 +336,18 @@ def make_DIIID_HFS_LHCD_Scenario(folder, Scenario_filename, Distribution_filenam
     rho_f = np.load(os.path.join(folder,"rhosOfFluxSurfaces.npy"))
     pitch = np.load(os.path.join(folder,"pitchAngleMesh.npy"))[0]
     v = np.load(os.path.join(folder,"velocities.npy"))
-    u = v / cnst.c
+    beta = v / cnst.c 
+    gamma = 1.0 / np.sqrt(1.0 - beta**2)
+    u = beta * gamma
+    gamma_grid, pitch_grid = np.meshgrid(gamma, pitch, indexing="ij")
+    for i_rho in range(f.shape[0]):
+        f[i_rho] *= gamma_grid**5
     Te, ne, rho_prof = np.load(os.path.join(folder,"profiles.npy"))
     Te *= 1.e3
     ne *= 1.e19
     ne_spl = InterpolatedUnivariateSpline(rho_prof, np.log(ne/1.e19))
     ne_f = 1.e19*np.exp(ne_spl(rho_f))
-    f = (f.T / ne_f).T
+    # f = (f.T / ne_f).T
     shot = 147634
     time = 4.525
     omfit_eq = OMFITgeqdsk(os.path.join(folder,"g147634.04525"))
@@ -363,10 +368,17 @@ def make_DIIID_HFS_LHCD_Scenario(folder, Scenario_filename, Distribution_filenam
     dist_obj = Distribution()
     dist_obj.set(rho_f, rhop_f, u, pitch, f, rho_prof, rhop_prof, Te, ne)
     dist_obj.post_process()
+    ne_inter = dist_obj.ne_init[dist_obj.rhop_1D_profs < 1.0]
+    ne_inter[ne_inter < 1.e15] = 1.e15
+    ne_spl = InterpolatedUnivariateSpline(dist_obj.rhop_1D_profs[dist_obj.rhop_1D_profs < 1.0], np.log(ne_inter))
+    f = (f.T / (dist_obj.ne/np.exp(ne_spl(dist_obj.rhop)))).T
+    dist_obj.set(rho_f, rhop_f, u, pitch, f, rho_prof, rhop_prof, Te, ne)
+    dist_obj.post_process()
     dist_obj.to_netcdf(filename=Distribution_filename)
     if(plot):
         from Plotting_Configuration import plt
-        for rho in np.arange(0.8, 0.95, 0.025):
+        dist_obj.plot_Te_ne()
+        for rho in np.arange(0.1, 0.95, 0.15):
             plt.figure()
             dist_obj.plot(rhop=rho)
             plt.gca().set_xlim(0.0, 0.8)
@@ -586,10 +598,10 @@ if (__name__ == "__main__"):
     # put_JOREK_data_into_Scenario("/mnt/c/Users/Severin/ECRad/ECRad2D/jorek-plane_s08930.dat", 
     #                              "/mnt/c/Users/Severin/ECRad/ECRad2D/ECRad_JOREK_Scenario.nc", 
     #                              "/mnt/c/Users/Severin/git/ECRad_PyLib/ASDEX_Upgrade_vessel.txt")
-    # make_DIIID_HFS_LHCD_Scenario("/mnt/c/Users/Severin/ECRad/HFS_LHCD/", 
-    #                              "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_Scenario.nc", \
-    #                              "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_distribution.nc")
-    make_DIII_D_launch_omas("/mnt/c/Users/Severin/ECRad/HFS_LHCD/ECE_launch.nc", 170325)
+    make_DIIID_HFS_LHCD_Scenario("/mnt/c/Users/Severin/ECRad/HFS_LHCD/", 
+                                 "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_Scenario.nc", \
+                                 "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_distribution.nc", plot=True)
+    # make_DIII_D_launch_omas("/mnt/c/Users/Severin/ECRad/HFS_LHCD/ECE_launch.nc", 170325)
     # make_Launch_from_freq_and_points("/mnt/c/Users/Severin/ECRad/SPARC/SPARC_launch.mat",
     #         "/mnt/c/Users/Severin/ECRad/SPARC/ece_chans")
     # make_Plasma_for_SPARC([1.0],
