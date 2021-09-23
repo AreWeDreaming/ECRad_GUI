@@ -800,6 +800,9 @@ class ScenarioSelectPanel(wx.Panel):
         self.plasma_dict["time"] = np.copy(NewScenario["time"])
         self.plasma_dict["shot"] = np.copy(NewScenario["shot"])
         self.plasma_dict["dist_obj"] = NewScenario["plasma"]["dist_obj"]
+        self.unused = []
+        self.used = []
+        self.used_list.Clear()
         for t in self.plasma_dict["time"]:
             self.unused.append("{0:2.5f}".format(t))
         self.unused = list(set(self.unused))
