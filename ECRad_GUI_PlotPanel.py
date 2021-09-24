@@ -493,8 +493,8 @@ class PlotPanel(wx.Panel):
                                     z_list.append(None)
                 elif((scenario_selection[0] in ["rhop", "Br", "Bt", "Bz"]) or \
                      (scenario_selection[0] in ["Te","ne"] and self.Results.Scenario["plasma"]["2D_prof"])):
-                    if(selections["x_quant"] != "R" or sub_key != "z"):
-                        print("Cannot plot " + scenario_selection[0] + "x-y axes have to be R, z")
+                    if(selections["x_quant"][0] != "R" or sub_key[0] != "z"):
+                        print("Cannot plot " + scenario_selection[0] + "x, y axes have to be R and z")
                         add_scenario_data = False
                     elif(first_iter):
                         if(len(selections["time"]) > 1):
