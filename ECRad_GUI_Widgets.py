@@ -96,6 +96,11 @@ class simple_label_choice(wx.Panel):
     def CheckForNewValue(self):
         return self.NewvalueAvailable
 
+    def GetSelection(self):
+        self.NewvalueAvailable = False
+        self.selection = self.choice.GetSelection()
+        return self.selection
+
 
 class simple_label_tc(wx.Panel):
     def __init__(self, parent, label, value, value_type, border=0, tooltip=None, scale=None, readonly=False):

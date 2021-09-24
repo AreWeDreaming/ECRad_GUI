@@ -5,7 +5,7 @@ Created on Mar 21, 2019
 '''
 from WX_Events import NewStatusEvt, Unbound_EVT_NEW_STATUS, EVT_UPDATE_DATA
 import wx
-from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row
+from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row, simple_label_choice
 from collections import OrderedDict as od
 import numpy as np
 from ECRad_Interface import get_diag_launch
@@ -399,7 +399,6 @@ class ExtDiagPanel(Diag_Panel):
     def __init__(self, parent, Diag_obj):
         wx.Panel.__init__(self, parent, wx.ID_ANY, style=wx.SUNKEN_BORDER)
         self.Diag = Diag_obj
-        self.grid_sizer = wx.GridSizer(0, 4, 0, 0)
         self.art_data_beamline = 1
         self.art_data_base_freq_140 = True
         self.art_data_pol_coeff_X = 1.0
@@ -408,6 +407,41 @@ class ExtDiagPanel(Diag_Panel):
         self.widget_dict = {}
         self.selected_channel = 0
         self.NewValues = False
+        self.launch_edit_sizer = wx.GridBagSizer(vgap=5, hgap=5)
+        quantities = []
+        default_value = None
+        for prop in self.Diag.properties:
+            if(prop != "N_ch"):
+                quantities.append(Diag_obj.descriptions_dict[prop])
+                if(default_value is None):
+                    default_value = (getattr(self.Diag, prop) * self.Diag.scale_dict[prop])[0]
+        self.quant_choice = simple_label_choice(self, "Quantity to edit", quantities, quantities[0])
+        self.launch_edit_sizer.Add(self.quant_choice, (0,0), (1,2), 
+                flag=wx.ALL | wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL, border=5)
+        self.override_value_tc = simple_label_tc(self, "Replace with", default_value, "real")
+        self.launch_edit_sizer.Add(self.override_value_tc, (0,2), (1,1), 
+                flag=wx.ALL | wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL, border=5)
+        self.override_value_button = wx.Button(self, label="Set value for all channels")
+        self.override_value_button.Bind(wx.EVT_BUTTON, self.OnOverrideAll)
+        self.launch_edit_sizer.Add(self.override_value_button, (0,4), (1,2), 
+                flag=wx.ALL | wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL, border=5)
+        self.min_value_tc = simple_label_tc(self, "Start value", default_value, "real")
+        self.launch_edit_sizer.Add(self.min_value_tc, (1,2), (1,1), 
+                flag=wx.ALL | wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL, border=5)
+        self.max_value_tc = simple_label_tc(self, "Stop value", default_value, "real")
+        self.launch_edit_sizer.Add(self.max_value_tc, (1,3), (1,1), 
+                flag=wx.ALL | wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL, border=5)
+        self.set_from_range_button = wx.Button(self, label="Set channels from range")
+        self.set_from_range_button.Bind(wx.EVT_BUTTON, self.OnSetLinspace)
+        self.launch_edit_sizer.Add(self.set_from_range_button, (1,4), (1,2), 
+                flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_CENTER_VERTICAL, border=5)
+        self.from_file_buton = wx.Button(self, label="Set channels from file")
+        self.from_file_buton.Bind(wx.EVT_BUTTON, self.OnSetFromFile)
+        self.launch_edit_sizer.Add(self.from_file_buton, (2,4), (1,2), 
+                flag=wx.ALL | wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL, border=5)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(self.launch_edit_sizer, 0, wx.ALL | wx.ALIGN_LEFT, 5)
+        self.grid_sizer = wx.GridSizer(0, 4, 0, 0)
         N_ch = getattr(Diag_obj, "N_ch")
         self.widget_dict["N_ch"] = simple_label_tc(self, Diag_obj.descriptions_dict["N_ch"], \
                                                    getattr(Diag_obj, "N_ch"), \
@@ -438,12 +472,10 @@ class ExtDiagPanel(Diag_Panel):
                 self.widget_dict[attribute] = simple_label_cb(self, Diag_obj.descriptions_dict[attribute], \
                                                               getattr(Diag_obj, attribute))
             self.grid_sizer.Add(self.widget_dict[attribute], 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
-        self.SetSizer(self.grid_sizer)
+        self.sizer.Add(self.grid_sizer, 0, wx.ALL | wx.LEFT, 5)
+        self.SetSizer(self.sizer)
 
-    def OnUpdateNch(self, evt):
-        if(self.widget_dict["N_ch"].GetValue() == self.Diag.N_ch):
-            return
-        N_ch = self.widget_dict["N_ch"].GetValue()
+    def SetNewNch(self, N_ch):
         if(N_ch < self.Diag.N_ch):
             if(self.selected_channel > N_ch):
                 self.selected_channel = N_ch - 1
@@ -470,6 +502,12 @@ class ExtDiagPanel(Diag_Panel):
         self.channel_select_ch.AppendItems(np.array(range(1, N_ch + 1), dtype="|U3").tolist())
         self.channel_select_ch.Select(self.selected_channel)  # note not channel number but channel index, i.e. ch no. 1 -> 0
         self.NewValues = True
+
+    def OnUpdateNch(self, evt):
+        if(self.widget_dict["N_ch"].GetValue() == self.Diag.N_ch):
+            return
+        N_ch = self.widget_dict["N_ch"].GetValue()
+        self.SetNewNch(N_ch)
 
     def OnNewChannelSelected(self, evt):
         old_selected_channel = self.selected_channel
@@ -508,6 +546,46 @@ class ExtDiagPanel(Diag_Panel):
         if(self.NewValues):
             return self.NewValues
         return Diag_Panel.CheckForNewValues(self)
+
+    def SetDiagValues(self, key, values):
+        setattr(self.Diag, key, values)
+        self.SetDiag(self.Diag)
+
+    def OnOverrideAll(self, evt):
+        # + 1 because we removed N_ch
+        key = self.Diag.properties[self.quant_choice.GetSelection() + 1]
+        values = np.zeros(self.Diag.N_ch)
+        values[:] =  self.override_value_tc.GetValue() / self.Diag.scale_dict[key]
+        self.SetDiagValues(key, values)
+
+    def OnSetLinspace(self, evt):
+        # + 1 because we removed N_ch
+        key = self.Diag.properties[self.quant_choice.GetSelection() + 1]
+        values = np.linspace(self.min_value_tc.GetValue() / self.Diag.scale_dict[key], 
+                             self.max_value_tc.GetValue() / self.Diag.scale_dict[key],
+                             self.Diag.N_ch)
+        self.SetDiagValues(key, values)
+
+    def OnSetFromFile(self, evt):
+        dlg = wx.FileDialog(\
+            self, message="Choose a file with values", \
+            wildcard=("Single column text file (*txt)|*.txt"),
+            style=wx.FD_OPEN)
+        if(dlg.ShowModal() == wx.ID_OK):
+            path = dlg.GetPath()
+            dlg.Destroy()
+            try:
+                values = np.loadtxt(path)
+            except Exception as e:
+                print("ERROR:: Failed to load file because ", e)
+                return
+        if(values.shape != (1,)):
+            print("ERROR:: Can only use single column values")
+            print("INFO:: Shape from text file ", values.shape)
+        # + 1 because we removed N_ch
+        key = self.Diag.properties[self.quant_choice.GetSelection() + 1]
+        self.SetNewNch(len(values))
+        self.SetDiagValues(key, values / self.Diag.scale_dict[key])
 
 class Select_Raylaunch_timepoint(wx.Dialog):
     def __init__(self, parent, time_list):
