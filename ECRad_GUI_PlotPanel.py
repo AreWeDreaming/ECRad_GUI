@@ -99,6 +99,7 @@ class PlotPanel(wx.Panel):
         self.multiple["y_quant"] = True
         self.controlgrid.Add(self.y_quant_sizer, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.eq_aspect_ratio_cb = simple_label_cb(self, "Equal aspect ratio", False)
+        self.legend_cb = simple_label_cb(self, "Show legend", True)
         self.figure_width_tc = simple_label_tc(self, "Figure width", 12.0, "real")
         self.figure_height_tc = simple_label_tc(self, "Figure height", 8.5, "real")
         self.AddPlotButton = wx.Button(self, wx.ID_ANY, 'Add plot')
@@ -106,6 +107,7 @@ class PlotPanel(wx.Panel):
         self.ClearButton = wx.Button(self, wx.ID_ANY, 'Clear plots')
         self.Bind(wx.EVT_BUTTON, self.OnClear, self.ClearButton)
         self.controlgrid2.Add(self.eq_aspect_ratio_cb, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
+        self.controlgrid2.Add(self.legend_cb, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid2.Add(self.figure_width_tc, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid2.Add(self.figure_height_tc, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid2.Add(self.AddPlotButton, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
@@ -523,10 +525,11 @@ class PlotPanel(wx.Panel):
         if(secondary_unit is not None):
             y_axis_labels[1] += " " + secondary_unit
         eq_aspect_ratio = self.eq_aspect_ratio_cb.GetValue()
+        plot_legend = self.legend_cb.GetValue()
         figure_width = self.figure_width_tc.GetValue()
         figure_height = self.figure_height_tc.GetValue()
         self.FigureControlPanel.AddPlot(x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
-                                        eq_aspect_ratio, figure_width, figure_height)
+                                        eq_aspect_ratio, plot_legend, figure_width, figure_height)
         self.Layout()
 
     def OnClear(self, evt):
@@ -609,10 +612,10 @@ class FigureBook(wx.Notebook):
         self.FigureList = []
 
     def AddPlot(self, x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
-                eq_aspect_ratio, figure_width, figure_height):
+                eq_aspect_ratio, plot_legend, figure_width, figure_height):
         self.FigureList.append(PlotContainer(self, figure_width, figure_height))
         if(self.FigureList[-1].Plot(x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
-                                        eq_aspect_ratio)):
+                                    eq_aspect_ratio, plot_legend)):
             self.AddPage(self.FigureList[-1], label_list[0])
         else:
             del(self.FigureList[-1])
@@ -725,14 +728,14 @@ class PlotContainer(wx.Panel):
             print(e)        
             
     def Plot(self, x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
-             eq_aspect_ratio):
+             eq_aspect_ratio, plot_legend):
         WorkerThread(self.plot_threaded, [x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
-             eq_aspect_ratio])
+             eq_aspect_ratio, plot_legend])
         return True
 
     def plot_threaded(self, args):
         x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list, x_axis_label, y_axis_labels, \
-             eq_aspect_ratio, = args
+             eq_aspect_ratio, plot_legend, = args
         # Does all the plotting in a separate step
         self.axlist.append(self.fig.add_subplot(111))
         n_ax = 1
@@ -771,7 +774,7 @@ class PlotContainer(wx.Panel):
             self.axlist[i_ax].set_ylabel(label)
         if(eq_aspect_ratio):
             self.axlist[i_ax].set_aspect("equal")
-        if(len(label_list) > 1):
+        if(len(label_list) > 1 and plot_legend):
             lns = self.axlist[0].get_lines()
             if(n_ax > 1):
                 lns += self.axlist[1].get_lines() 
