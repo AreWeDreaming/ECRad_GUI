@@ -115,14 +115,14 @@ class TextEntryDialog(wx.Dialog):
         self.EndModal(wx.ID_OK)
 
 class IMASSelectDialog(wx.Dialog):
-    def __init__(self, parent):
+    def __init__(self, parent, database = "ITER"):
         wx.Dialog.__init__(self, parent, wx.ID_ANY)
         self.sizer = wx.BoxSizer(wx.VERTICAL)        
         self.tc_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
         self.user_dir_tc = simple_label_tc(self, "Stored under", "public", "string")
         self.tc_sizer.Add(self.user_dir_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.database_tc = simple_label_tc(self, "Database", "ITER", "string")
+        self.database_tc = simple_label_tc(self, "Database", database, "string")
         self.tc_sizer.Add(self.database_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
         self.shot_tc = simple_label_tc(self, "shot", 150601, "integer") #100003
         self.tc_sizer.Add(self.shot_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)

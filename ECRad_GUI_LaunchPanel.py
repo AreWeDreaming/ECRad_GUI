@@ -186,7 +186,7 @@ class LaunchPanel(wx.Panel):
             self.SetScenario(curScenario, self.working_dir)
 
     def LoadFromIMAS(self, evt):
-        dlg = IMASSelectDialog(self)
+        dlg = IMASSelectDialog(self, 'ITER_MD')
         if(dlg.ShowModal() == wx.ID_OK):
             ids = dlg.ids
             check = ids.open()
