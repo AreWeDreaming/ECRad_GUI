@@ -696,7 +696,7 @@ class Main_Panel(scrolled.ScrolledPanel):
                 print("Reason: ", e)
                 print("Did not update working directory")
             if(self.Results is not None):
-                WorkerThread(self.Results.to_netcdf)
+                WorkerThread(self.SavingThread, [])
             else:
                 print("No results to save")
         except AttributeError as e:

@@ -10,7 +10,7 @@ from collections import OrderedDict as od
 import numpy as np
 from ECRad_Interface import get_diag_launch
 import os
-from Diag_Types import EXT_diag
+from Diag_Types import BasicDiag, EXT_diag, CECE_diag
 from ECRad_Scenario import ECRadScenario
 from ECRad_GUI_Dialogs import IMASSelectDialog
 
@@ -109,7 +109,7 @@ class LaunchPanel(wx.Panel):
                     self.GetEventHandler().ProcessEvent(evt)
                     return Scenario
                 del(Get_ECRH_Config) # Need to destroy this here otherwise we cause an incompatability with libece
-            if(diag_key in ["ECN", "ECO", "ECI"]):
+            elif(diag_key in ["ECN", "ECO", "ECI"]):
                 from Shotfile_Handling_AUG import get_ECI_launch
                 ECI_dict = get_ECI_launch(Scenario["used_diags_dict"][diag_key], Scenario["shot"])
         # Prepare the launches for each time point
@@ -335,8 +335,10 @@ class Diag_Page(wx.Panel):
         wx.Panel.__init__(self, parent, wx.ID_ANY, style=style)
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.SetSizer(self.sizer)
-        if(hasattr(Diag_obj, "N_ch")):
+        if(type(Diag_obj) == EXT_diag):
             self.diagpanel = ExtDiagPanel(self, Diag_obj)
+        elif( type(Diag_obj) == CECE_diag):
+            self.diagpanel = CECEDiagPanel(self, Diag_obj)
         else:
             self.diagpanel = Diag_Panel(self, Diag_obj)
         self.name = Diag_obj.name
@@ -356,6 +358,7 @@ class Diag_Panel(wx.Panel):
     def __init__(self, parent, Diag_obj):
         wx.Panel.__init__(self, parent, wx.ID_ANY, style=wx.SUNKEN_BORDER)
         self.Diag = Diag_obj
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.grid_sizer = wx.GridSizer(0, 4, 0, 0)
         self.art_data_beamline = 1
         self.art_data_base_freq_140 = True
@@ -377,7 +380,8 @@ class Diag_Panel(wx.Panel):
                 self.widget_dict[attribute] = simple_label_cb(self, Diag_obj.descriptions_dict[attribute], \
                                                               getattr(Diag_obj, attribute))
             self.grid_sizer.Add(self.widget_dict[attribute], 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
-            self.SetSizer(self.grid_sizer)
+        self.sizer.Add(self.grid_sizer, 0, wx.ALIGN_LEFT | wx.ALL, 5)
+        self.SetSizer(self.sizer)
 
     def GetDiag(self):
         for attribute in self.Diag.properties:
@@ -394,6 +398,41 @@ class Diag_Panel(wx.Panel):
             if(self.widget_dict[attribute].CheckForNewValue()):
                 return True
         return False
+
+class CECEDiagPanel(Diag_Panel):
+    def __init__(self, parent, Diag_obj):
+        Diag_Panel.__init__(self, parent, Diag_obj)
+        self.load_f_button = wx.Button(self, wx.ID_ANY, label="Load CECE frequecies")
+        self.load_f_button.Bind(wx.EVT_BUTTON, self.OnLoadF)
+        self.sizer.Add(self.load_f_button, 0, wx.ALIGN_LEFT | wx.ALL, 5)
+
+    def OnLoadF(self, evt):
+        dlg = wx.FileDialog(\
+            self, message="Choose a file with values", \
+            wildcard=("Single column text file (*txt)|*.txt"),
+            style=wx.FD_OPEN)
+        if(dlg.ShowModal() == wx.ID_OK):
+            path = dlg.GetPath()
+            dlg.Destroy()
+            try:
+                values = np.loadtxt(path)
+            except Exception as e:
+                print("ERROR:: Failed to load file because ", e)
+                return
+            if(values.ndim != 2):
+                print("ERROR:: Can only use single column values")
+                print("INFO:: Shape from text file ", values.shape)
+                return
+            self.Diag.f = values.T[0]
+            self.Diag.df = values.T[1]
+            print("INFO:: Frequencies set sucessfully!")
+        else:
+            dlg.Destroy()
+
+    def GetDiag(self):
+        if(self.Diag.f is None):
+            raise ValueError("ERROR:: You need to set the CECE frequencies before you can run ECRad")
+        return Diag_Panel.GetDiag(self)
 
 class ExtDiagPanel(Diag_Panel):
     def __init__(self, parent, Diag_obj):
@@ -579,9 +618,13 @@ class ExtDiagPanel(Diag_Panel):
             except Exception as e:
                 print("ERROR:: Failed to load file because ", e)
                 return
-        if(values.shape != (1,)):
+        else:
+            dlg.Destroy()
+            return
+        if(values.ndim != 1):
             print("ERROR:: Can only use single column values")
             print("INFO:: Shape from text file ", values.shape)
+            return
         # + 1 because we removed N_ch
         key = self.Diag.properties[self.quant_choice.GetSelection() + 1]
         self.SetNewNch(len(values))

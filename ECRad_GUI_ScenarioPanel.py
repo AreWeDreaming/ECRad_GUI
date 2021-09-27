@@ -382,9 +382,12 @@ class ScenarioSelectPanel(wx.Panel):
         self.used_list.Clear()
         self.unused_list.Clear()
         self.pc_obj.reset(True)
-        # try:
-        self.plasma_dict = load_IDA_data(self.shot_tc.GetValue(), None, self.IDA_exp_tc.GetValue(), \
-                                            self.IDA_ed_tc.GetValue())
+        try:
+            self.plasma_dict = load_IDA_data(self.shot_tc.GetValue(), None, self.IDA_exp_tc.GetValue(), \
+                                             self.IDA_ed_tc.GetValue())
+        except AttributeError as e:
+            print("ERROR:: No access to AUG shotfile system")
+            return
         self.plasma_dict["shot"] = self.shot_tc.GetValue()                   
         self.plasma_dict["IDA_exp"] = self.IDA_exp_tc.GetValue()
         self.plasma_dict["IDA_ed"] = self.IDA_ed_tc.GetValue()

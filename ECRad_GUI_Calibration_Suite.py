@@ -89,8 +89,8 @@ class CalibPanel(wx.Panel):
         self.button_ctrl_sizer.Add(self.line1, 0, \
                          wx.EXPAND | wx.ALL, 5)
         self.mode_filter_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.mode_filter_cb = simple_label_cb(self, "Filter for MHD modes", False)
-        self.mode_filter_sizer.Add(self.mode_filter_cb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        # self.mode_filter_cb = simple_label_cb(self, "Filter for MHD modes", False)
+        # self.mode_filter_sizer.Add(self.mode_filter_cb, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         self.mode_width_tc = simple_label_tc(self, "Witdh of mode [Hz]", 100.0, "real")
         self.mode_filter_sizer.Add(self.mode_width_tc, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         self.freq_cut_off_tc = simple_label_tc(self, "Lower frequeny cut off for mode filter [Hz]", 100.0, "real")
@@ -180,10 +180,10 @@ class CalibPanel(wx.Panel):
             self.calib_diag_dict[self.last_used_diag_name].diag = self.diag_tc.GetValue()
             self.calib_diag_dict[self.last_used_diag_name].exp = self.exp_tc.GetValue()
             self.calib_diag_dict[self.last_used_diag_name].ed = self.ed_tc.GetValue()
-            self.calib_diag_dict[self.last_used_diag_name].t_smooth = self.smoothing_tc.GetValue() * 1.e-3
-            self.calib_diag_dict[self.last_used_diag_name].mode_filter = self.mode_filter_cb.GetValue()
-            self.calib_diag_dict[self.last_used_diag_name].mode_width = self.mode_width_tc.GetValue()
-            self.calib_diag_dict[self.last_used_diag_name].freq_cut_off = self.freq_cut_off_tc.GetValue()
+            # self.calib_diag_dict[self.last_used_diag_name].t_smooth = self.smoothing_tc.GetValue() * 1.e-3
+            # self.calib_diag_dict[self.last_used_diag_name].mode_filter = self.mode_filter_cb.GetValue()
+            # self.calib_diag_dict[self.last_used_diag_name].mode_width = self.mode_width_tc.GetValue()
+            # self.calib_diag_dict[self.last_used_diag_name].freq_cut_off = self.freq_cut_off_tc.GetValue()
 
     def OnNewDiagSelected(self, evt):
         if(self.Results is None):
@@ -199,10 +199,10 @@ class CalibPanel(wx.Panel):
             self.diag_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].diag )
             self.exp_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].exp)
             self.ed_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].ed)
-            self.smoothing_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].t_smooth * 1.e3)
-            self.mode_filter_cb.SetValue(self.calib_diag_dict[self.last_used_diag_name].mode_filter)
-            self.mode_width_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].mode_width)
-            self.freq_cut_off_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].freq_cut_off)
+            # self.smoothing_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].t_smooth * 1.e3)
+            # self.mode_filter_cb.SetValue(self.calib_diag_dict[self.last_used_diag_name].mode_filter)
+            # self.mode_width_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].mode_width)
+            # self.freq_cut_off_tc.SetValue(self.calib_diag_dict[self.last_used_diag_name].freq_cut_off)
         self.used = []
         self.unused = list(self.time.astype("|U7"))
         self.used_list.Clear()

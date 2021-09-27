@@ -29,6 +29,7 @@ if(not found_lib):
 from Global_Settings import globalsettings
 from ECRad_Scenario import ECRadScenario
 from Basic_Methods.Equilibrium_Utils import EQDataExt, EQDataSlice
+from Basic_Methods.Geometry_Utils import get_theta_pol_phi_tor_from_two_points
 from TB_Communication import make_mdict_from_TB_files
 
 from scipy.interpolate import griddata, RectBivariateSpline, InterpolatedUnivariateSpline
@@ -259,12 +260,12 @@ def make_Plasma_for_DIII_D(filename, shot, time, eqdsk_file, derived_file=None, 
                                [omfit_eq['AuxQuantities']["RHOpRZ"].T],\
                                vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]).T)
 
-def make_DIII_D_launch_omas(launch_file, shot, device='d3d'):
+def make_DIII_D_launch_omas(launch_file, shot, time,  device='d3d'):
     import omas
     ods = omas.ODS()
     ods.open(device, shot)
     Scenario = ECRadScenario(noLoad=True)
-    Scenario.set_up_launch_from_omas(ods, [2.5])
+    Scenario.set_up_launch_from_omas(ods, [time])
     make_netcdf_launch(launch_file, Scenario["diagnostic"])
 
 def make_Plasma_for_SPARC(times, filename, Te_files, ne_files, eqdsk_files):
@@ -303,18 +304,16 @@ def make_Launch_from_freq_and_points(filename, input_file):
     df = f * 0.1
     x1 = np.array(launch_data.T[1:4])
     x2 = np.array(launch_data.T[4:])
-    r_1 = np.array([
+    x1_vec = np.array([
             x1[0] * np.cos(np.deg2rad(x1[1])),
-            x1[0] * np.sin(np.deg2rad(x1[1]))])
-    r_2 = np.array([
+            x1[0] * np.sin(np.deg2rad(x1[1])), 
+            x1[2]])
+    x2_vec = np.array([
             x2[0] * np.cos(np.deg2rad(x2[1])),
-            x2[0] * np.sin(np.deg2rad(x2[1]))])
+            x2[0] * np.sin(np.deg2rad(x2[1])), 
+            x2[2]])
+    theta_pol, phi_tor = get_theta_pol_phi_tor_from_two_points(x1_vec, x2_vec)
     # Phi is defined as the angle between the k_1 = -r_1 and k_2 = r_2 - r_1
-    phi_tor = np.rad2deg(np.arccos((-r_1[0] * (r_2[0] - r_1[0]) - r_1[1] * (r_2[1] - r_1[1])) / 
-                                                    (np.linalg.norm(r_1, axis=0) * np.linalg.norm(r_2 - r_1, axis=0))))
-    theta_pol = np.rad2deg(np.arctan((x2[2] - x1[2])
-            / np.sqrt((x2[2] - x1[2])**2 +
-                      (x2[0] - x1[0])**2)))
     make_launch_mat_single_timepoint(filename, f, df, x1[0], x1[1], x1[2], theta_pol, phi_tor, 
             np.ones(f.shape), np.ones(f.shape) * 0.02, -np.ones(f.shape))
     
@@ -601,7 +600,7 @@ if (__name__ == "__main__"):
     make_DIIID_HFS_LHCD_Scenario("/mnt/c/Users/Severin/ECRad/HFS_LHCD/", 
                                  "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_Scenario.nc", \
                                  "/mnt/c/Users/Severin/ECRad/HFS_LHCD/LHCD_distribution.nc", plot=True)
-    # make_DIII_D_launch_omas("/mnt/c/Users/Severin/ECRad/HFS_LHCD/ECE_launch.nc", 170325)
+    # make_DIII_D_launch_omas("/mnt/c/Users/Severin/ECRad/HFS_LHCD/ECE_launch.nc", 170325, 2.5)
     # make_Launch_from_freq_and_points("/mnt/c/Users/Severin/ECRad/SPARC/SPARC_launch.mat",
     #         "/mnt/c/Users/Severin/ECRad/SPARC/ece_chans")
     # make_Plasma_for_SPARC([1.0],
