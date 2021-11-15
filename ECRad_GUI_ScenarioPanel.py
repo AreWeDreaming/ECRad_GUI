@@ -910,7 +910,7 @@ class ScenarioSelectPanel(wx.Panel):
         old_time_list = []
         old_eq = []
         old_rhot_prof_list = []
-        if(globalsettings.AUG and self.data_source == "aug_database"):
+        if(globalsettings.AUG):
             # Reset the equilibrium for AUG to make sure we get the one requested by the user
             self.plasma_dict["eq_data_2D"] = None
             # Get rid of the old stuff it will be updated now
