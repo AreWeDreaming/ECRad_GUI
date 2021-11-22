@@ -399,6 +399,9 @@ class ScenarioSelectPanel(wx.Panel):
         self.EQ_exp_tc.SetValue(self.plasma_dict["EQ_exp"])
         self.EQ_diag_tc.SetValue(self.plasma_dict["EQ_diag"])
         self.EQ_ed_tc.SetValue(self.plasma_dict["EQ_ed"])
+        self.EQ_exp_tc.Enable()
+        self.EQ_diag_tc.Enable()
+        self.EQ_ed_tc.Enable()
         Success, bt_vac = check_Bt_vac_source(self.plasma_dict["shot"])
         if(Success):
             print("Setting Bt vac according to IDA defaults")
@@ -594,14 +597,19 @@ class ScenarioSelectPanel(wx.Panel):
         self.shot_tc.SetValue(self.plasma_dict["shot"])
         if(globalsettings.AUG):
             self.default_diag = self.diag_tc.GetValue()
+            self.plasma_dict["IDA_exp"] = "EXT"
+            self.plasma_dict["IDA_ed"] = -1
+            self.plasma_dict["EQ_exp"] = "EXT"
+            self.plasma_dict["EQ_diag"] = "EXT"
+            self.plasma_dict["EQ_ed"] = - 1
             self.IDA_exp_tc.SetValue("EXT")
             self.IDA_ed_tc.SetValue(-1)
             self.EQ_exp_tc.SetValue("EXT")
+            self.EQ_exp_tc.Disable()
             self.EQ_diag_tc.SetValue("EXT")
-            self.plasma_dict["shot"] = self.shot_tc.GetValue()
-            self.plasma_dict["IDA_exp"] = "EXT"
-            self.plasma_dict["IDA_ed"] = -1
+            self.EQ_diag_tc.Disable()
             self.EQ_ed_tc.SetValue(-1)
+            self.EQ_ed_tc.Disable()
         if(len(self.plasma_dict["time"]) > 1):
             self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - \
                                          self.plasma_dict["time"][0:len(self.plasma_dict["time"]) - 1])
@@ -910,7 +918,7 @@ class ScenarioSelectPanel(wx.Panel):
         old_time_list = []
         old_eq = []
         old_rhot_prof_list = []
-        if(globalsettings.AUG):
+        if(globalsettings.AUG and self.data_source == "aug_database"):
             # Reset the equilibrium for AUG to make sure we get the one requested by the user
             self.plasma_dict["eq_data_2D"] = None
             # Get rid of the old stuff it will be updated now
@@ -939,13 +947,13 @@ class ScenarioSelectPanel(wx.Panel):
         else:
             Scenario["plasma"]["eq_dim"] = 2
         Scenario["shot"] = self.plasma_dict["shot"]
-        if(globalsettings.AUG and Scenario.data_source == "aug_database"):
+        if(globalsettings.AUG):
             Scenario["AUG"]["IDA_exp"] = self.plasma_dict["IDA_exp"]
             Scenario["AUG"]["IDA_ed"] = self.plasma_dict["IDA_ed"]
             Scenario.default_diag = self.diag_tc.GetValue()
-            Scenario["AUG"]["EQ_exp"] = self.EQ_exp_tc.GetValue()
-            Scenario["AUG"]["EQ_diag"] = self.EQ_diag_tc.GetValue()
-            Scenario["AUG"]["EQ_ed"] = self.EQ_ed_tc.GetValue()
+            Scenario["AUG"]["EQ_exp"] = self.plasma_dict["EQ_exp"]
+            Scenario["AUG"]["EQ_diag"] = self.plasma_dict["EQ_diag"]
+            Scenario["AUG"]["EQ_ed"] = self.plasma_dict["EQ_ed"]
         self.SetScaling(Scenario)
         Scenario["plasma"]["2D_prof"] = self.plasma_dict["Te"][0].ndim > 1
         if(Scenario["plasma"]["2D_prof"]):
