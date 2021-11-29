@@ -818,8 +818,15 @@ class ScenarioSelectPanel(wx.Panel):
             self.unused.append("{0:2.5f}".format(t))
         self.unused = list(set(self.unused))
         self.unused.sort()
+        self.unused_list.Clear()
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
+        if(globalsettings.AUG):
+            self.plasma_dict["IDA_exp"] = NewScenario["AUG"]["IDA_exp"] 
+            self.plasma_dict["IDA_ed"] = NewScenario["AUG"]["IDA_ed"]
+            self.plasma_dict["EQ_exp"] = NewScenario["AUG"]["EQ_exp"]
+            self.plasma_dict["EQ_diag"] = NewScenario["AUG"]["EQ_diag"]
+            self.plasma_dict["EQ_ed"] = NewScenario["AUG"]["EQ_ed"]
         self.pc_obj.reset(True)
         Te_indices = np.zeros(self.plasma_dict["Te"].shape, dtype=np.bool)
         IDA_labels = []
@@ -951,9 +958,9 @@ class ScenarioSelectPanel(wx.Panel):
             Scenario["AUG"]["IDA_exp"] = self.plasma_dict["IDA_exp"]
             Scenario["AUG"]["IDA_ed"] = self.plasma_dict["IDA_ed"]
             Scenario.default_diag = self.diag_tc.GetValue()
-            Scenario["AUG"]["EQ_exp"] = self.plasma_dict["EQ_exp"]
-            Scenario["AUG"]["EQ_diag"] = self.plasma_dict["EQ_diag"]
-            Scenario["AUG"]["EQ_ed"] = self.plasma_dict["EQ_ed"]
+            Scenario["AUG"]["EQ_exp"] = self.EQ_exp_tc.GetValue()
+            Scenario["AUG"]["EQ_diag"] = self.EQ_diag_tc.GetValue()
+            Scenario["AUG"]["EQ_ed"] = self.EQ_ed_tc.GetValue()
         self.SetScaling(Scenario)
         Scenario["plasma"]["2D_prof"] = self.plasma_dict["Te"][0].ndim > 1
         if(Scenario["plasma"]["2D_prof"]):

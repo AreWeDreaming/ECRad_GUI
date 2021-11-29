@@ -72,7 +72,7 @@ class LaunchPanel(wx.Panel):
 
     def GetCurScenario(self):
         Scenario = ECRadScenario(noLoad=True)
-        Scenario["avail_diags_dict"] = self.Notebook.UpdateDiagDict(Scenario["avail_diags_dict"])
+        Scenario["avail_diags_dict"] = self.Notebook.UpdateDiagDict(Scenario["avail_diags_dict"], False)
         for Diagkey in self.diag_cb_dict:
             if(self.diag_cb_dict[Diagkey].GetValue()):
                 Scenario["used_diags_dict"].update({Diagkey : Scenario["avail_diags_dict"][Diagkey]})
@@ -80,7 +80,7 @@ class LaunchPanel(wx.Panel):
 
     def UpdateScenario(self, Scenario):
         Scenario.diags_set = False
-        Scenario["avail_diags_dict"] = self.Notebook.UpdateDiagDict(Scenario["avail_diags_dict"])
+        Scenario["avail_diags_dict"] = self.Notebook.UpdateDiagDict(Scenario["avail_diags_dict"], False)
         Scenario["used_diags_dict"] = od()
         for Diagkey in self.diag_cb_dict:
             if(self.diag_cb_dict[Diagkey].GetValue()):
@@ -310,9 +310,9 @@ class Diag_Notebook(wx.Choicebook):
                     pagename = pagename[0:len(pagename) - 1]
             self.AddPage(self.PageDict[diag], pagename)
 
-    def UpdateDiagDict(self, DiagDict):
+    def UpdateDiagDict(self, DiagDict, used=True):
         for diag in self.PageDict:
-            DiagDict[diag] = self.PageDict[diag].RetrieveDiag()
+            DiagDict[diag] = self.PageDict[diag].RetrieveDiag(used)
         return DiagDict
 
     def DistributeInfo(self, Scenario):
@@ -344,8 +344,8 @@ class Diag_Page(wx.Panel):
         self.name = Diag_obj.name
         self.sizer.Add(self.diagpanel, 0, wx.ALL | wx.TOP, 5)
 
-    def RetrieveDiag(self):
-        self.diag = self.diagpanel.GetDiag()
+    def RetrieveDiag(self, used=True):
+        self.diag = self.diagpanel.GetDiag(used)
         return self.diag
 
     def DepositDiag(self, diag):
@@ -383,7 +383,7 @@ class Diag_Panel(wx.Panel):
         self.sizer.Add(self.grid_sizer, 0, wx.ALIGN_LEFT | wx.ALL, 5)
         self.SetSizer(self.sizer)
 
-    def GetDiag(self):
+    def GetDiag(self, used=True):
         for attribute in self.Diag.properties:
             setattr(self.Diag, attribute, self.widget_dict[attribute].GetValue())
         return self.Diag
@@ -429,10 +429,10 @@ class CECEDiagPanel(Diag_Panel):
         else:
             dlg.Destroy()
 
-    def GetDiag(self):
-        if(self.Diag.f is None):
-            raise ValueError("ERROR:: You need to set the CECE frequencies before you can run ECRad")
-        return Diag_Panel.GetDiag(self)
+    def GetDiag(self, used=True):
+        if(self.Diag.f is None and used):
+            raise ValueError("Warning! You need to set the CECE frequencies before you can run ECRad")
+        return Diag_Panel.GetDiag(self, used)
 
 class ExtDiagPanel(Diag_Panel):
     def __init__(self, parent, Diag_obj):
@@ -561,7 +561,7 @@ class ExtDiagPanel(Diag_Panel):
             setattr(self.Diag, attribute, vals)
             self.widget_dict[attribute].SetValue(getattr(self.Diag, attribute)[self.selected_channel])
 
-    def GetDiag(self):
+    def GetDiag(self, used=True):
         self.channel_select_ch.SetSelection(0)
         self.OnNewChannelSelected(None)
         self.NewValues = False
