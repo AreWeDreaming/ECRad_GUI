@@ -318,7 +318,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.used_list.Clear()
         self.unused_list.Clear()
         self.Config = evt.Results.Config
-        self.SetFromNewScenario(evt.Results.Scenario, evt.Results.data_origin)
+        self.SetFromNewScenario(evt.Results.Scenario, evt.Results.data_origin, draw=False)
         while self.unused_list.GetCount() > 0:
             self.add_to_used(0)
         self.post_run = True
@@ -805,7 +805,7 @@ class ScenarioSelectPanel(wx.Panel):
                 return
         dlg.Destroy()
 
-    def SetFromNewScenario(self, NewScenario, path):
+    def SetFromNewScenario(self, NewScenario, path, draw=True):
         self.UpdateContent(NewScenario, diag_name=NewScenario.default_diag)
         self.plasma_dict = deepcopy(NewScenario["plasma"])
         self.plasma_dict["time"] = np.copy(NewScenario["time"])
@@ -827,11 +827,11 @@ class ScenarioSelectPanel(wx.Panel):
             self.plasma_dict["EQ_exp"] = NewScenario["AUG"]["EQ_exp"]
             self.plasma_dict["EQ_diag"] = NewScenario["AUG"]["EQ_diag"]
             self.plasma_dict["EQ_ed"] = NewScenario["AUG"]["EQ_ed"]
-        self.pc_obj.reset(True)
-        Te_indices = np.zeros(self.plasma_dict["Te"].shape, dtype=np.bool)
-        IDA_labels = []
-        rhop_range = [0.2, 0.95]
-        if(not self.plasma_dict["2D_prof"]):
+        if(not self.plasma_dict["2D_prof"] and draw):
+            self.pc_obj.reset(True)
+            Te_indices = np.zeros(self.plasma_dict["Te"].shape, dtype=np.bool)
+            IDA_labels = []
+            rhop_range = [0.2, 0.95]
             for index in range(len(self.plasma_dict["time"])):
                 for rhop in rhop_range:
                     Te_indices[index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))] = True
@@ -847,7 +847,7 @@ class ScenarioSelectPanel(wx.Panel):
                                                         [], [], \
                                                         diag_data, diag_labels, None)
             self.canvas.draw()
-        else:
+        elif(draw):
             print("Sorry no plots for 2D ne/Te")
         self.loaded = True
         self.new_data_available = True
