@@ -102,6 +102,8 @@ class PlotPanel(wx.Panel):
         self.legend_cb = simple_label_cb(self, "Show legend", True)
         self.figure_width_tc = simple_label_tc(self, "Figure width", 12.0, "real")
         self.figure_height_tc = simple_label_tc(self, "Figure height", 8.5, "real")
+        self.signed_rho_axis_cb = wx.CheckBox(self, label="Use signed rho axis for Scenario")
+        self.signed_rho_axis_cb.SetValue(False)
         self.AddPlotButton = wx.Button(self, wx.ID_ANY, 'Add plot')
         self.AddPlotButton.Bind(wx.EVT_BUTTON, self.OnPlot)
         self.ClearButton = wx.Button(self, wx.ID_ANY, 'Clear plots')
@@ -110,6 +112,7 @@ class PlotPanel(wx.Panel):
         self.controlgrid2.Add(self.legend_cb, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid2.Add(self.figure_width_tc, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid2.Add(self.figure_height_tc, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
+        self.controlgrid2.Add(self.signed_rho_axis_cb, 0, wx.ALL | wx.EXPAND, 5)
         self.controlgrid2.Add(self.AddPlotButton, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlgrid2.Add(self.ClearButton, 0, wx.ALIGN_BOTTOM | wx.ALL, 5)
         self.controlplotsizer.Add(self.controlgrid, 0, \
@@ -443,15 +446,21 @@ class PlotPanel(wx.Panel):
                     elif(first_iter):
                         for scenario_select in scenario_selection:
                             for itime in selections["time"]:
+                                x_add = None
                                 if(selections["x_quant"].startswith("rhop")):
                                     if(len(self.Results.Scenario["plasma"]["rhop_prof"][itime]) > 0):
-                                        x_list.append(self.Results.Scenario["plasma"]["rhop_prof"][itime] * \
-                                                      self.Results.Scenario["scaling"][scenario_select + "_rhop_scale"])
+                                        x_add = self.Results.Scenario["plasma"]["rhop_prof"][itime] * \
+                                                      self.Results.Scenario["scaling"][scenario_select + "_rhop_scale"]
                                 elif(selections["x_quant"].startswith("rhot")):
                                     if(len(self.Results.Scenario["plasma"]["rhot_prof"][itime]) > 0):
-                                        x_list.append(self.Results.Scenario["plasma"]["rhot_prof"][itime] * \
-                                                      self.Results.Scenario["scaling"][scenario_select + "_rhop_scale"])
+                                        self.Results.Scenario["plasma"]["rhot_prof"][itime] * \
+                                                      self.Results.Scenario["scaling"][scenario_select + "_rhop_scale"]
+                                if(x_add is not None):
+                                    if(self.signed_rho_axis_cb.GetValue()):
+                                        x_add = np.concatenate([-x_add[::-1],x_add])
+                                    x_list.append(x_add)
                                 skipped = False
+                                y_add = None
                                 if(scenario_select == "Te"):
                                     if(primary_unit == self.Results.Scenario.units["Te"]):
                                         i_axis = 0
@@ -463,8 +472,8 @@ class PlotPanel(wx.Panel):
                                         print("INFO: Both y axes are already occupied. Cannot plot Te.")
                                         skipped = True
                                         continue
-                                    y_list.append(self.Results.Scenario["plasma"][scenario_select][itime] / 1.e3 * \
-                                                        self.Results.Scenario["scaling"]["Te_scale"])
+                                    y_add = self.Results.Scenario["plasma"][scenario_select][itime] / 1.e3 * \
+                                                        self.Results.Scenario["scaling"]["Te_scale"]
                                 else:
                                     if(primary_unit == self.Results.Scenario.units["ne"]):
                                         i_axis = 0
@@ -476,8 +485,12 @@ class PlotPanel(wx.Panel):
                                         print("INFO: Both y axes are already occupied. Cannot plot ne.")
                                         skipped = True
                                         continue
-                                    y_list.append(self.Results.Scenario["plasma"][scenario_select][itime] / 1.e19 * \
-                                                        self.Results.Scenario["scaling"]["ne_scale"]) 
+                                    y_add = self.Results.Scenario["plasma"][scenario_select][itime] / 1.e19 * \
+                                                        self.Results.Scenario["scaling"]["ne_scale"]
+                                if(y_add is not None):
+                                    if(self.signed_rho_axis_cb.GetValue()):
+                                        y_add = np.concatenate([y_add[::-1],y_add])
+                                    y_list.append(y_add)
                                 if(not skipped):
                                     label_list.append(self.Results.Scenario.labels[scenario_select] + r" $t =$ " + \
                                                     "{0:1.3f} s".format(self.Results.Scenario["time"][itime]))
