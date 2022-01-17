@@ -13,6 +13,7 @@ from Plotting_Configuration import plt
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 import numpy as np
+from itertools import cycle
 from Parallel_Utils import WorkerThread
 from ECRad_Results import ECRadResults
 from ECRad_GUI_Dialogs import OMASLoadECEDataDialog
@@ -755,21 +756,20 @@ class PlotContainer(wx.Panel):
         if(len(y_axis_labels) > 1):
             self.axlist.append(self.axlist[0].twinx())
             n_ax += 1
-        n_colors = len(y_list) 
         i_marker = 0
         i_line = 0
-        icolor = 0
-        color_list = self.cmap.to_rgba(np.linspace(0.0, 1.0, n_colors))
+        prop_cycle = plt.rcParams['axes.prop_cycle']
+        colors = cycle(prop_cycle.by_key()['color'])
         for x, y, z, i_ax, label, marker in zip(x_list, y_list, z_list, axis_ref_list, label_list, marker_type_list):
             if(marker == "point"):
-                self.axlist[i_ax].plot(x, y, label=label, color=color_list[icolor], \
+                self.axlist[i_ax].plot(x, y, label=label, color=next(colors), \
                                        linestyle="none", marker=self.markers[i_marker])
                 if(i_marker + 1 < len(self.markers)):
                     i_marker += 1
                 else:
                     i_marker = 0
             elif(marker == "line"):
-                self.axlist[i_ax].plot(x, y, label=label, color=color_list[icolor], \
+                self.axlist[i_ax].plot(x, y, label=label, color=next(colors), \
                                        linestyle=self.linestyles[i_line])
                 if(i_line + 1 < len(self.linestyles)):
                     i_line += 1
@@ -782,7 +782,7 @@ class PlotContainer(wx.Panel):
             else:# contour of rhop
                 cont = self.axlist[0].contour(x, y, z.T, levels=np.linspace(0.1, 1.2, 12), \
                                               linewidths=1, colors="k", linestyles="--")
-            icolor += 1
+            #icolor += 1
         for i_ax, label in enumerate(y_axis_labels):
             self.axlist[i_ax].set_ylabel(label)
         if(eq_aspect_ratio):
