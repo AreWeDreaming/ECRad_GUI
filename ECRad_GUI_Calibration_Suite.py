@@ -14,7 +14,7 @@ from Plotting_Core import PlottingCore
 from copy import deepcopy
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 from Calibration_Utils import calibrate
-from Basic_Methods.Data_Fitting import make_fit
+from plasma_math_tools.data_fitting import make_fit
 import numpy as np
 import os
 from ECRad_Results import ECRadResults

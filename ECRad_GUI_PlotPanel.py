@@ -384,6 +384,9 @@ class PlotPanel(wx.Panel):
                                       self.Results.units[selections["x_group"]][selections["x_quant"]]
                     else:
                         x_axis_label = ""
+                if(len(self.Results[self.y_key][sub_key]) == 0):
+                    print(f"No data for {self.y_key} {sub_key}")
+                    return
                 y_list.append(self.Results[self.y_key][sub_key][index] * \
                               self.Results.scales[self.y_key][sub_key])
                 axis_ref_list.append(i_axis)

@@ -494,7 +494,9 @@ class Main_Panel(scrolled.ScrolledPanel):
                 if(command == "close"):
                     break
                 Results = args[1]
-                if(Results.Config["Execution"]["batch"]):
+                if(command == "save"):
+                    Results.to_netcdf()
+                elif(Results.Config["Execution"]["batch"]):
                     scratch_dir = Results.Config["Execution"]["scratch_dir"]
                     run_ECRad, run_id = SetupECRadBatch(Results.Config, Results.Scenario)
                     Results.Scenario.to_netcdf(filename=os.path.join(scratch_dir, "Scenario_{0:d}.nc".format(run_id)))
@@ -603,8 +605,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         wx.PostEvent(self, evt)
         if(not self.Results.Config["Execution"]["batch"]):
             print("Now saving results")
-            print("This takes a moment please wait")
-            WorkerThread(self.SavingThread, [])
+            self.ECRad_input_queue.put(["Save", self.Results]) 
         evt_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
         evt_2.SetResults(self.Results)
         if(globalsettings.AUG):
@@ -615,13 +616,6 @@ class Main_Panel(scrolled.ScrolledPanel):
         wx.PostEvent(self.post_processing_panel, evt_2)
         self.StartECRadButton.Enable()
         
-    def SavingThread(self, args):
-        try:
-            self.Results.autosave()
-        except Exception as e:
-            print("ERROR: Failed to save results")
-            print(e)
-
     def OnKillECRad(self, evt):
         self.stop_current_evaluation = True
         print("Waiting for current calculation to finish")

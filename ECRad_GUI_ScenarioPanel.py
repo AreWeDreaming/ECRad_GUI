@@ -19,7 +19,7 @@ from ECRad_GUI_Dialogs import Use3DConfigDialog
 from ECRad_Scenario import ECRadScenario
 from ECRad_Results import ECRadResults
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
-from Basic_Methods.Equilibrium_Utils import EQDataExt
+from Equilibrium_Utils import EQDataExt
 from copy import deepcopy
 if(globalsettings.AUG):
     from Equilibrium_Utils_AUG import EQData, vessel_bd_file, check_Bt_vac_source

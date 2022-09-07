@@ -28,8 +28,8 @@ if(not found_lib):
     exit(-1)
 from Global_Settings import globalsettings
 from ECRad_Scenario import ECRadScenario
-from Basic_Methods.Equilibrium_Utils import EQDataExt, EQDataSlice
-from Basic_Methods.Geometry_Utils import get_theta_pol_phi_tor_from_two_points
+from Equilibrium_Utils import EQDataExt, EQDataSlice
+from plasma_math_tools.data_fitting import get_theta_pol_phi_tor_from_two_points
 from TB_Communication import make_mdict_from_TB_files
 
 from scipy.interpolate import griddata, RectBivariateSpline, InterpolatedUnivariateSpline
