@@ -255,16 +255,22 @@ class PlotPanel(wx.Panel):
                 else:
                     cold_res_key = "rhop_cold"
                     warm_res_key = "rhop_warm"
+                if(self.Results.Config["Execution"]["extra_output"]):
+                    warm_res_pos = self.Results["resonance"][warm_res_key][0][0][ich]
+                else:
+                    warm_res_pos = -1.0
                 self.lb_widgets["ch"].Append("{0:d} | {1:1.2f} | {2:1.2f}".format(ich + 1, \
                                                                                    self.Results["resonance"][cold_res_key][0][0][ich], \
-                                                                                   self.Results["resonance"][warm_res_key][0][0][ich]))
+                                                                                   warm_res_pos))
             self.lb_widgets["ch"].Select(0)
-            self.lb_widgets["ray"].AppendItems(np.array(range(1,self.Results["dimensions"]["N_ray"] + 1),dtype="|U7"))
+            if(self.Results.Config["Execution"]["extra_output"]):
+                self.lb_widgets["ray"].AppendItems(np.array(range(1,self.Results["dimensions"]["N_ray"] + 1),dtype="|U7"))
+            else:
+                self.lb_widgets["ray"].AppendItems(["1"])
             self.lb_widgets["ray"].Select(0)
             for key in self.Results.result_keys:
                 if(key != "dimensions"):
                     self.lb_widgets["y_group"].Append(key)
-            
             self.load_other_results_button.Enable()
             self.scenario_quant_box.AppendItems(["Te", "ne", "rhop", "Br", "Bt", "Bz"])  
 

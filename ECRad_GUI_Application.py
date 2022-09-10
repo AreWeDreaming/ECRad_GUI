@@ -58,8 +58,6 @@ import getpass
 from ECRad_GUI_PlotPanel import PlotPanel
 from subprocess import Popen
 ECRad_Model = False
-from time import sleep
-from io import StringIO
 # Events
 
 
