@@ -603,7 +603,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         wx.PostEvent(self, evt)
         if(not self.Results.Config["Execution"]["batch"]):
             print("Now saving results")
-            self.ECRad_input_queue.put(["Save", self.Results]) 
+            self.ECRad_input_queue.put(["save", self.Results]) 
         evt_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
         evt_2.SetResults(self.Results)
         if(globalsettings.AUG):
@@ -688,7 +688,7 @@ class Main_Panel(scrolled.ScrolledPanel):
                 print("Reason: ", e)
                 print("Did not update working directory")
             if(self.Results is not None):
-                WorkerThread(self.SavingThread, [])
+                self.ECRad_input_queue.put(["save", self.Results]) 
             else:
                 print("No results to save")
         except AttributeError as e:
