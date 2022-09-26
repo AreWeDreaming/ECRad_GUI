@@ -964,7 +964,7 @@ class ScenarioSelectPanel(wx.Panel):
             time = self.plasma_dict["time"][itime]
             Scenario["time"].append(time)
             if(not Scenario["plasma"]["2D_prof"]):
-                Scenario["plasma"][self.plasma_dict["plasma"]["prof_reference"]].append(
+                Scenario["plasma"][self.plasma_dict["prof_reference"]].append(
                         self.plasma_dict[self.plasma_dict["prof_reference"]][itime])
             Scenario["plasma"]["Te"].append(self.plasma_dict["Te"][itime])
             Scenario["plasma"]["ne"].append(self.plasma_dict["ne"][itime])
