@@ -924,7 +924,6 @@ class ScenarioSelectPanel(wx.Panel):
             raise ValueError("No time points")
         old_time_list = []
         old_eq = []
-        old_rhot_prof_list = []
         if(globalsettings.AUG and self.data_source == "aug_database"):
             # Reset the equilibrium for AUG to make sure we get the one requested by the user
             self.plasma_dict["eq_data_2D"] = None
@@ -937,16 +936,10 @@ class ScenarioSelectPanel(wx.Panel):
                 for time in old_time_list:
                     old_eq.insert_slices_from_ext(
                             [time], [Scenario["plasma"]["eq_data_2D"].GetSlice(time)])
-                if(len(Scenario["plasma"]["rhot_prof"]) > 0):
-                    old_rhot_prof_list = Scenario["plasma"]["rhot_prof"]
-                else:
-                    old_rhot_prof_list = []
-                old_rhot_prof_list = Scenario["plasma"]["rhot_prof"]
                 if(len(old_time_list) != len(Scenario["plasma"]["eq_data_2D"].times)):
                 # Something went wrong on the last load -> reload everything
                     old_time_list = []
                     old_eq = []
-                    old_rhot_prof_list = []
         Scenario.reset()
         Scenario.data_source = self.data_source
         if(self.use_3D_cb.GetValue()):
@@ -971,24 +964,17 @@ class ScenarioSelectPanel(wx.Panel):
             time = self.plasma_dict["time"][itime]
             Scenario["time"].append(time)
             if(not Scenario["plasma"]["2D_prof"]):
-                Scenario["plasma"]["rhop_prof"].append(self.plasma_dict["rhop_prof"][itime])
-                if("rhot_prof" in self.plasma_dict):
-                    if(self.plasma_dict["rhot_prof"] is not None):
-                        if(len(self.plasma_dict["rhot_prof"]) == len(self.plasma_dict["rhop_prof"])):
-                            Scenario["plasma"]["rhot_prof"].append(self.plasma_dict["rhot_prof"][itime])
+                Scenario["plasma"][self["plasma"]["prof_reference"]].append(
+                        self.plasma_dict[self["plasma"]["prof_reference"]][itime])
             Scenario["plasma"]["Te"].append(self.plasma_dict["Te"][itime])
             Scenario["plasma"]["ne"].append(self.plasma_dict["ne"][itime])
             if(time in old_time_list):
                 if(Scenario["plasma"]["eq_dim"] == 2):
                     Scenario["plasma"]["eq_data_2D"].set_slices_from_ext([time], [old_eq.GetSlice(time)])
-                if("rhot_prof" not in self.plasma_dict):
-                        Scenario["plasma"]["rhot_prof"].append(old_rhot_prof_list[np.argmin(np.abs(np.array(old_time_list) - time))])
             elif(Scenario.data_source == "aug_database" and globalsettings.AUG == True):
                 if(self.plasma_dict["eq_data_2D"] is None):
                     self.plasma_dict["eq_data_2D"] = EQData(Scenario["shot"], EQ_exp=Scenario["AUG"]["EQ_exp"], \
                                                             EQ_diag=Scenario["AUG"]["EQ_diag"], EQ_ed=Scenario["AUG"]["EQ_ed"])
-                    if("rhot_prof" not in self.plasma_dict):
-                        Scenario["plasma"]["rhot_prof"].append(self.plasma_dict["eq_data_2D"].rhop_to_rhot(time, Scenario["plasma"]["rhop_prof"]))
                 Scenario["plasma"]["eq_data_2D"].insert_slices_from_ext([time], [self.plasma_dict["eq_data_2D"].GetSlice(time)])
             else:
                 if(Scenario["plasma"]["eq_dim"] == 2):
