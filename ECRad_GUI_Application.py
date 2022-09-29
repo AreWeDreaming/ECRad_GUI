@@ -493,6 +493,7 @@ class Main_Panel(scrolled.ScrolledPanel):
                     break
                 Results = args[1]
                 if(command == "save"):
+                    print("Now saving results")
                     Results.to_netcdf()
                 elif(Results.Config["Execution"]["batch"]):
                     scratch_dir = Results.Config["Execution"]["scratch_dir"]
@@ -602,7 +603,6 @@ class Main_Panel(scrolled.ScrolledPanel):
         evt.SetStatus('ECRad has Finished!')
         wx.PostEvent(self, evt)
         if(not self.Results.Config["Execution"]["batch"]):
-            print("Now saving results")
             self.ECRad_input_queue.put(["save", self.Results]) 
         evt_2 = UpdateDataEvt(Unbound_EVT_UPDATE_DATA, self.GetId())
         evt_2.SetResults(self.Results)
