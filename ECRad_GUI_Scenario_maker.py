@@ -210,6 +210,8 @@ def make_plasma_mat_from_variables(mat_out_name, shot, time, rhop_profiles, Te, 
         raise ValueError("vessel_data and vessel_bd_file cannot both be None")
     make_plasma_mat(mat_out_name, plasma_dict)
 
+
+
 def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     plasma_dict = {}
     plasma_dict["shot"] = shot
