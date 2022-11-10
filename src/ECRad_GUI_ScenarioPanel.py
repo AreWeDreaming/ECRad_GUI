@@ -767,7 +767,7 @@ class ScenarioSelectPanel(wx.Panel):
                     eq_ids = ids.get('equilibrium')
                 except Exception as e:
                     print(e)
-                    print("ERROR: Cannot access equlibrium in IDS")
+                    print("ERROR: Cannot access equilibrium in IDS")
                     return
                 try:    
                     prof_ids = ids.get('core_profiles')
@@ -791,7 +791,6 @@ class ScenarioSelectPanel(wx.Panel):
                 time_base_source = time_base_dlg.choice
                 time_base_dlg.Destroy()
                 times = ids.partial_get(ids_name=time_base_source,data_path='time')
-                print(times)
                 NewScenario = ECRadScenario(True)
                 NewScenario["time"]=times
                 NewScenario["shot"]= dlg.shot_tc.GetValue()
