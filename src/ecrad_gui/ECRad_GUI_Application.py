@@ -734,5 +734,4 @@ class ECRad_GUI:
 
 if __name__ == '__main__':
     Main_ECRad = ECRad_GUI()
-# except Exception as e:
-#    print(e)
+
