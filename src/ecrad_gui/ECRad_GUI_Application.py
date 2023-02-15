@@ -19,7 +19,7 @@ from ecrad_gui.ECRad_GUI_Dialogs import Select_GENE_timepoints_dlg
 from ecrad_gui.ECRad_GUI_Post_Processing_Panel import PostProcessingPanel
 # import  wx.lib.scrolledpanel as ScrolledPanel
 import numpy as np
-from WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unbound_EVT_LOAD_OLD_RESULT, \
+from ecrad_pylib.WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unbound_EVT_LOAD_OLD_RESULT, \
                       EVT_MAKE_ECRAD, EVT_NEXT_TIME_STEP, EVT_UPDATE_CONFIG, \
                       EVT_UPDATE_DATA, EVT_LOCK_EXPORT, EVT_GENE_DATA_LOADED, EVT_LOAD_OLD_RESULT, \
                       NewStatusEvt, Unbound_EVT_NEW_STATUS, \
@@ -31,14 +31,14 @@ from WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unbound_EVT_LOAD_O
                       Unbound_EVT_LOAD_ECRAD_RESULT,EVT_LOAD_ECRAD_RESULT, \
                       Unbound_EVT_ECRAD_RESULT_LOADED, EVT_ECRAD_RESULT_LOADED,\
     ThreadFinishedEvt
-from ECRad_GUI_Shell import Redirect_Text
+from ecrad_gui.ECRad_GUI_Shell import Redirect_Text
 from ecrad_pylib.ECRad_Results import ECRadResults
 from ecrad_pylib.Parallel_Utils import WorkerThread
 from multiprocessing import Process, Queue, Pipe
 from ecrad_pylib.ECRad_Execution import SetupECRadBatch
 import queue
 from ecrad_pylib.ECRad_F2PY_Interface import ECRadF2PYInterface
-from ECRad_GUI_PlotPanel import PlotPanel
+from ecrad_gui.ECRad_GUI_PlotPanel import PlotPanel
 from subprocess import Popen
 ECRad_Model = False
 # Events
