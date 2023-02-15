@@ -1,10 +1,15 @@
 package: 
   name: ecrad_gui
-  version: 1.0.7
+  version: 1.0.8
 
 source:
-  git_rev: 1.0.7
+  git_rev: 1.0.8
   git_url: https://github.com/AreWeDreaming/ECRad_GUI
+
+build:
+  entry_points:
+    - ecrad_gui = ecrad_gui.ECRad_GUI_Applcation
+
 requirements:
     build:
       - python >=3.7
