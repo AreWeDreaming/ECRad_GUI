@@ -3,8 +3,6 @@ Created on Oct 9, 2020
 
 @author: denk
 '''
-import os
-import sys
 import numpy as np
 from scipy.io import savemat
 class EQDataSlice:

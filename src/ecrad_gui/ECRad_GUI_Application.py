@@ -2,22 +2,7 @@
 import os
 import wx
 import sys
-from glob import glob
-library_list = glob("../*pylib") + glob("../*PyLib")
-found_lib = False
-ECRadPylibFolder = None
-for folder in library_list:
-    if("ECRad" in folder or "ecrad" in folder):
-        sys.path.append(os.path.abspath(folder))
-        found_lib = True
-        ECRadPylibFolder = folder
-        break
-if(not found_lib):
-    print("Could not find pylib")
-    print("Important: ECRad_GUI must be launched with its home directory as the current working directory")
-    print("Additionally, the ECRad_Pylib must be in the parent directory of the GUI and must contain one of ECRad, ecrad and Pylib or pylib")
-    exit(-1)
-from Global_Settings import globalsettings
+from ecrad_pylib.Global_Settings import globalsettings
 globalsettings.ECRadGUIRoot = os.getcwd()
 if(globalsettings.AUG):
     try:
@@ -26,12 +11,12 @@ if(globalsettings.AUG):
         globalsettings.AUG = False
         print("Failed to load AUG libraries continuing in non-AUG mode.")
 import wx.lib.scrolledpanel as scrolled
-from ECRad_GUI_LaunchPanel import LaunchPanel
-from ECRad_GUI_ScenarioPanel import ScenarioSelectPanel
-from ECRad_GUI_Config_Panel import ConfigPanel
-from ECRad_GUI_Calibration_Suite import CalibPanel, CalibEvolutionPanel
-from ECRad_GUI_Dialogs import Select_GENE_timepoints_dlg
-from ECRad_GUI_Post_Processing_Panel import PostProcessingPanel
+from ecrad_gui.ECRad_GUI_LaunchPanel import LaunchPanel
+from ecrad_gui.ECRad_GUI_ScenarioPanel import ScenarioSelectPanel
+from ecrad_gui.ECRad_GUI_Config_Panel import ConfigPanel
+from ecrad_gui.ECRad_GUI_Calibration_Suite import CalibPanel, CalibEvolutionPanel
+from ecrad_gui.ECRad_GUI_Dialogs import Select_GENE_timepoints_dlg
+from ecrad_gui.ECRad_GUI_Post_Processing_Panel import PostProcessingPanel
 # import  wx.lib.scrolledpanel as ScrolledPanel
 import numpy as np
 from WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unbound_EVT_LOAD_OLD_RESULT, \
@@ -47,14 +32,12 @@ from WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unbound_EVT_LOAD_O
                       Unbound_EVT_ECRAD_RESULT_LOADED, EVT_ECRAD_RESULT_LOADED,\
     ThreadFinishedEvt
 from ECRad_GUI_Shell import Redirect_Text
-from ECRad_Interface import prepare_input_files
-from ECRad_Results import ECRadResults
-from Parallel_Utils import WorkerThread
+from ecrad_pylib.ECRad_Results import ECRadResults
+from ecrad_pylib.Parallel_Utils import WorkerThread
 from multiprocessing import Process, Queue, Pipe
-from ECRad_Execution import SetupECRadBatch
+from ecrad_pylib.ECRad_Execution import SetupECRadBatch
 import queue
-from ECRad_F2PY_Interface import ECRadF2PYInterface
-import getpass
+from ecrad_pylib.ECRad_F2PY_Interface import ECRadF2PYInterface
 from ECRad_GUI_PlotPanel import PlotPanel
 from subprocess import Popen
 ECRad_Model = False

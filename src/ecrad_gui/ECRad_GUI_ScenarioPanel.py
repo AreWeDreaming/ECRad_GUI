@@ -3,29 +3,29 @@ Created on Mar 21, 2019
 
 @author: Severin Denk
 '''
-from Global_Settings import globalsettings
+from ecrad_pylib.Global_Settings import globalsettings
 import os
-from ECRad_GUI_Widgets import simple_label_tc
-from ECRad_GUI_Dialogs import IMASTimeBaseSelectDlg,IMASSelectDialog
+from ecrad_gui.ECRad_GUI_Widgets import simple_label_tc
+from ecrad_gui.ECRad_GUI_Dialogs import IMASTimeBaseSelectDlg,IMASSelectDialog
 import wx
-from WX_Events import EVT_UPDATE_DATA, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
+from ecrad_pylib.WX_Events import EVT_UPDATE_DATA, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
                       Unbound_EVT_REPLOT, LockExportEvt, Unbound_EVT_LOCK_EXPORT
-from Plotting_Core import PlottingCore
+from ecrad_pylib.Plotting_Core import PlottingCore
 import numpy as np
-from ECRad_Interface import load_from_plasma, load_plasma_from_mat
-from Plotting_Configuration import plt
+from ecrad_pylib.ECRad_Interface import load_from_plasma, load_plasma_from_mat
+from ecrad_pylib.Plotting_Configuration import plt
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-from ECRad_GUI_Dialogs import Use3DConfigDialog
-from ECRad_Scenario import ECRadScenario
-from ECRad_Results import ECRadResults
+from ecrad_gui.ECRad_GUI_Dialogs import Use3DConfigDialog
+from ecrad_pylib.ECRad_Scenario import ECRadScenario
+from ecrad_pylib.ECRad_Results import ECRadResults
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
-from Equilibrium_Utils import EQDataExt
+from ecrad_pylib.Equilibrium_Utils import EQDataExt
 from copy import deepcopy
 if(globalsettings.AUG):
-    from Equilibrium_Utils_AUG import EQData, vessel_bd_file, check_Bt_vac_source
-    from Shotfile_Handling_AUG import load_IDA_data, get_diag_data_no_calib, get_divertor_currents, filter_CTA
-    from Get_ECRH_Config import identify_ECRH_on_phase
-    from Elm_Sync import ElmExtract
+    from ecrad_pylib.Equilibrium_Utils_AUG import EQData, vessel_bd_file, check_Bt_vac_source
+    from ecrad_pylib.Shotfile_Handling_AUG import load_IDA_data, get_diag_data_no_calib, get_divertor_currents, filter_CTA
+    from ecrad_pylib.Get_ECRH_Config import identify_ECRH_on_phase
+    from ecrad_pylib.Elm_Sync import ElmExtract
 
 class ScenarioSelectPanel(wx.Panel):
     def __init__(self, parent, Scenario, Config):

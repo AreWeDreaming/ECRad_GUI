@@ -3,16 +3,16 @@ Created on Mar 21, 2019
 
 @author: Severin Denk
 '''
-from WX_Events import NewStatusEvt, Unbound_EVT_NEW_STATUS, EVT_UPDATE_DATA
+from ecrad_pylib.WX_Events import NewStatusEvt, Unbound_EVT_NEW_STATUS, EVT_UPDATE_DATA
 import wx
-from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row, simple_label_choice
+from ecrad_gui.ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row, simple_label_choice
 from collections import OrderedDict as od
 import numpy as np
-from ECRad_Interface import get_diag_launch
+from ecrad_pylib.ECRad_Interface import get_diag_launch
 import os
-from Diag_Types import BasicDiag, EXT_diag, CECE_diag
-from ECRad_Scenario import ECRadScenario
-from ECRad_GUI_Dialogs import IMASSelectDialog
+from ecrad_pylib.Diag_Types import  EXT_diag, CECE_diag
+from ecrad_pylib.ECRad_Scenario import ECRadScenario
+from ecrad_gui.ECRad_GUI_Dialogs import IMASSelectDialog
 
 class LaunchPanel(wx.Panel):
     def __init__(self, parent, Scenario, working_dir):

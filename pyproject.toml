@@ -2,3 +2,5 @@
 requires = ["setuptools>=59","matplotlib>=3.3",
             "numpy>=1.21"]
 build-backend = "setuptools.build_meta"
+[project.scripts]
+ecrad_gui = "ecrad_gui:ECRad_GUI_Application"

@@ -8,16 +8,6 @@ import os
 import sys
 print(sys.path)
 import numpy as np
-from glob import glob
-library_list = glob("../*pylib") + glob("../*PyLib")
-found_lib = False
-ECRadPylibFolder = None
-for folder in library_list:
-    if("ECRad" in folder or "ecrad"in folder ):
-        sys.path.append(folder)
-        found_lib = True
-        ECRadPylibFolder = folder
-        break
 from scipy.io import savemat
 import scipy.constants as cnst
 from Distribution_Classes import Distribution
@@ -387,7 +377,6 @@ def make_DIIID_HFS_LHCD_Scenario(folder, Scenario_filename, Distribution_filenam
         plt.show()
     
 def put_JOREK_data_into_Scenario(filename, Scenario_filename, vessel_file):
-    from Plotting_Configuration import plt
     jorek_data = np.loadtxt(filename,unpack=True)
     R_0 = jorek_data[0]
     z_0 = jorek_data[1]
@@ -427,7 +416,7 @@ def put_JOREK_data_into_Scenario(filename, Scenario_filename, vessel_file):
 
 def put_TRANSP_U_profiles_in_Scenario(Scenario, filename, time, scenario_name):
     from ufilelib import UFILELIB
-    from Plotting_Configuration import plt
+    from ecrad_pyplib.Plotting_Configuration import plt
     u_file = UFILELIB()
     u_file.readfile(filename)
     it = np.argmin(np.abs(Scenario.plasma_dict["time"]-time))

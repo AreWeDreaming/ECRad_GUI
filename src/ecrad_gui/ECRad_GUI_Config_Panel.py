@@ -4,9 +4,9 @@ Created on Apr 3, 2019
 @author: Severin Denk
 '''
 import wx
-from ECRad_GUI_Widgets import simple_label_tc, simple_label_choice, simple_label_cb, max_var_in_row
+from ecrad_gui.ECRad_GUI_Widgets import simple_label_tc, simple_label_choice, simple_label_cb, max_var_in_row
 import os
-from WX_Events import EVT_UPDATE_CONFIG
+from ecrad_pylib.WX_Events import EVT_UPDATE_CONFIG
 class ConfigPanel(wx.Panel):
     def __init__(self, parent, Config, border=1, maxwidth=max_var_in_row, \
                     parentmode=False, style=wx.TAB_TRAVERSAL | wx.NO_BORDER):

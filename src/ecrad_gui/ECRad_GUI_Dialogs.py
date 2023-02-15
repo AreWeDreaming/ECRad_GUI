@@ -5,7 +5,7 @@ Created on Jul 15, 2019
 '''
 import wx
 import numpy as np
-from ECRad_GUI_Widgets import simple_label_cb, simple_label_tc
+from ecrad_gui.ECRad_GUI_Widgets import simple_label_cb, simple_label_tc
 import os
 # Only contains the GENE time select window for now
 class Select_GENE_timepoints_dlg(wx.Dialog):

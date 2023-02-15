@@ -3,25 +3,25 @@ Created on Apr 3, 2019
 
 @author: Severin Denk
 '''
-from Global_Settings import globalsettings
+from ecrad_pylibGlobal_Settings import globalsettings
 import wx
 from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
-from WX_Events import EVT_UPDATE_DATA, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
+from ecrad_pylibWX_Events import EVT_UPDATE_DATA, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
                       UpdateDataEvt, Unbound_EVT_UPDATE_DATA, Unbound_EVT_RESIZE
-from Plotting_Configuration import plt
+from ecrad_pylibPlotting_Configuration import plt
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
-from Plotting_Core import PlottingCore
+from ecrad_pylibPlotting_Core import PlottingCore
 from copy import deepcopy
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
-from Calibration_Utils import calibrate
+from ecrad_pylibCalibration_Utils import calibrate
 from plasma_math_tools.data_fitting import make_fit
 import numpy as np
 import os
-from ECRad_Results import ECRadResults
+from ecrad_pylibECRad_Results import ECRadResults
 if(globalsettings.AUG):
-    from Shotfile_Handling_AUG import get_data_calib, moving_average
-    from Get_ECRH_Config import get_ECRH_viewing_angles
-from Diag_Types import Diag
+    from ecrad_pylibShotfile_Handling_AUG import get_data_calib, moving_average
+    from ecrad_pylibGet_ECRH_Config import get_ECRH_viewing_angles
+from ecrad_pylibDiag_Types import Diag
 
 
 class CalibPanel(wx.Panel):
