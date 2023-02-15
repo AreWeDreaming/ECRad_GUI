@@ -5,19 +5,19 @@ Created on Apr 3, 2019
 '''
 
 from scipy.interpolate.fitpack2 import RectBivariateSpline
-from Global_Settings import globalsettings
+from ecrad_pylib.Global_Settings import globalsettings
 import wx
 import os
-from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
-from Plotting_Configuration import plt
+from ecrad_gui.ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
+from ecrad_pylib.Plotting_Configuration import plt
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 import numpy as np
 from itertools import cycle
-from Parallel_Utils import WorkerThread
-from ECRad_Results import ECRadResults
-from ECRad_GUI_Dialogs import OMASLoadECEDataDialog
-from WX_Events import EVT_UPDATE_DATA, EVT_THREAD_FINISHED, EVT_DIAGNOSTICS_LOADED, \
+from ecrad_pylib.Parallel_Utils import WorkerThread
+from ecrad_pylib.ECRad_Results import ECRadResults
+from ecrad_gui.ECRad_GUI_Dialogs import OMASLoadECEDataDialog
+from ecrad_pylib.WX_Events import EVT_UPDATE_DATA, EVT_THREAD_FINISHED, EVT_DIAGNOSTICS_LOADED, \
                       EVT_OTHER_RESULTS_LOADED, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
                       Unbound_EVT_THREAD_FINISHED, UpdateDiagDataEvt, \
                       Unbound_EVT_DIAGNOSTICS_LOADED, GenerticEvt, \

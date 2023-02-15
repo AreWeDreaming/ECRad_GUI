@@ -10,21 +10,21 @@ print(sys.path)
 import numpy as np
 from scipy.io import savemat
 import scipy.constants as cnst
-from Distribution_Classes import Distribution
+from ecrad_pylib.Distribution_Classes import Distribution
 if(not found_lib):
     print("Could not find pylib")
     print("Important: ECRad_GUI must be launched with its home directory as the current working directory")
     print("Additionally, the ECRad_Pylib must be in the parent directory of the GUI and must contain one of ECRad, ecrad and Pylib or pylib")
     exit(-1)
-from Global_Settings import globalsettings
-from ECRad_Scenario import ECRadScenario
-from Equilibrium_Utils import EQDataExt, EQDataSlice
-from plasma_math_tools.data_fitting import get_theta_pol_phi_tor_from_two_points
-from TB_Communication import make_mdict_from_TB_files
+from ecrad_pylib.Global_Settings import globalsettings
+from ecrad_pylib.ECRad_Scenario import ECRadScenario
+from ecrad_pylib.Equilibrium_Utils import EQDataExt, EQDataSlice
+from ecrad_pylib.plasma_math_tools.data_fitting import get_theta_pol_phi_tor_from_two_points
+from ecrad_pylib.TB_Communication import make_mdict_from_TB_files
 
 from scipy.interpolate import griddata, RectBivariateSpline, InterpolatedUnivariateSpline
-from Diag_Types import EXT_diag
-from ECRad_Interface import load_plasma_from_mat
+from ecrad_pylib.Diag_Types import EXT_diag
+from ecrad_pylib.ECRad_Interface import load_plasma_from_mat
 from netCDF4 import Dataset
 
 if(globalsettings.AUG):

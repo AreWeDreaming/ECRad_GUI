@@ -1,4 +1,4 @@
-from Global_Settings import globalsettings
+from ecrad_pylib.Global_Settings import globalsettings
 import wx
 from WX_Events import EVT_UPDATE_DATA
 
