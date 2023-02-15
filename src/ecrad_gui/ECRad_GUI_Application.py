@@ -732,6 +732,9 @@ class ECRad_GUI:
         GUI = ECRad_GUI_App(ECRad_runner_process, ECRad_input_queue, ECRad_output_queue)
         GUI.MainLoop()
 
+def main():
+    ECRad_GUI()
+
 if __name__ == '__main__':
     Main_ECRad = ECRad_GUI()
 
