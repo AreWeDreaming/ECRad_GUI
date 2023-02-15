@@ -3,7 +3,7 @@ Created on May 29, 2020
 
 @author: denk
 '''
-from ECRad_Results import ECRadResults
+from ecrad_pylib.ECRad_Results import ECRadResults
 
 def manipiulate_rays(result_file_in, result_file_out):
     res = ECRadResults()
