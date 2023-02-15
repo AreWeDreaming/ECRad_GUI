@@ -5,7 +5,7 @@ Created on Apr 3, 2019
 '''
 from ecrad_pylib.Global_Settings import globalsettings
 import wx
-from ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
+from ecrad_gui.ECRad_GUI_Widgets import simple_label_tc, simple_label_cb
 from ecrad_pylib.WX_Events import EVT_UPDATE_DATA, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
                       UpdateDataEvt, Unbound_EVT_UPDATE_DATA, Unbound_EVT_RESIZE
 from ecrad_pylib.Plotting_Configuration import plt

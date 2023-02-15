@@ -1,6 +1,6 @@
 from ecrad_pylib.Global_Settings import globalsettings
 import wx
-from WX_Events import EVT_UPDATE_DATA
+from ecrad_pylib.WX_Events import EVT_UPDATE_DATA
 
 class PostProcessingPanel(wx.Panel):
     def __init__(self, parent):
