@@ -19,7 +19,7 @@ if(not found_lib):
 from ecrad_pylib.Global_Settings import globalsettings
 from ecrad_pylib.ECRad_Scenario import ECRadScenario
 from ecrad_pylib.Equilibrium_Utils import EQDataExt, EQDataSlice
-from ecrad_pylib.plasma_math_tools.data_fitting import get_theta_pol_phi_tor_from_two_points
+from plasma_math_tools.data_fitting import get_theta_pol_phi_tor_from_two_points
 from ecrad_pylib.TB_Communication import make_mdict_from_TB_files
 
 from scipy.interpolate import griddata, RectBivariateSpline, InterpolatedUnivariateSpline
@@ -28,8 +28,8 @@ from ecrad_pylib.ECRad_Interface import load_plasma_from_mat
 from netCDF4 import Dataset
 
 if(globalsettings.AUG):
-    from Equilibrium_Utils_AUG import EQData
-    from Shotfile_Handling_AUG import load_IDA_data
+    from ecrad_pylib.Equilibrium_Utils_AUG import EQData
+    from ecrad_pylib.Shotfile_Handling_AUG import load_IDA_data
     
 def make_netcdf_plasma(filename, plasma):
     rootgrp = Dataset(filename, "w", format="NETCDF4")

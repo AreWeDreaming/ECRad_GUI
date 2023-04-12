@@ -30,7 +30,7 @@ from ecrad_pylib.WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unboun
                       EVT_ECRAD_FINISHED, \
                       Unbound_EVT_LOAD_ECRAD_RESULT,EVT_LOAD_ECRAD_RESULT, \
                       Unbound_EVT_ECRAD_RESULT_LOADED, EVT_ECRAD_RESULT_LOADED,\
-    ThreadFinishedEvt
+                      ThreadFinishedEvt
 from ecrad_gui.ECRad_GUI_Shell import Redirect_Text
 from ecrad_pylib.ECRad_Results import ECRadResults
 from ecrad_pylib.Parallel_Utils import WorkerThread
@@ -84,17 +84,9 @@ class ECRad_GUI_MainFrame(wx.Frame):
         self.sizer.Add(self.Panel, 1, wx.EXPAND)
         self.OldSize = self.GetSize()
         self.ConfigLoaded = False
-
-        # if(ECRad_Model):
-        #    self.ECRad_Ext_window = ECRad_Ext.ECRad_GUI_ECRad_Ext_Frame(self)
-        #    self.ECRad_Ext_window.Show()
-        #    self.ECRad_Ext_window.Raise()
-        #    self.ECRad_Ext_window.Center()
         self.SetSizer(self.sizer)
-#        self.SetClientSize(self.Panel.sizer.GetMinSize())
-#        self.PlotWindow = PlotFrame(self)
-        width = min(wx.GetDisplaySize()[0] * 0.8, 1680)
-        height = min(wx.GetDisplaySize()[1] * 0.8, 960)
+        width = int(min(wx.GetDisplaySize()[0] * 0.8, 1680))
+        height = int(min(wx.GetDisplaySize()[1] * 0.8, 960))
         self.SetClientSize((width, height))
         self.Center()
 
