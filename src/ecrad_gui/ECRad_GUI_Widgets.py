@@ -4,7 +4,7 @@ Created on Mar 21, 2019
 @author: Severin Denk
 '''
 import wx
-from ecrad_gui.ECRad_GUI_regex import test_float, integer_pattern
+from ECRad_GUI.src.ecrad_gui.ECRad_GUI_Regex import test_float, integer_pattern
 import wx.lib.agw.toasterbox as TB
 import re
 import os
@@ -19,7 +19,7 @@ parent_width = 4
 max_var_in_row = 10
 
 class simple_label_cb(wx.Panel):
-    def __init__(self, parent, label, state):
+    def __init__(self, parent, label, state, event_handler=None):
         wx.Panel.__init__(self, parent, wx.ID_ANY)
         self.SetAutoLayout(True)
         self.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -28,7 +28,10 @@ class simple_label_cb(wx.Panel):
         self.label.Wrap(160)
         self.cb = wx.CheckBox(self, wx.ID_ANY, "")
         self.cb.SetValue(state)
-        self.cb.Bind(wx.EVT_CHECKBOX, self.OnNewValByUser)
+        if event_handler is not None:
+            self.cb.Bind(wx.EVT_CHECKBOX, event_handler)
+        else:
+            self.cb.Bind(wx.EVT_CHECKBOX, self.OnNewValByUser)
         self.sizer.Add(self.label, 0, \
             wx.ALIGN_CENTER | wx.ALL, 5)
         self.sizer.Add(self.cb, 0, \
@@ -103,7 +106,7 @@ class simple_label_choice(wx.Panel):
 
 
 class simple_label_tc(wx.Panel):
-    def __init__(self, parent, label, value, value_type, border=0, tooltip=None, scale=None, readonly=False):
+    def __init__(self, parent, label, value, value_type=None, border=0, tooltip=None, scale=None, readonly=False):
         if(value_type is None):
             if(type(value) == int):
                 value_type = "integer"

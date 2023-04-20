@@ -6,11 +6,13 @@ Created on Mar 21, 2019
 from ecrad_pylib.Global_Settings import globalsettings
 import os
 from ecrad_gui.ECRad_GUI_Widgets import simple_label_tc
-from ecrad_gui.ECRad_GUI_Dialogs import IMASTimeBaseSelectDlg,IMASSelectDialog
+from ecrad_gui.ECRad_GUI_Dialogs import IMASTimeBaseSelectDlg,IMASSelectDialog, OMASdbSelectDialog
 import wx
 from ecrad_pylib.WX_Events import EVT_UPDATE_DATA, NewStatusEvt, Unbound_EVT_NEW_STATUS, \
-                      Unbound_EVT_REPLOT, LockExportEvt, Unbound_EVT_LOCK_EXPORT
+                                  Unbound_EVT_REPLOT, LockExportEvt, Unbound_EVT_LOCK_EXPORT, \
+                                  GenerticEvt, Unbound_OMAS_LOAD_FINISHED, OMAS_LOAD_FINISHED
 from ecrad_pylib.Plotting_Core import PlottingCore
+from ecrad_pylib.Parallel_Utils import WorkerThread
 import numpy as np
 from ecrad_pylib.ECRad_Interface import load_from_plasma, load_plasma_from_mat
 from ecrad_pylib.Plotting_Configuration import plt
@@ -43,6 +45,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.canvas.mpl_connect('button_press_event', self.OnPlotClick)
         self.Bind(wx.EVT_ENTER_WINDOW, self.ChangeCursor)
         self.Bind(EVT_UPDATE_DATA, self.OnUpdate)
+        self.Bind(OMAS_LOAD_FINISHED, self.OnOmasLoaded)
         self.canvas.draw()
         self.pc_obj = PlottingCore(self.fig, self.dummy_fig, False)
         self.plot_toolbar = NavigationToolbar2Wx(self.canvas)
@@ -95,7 +98,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.load_Scenario_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadScenario)
         self.load_Scenario_from_imas_button = wx.Button(self, wx.ID_ANY, "Load from IMAS database")
         self.load_Scenario_from_imas_button.Bind(wx.EVT_BUTTON, self.OnLoadIMAS)
-        self.load_Scenario_from_omas_button = wx.Button(self, wx.ID_ANY, "Load from OMAS file")
+        self.load_Scenario_from_omas_button = wx.Button(self, wx.ID_ANY, "Load from OMAS")
         self.load_Scenario_from_omas_button.Bind(wx.EVT_BUTTON, self.OnLoadOMAS)
         self.load_from_mat_button = wx.Button(self, wx.ID_ANY, "Load from *.nc/*.mat")
         self.load_from_mat_button.Bind(wx.EVT_BUTTON, self.OnLoadfromFile)
@@ -320,7 +323,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.Config = evt.Results.Config
         self.SetFromNewScenario(evt.Results.Scenario, evt.Results.data_origin, draw=False)
         while self.unused_list.GetCount() > 0:
-            self.add_to_used(0)
+            self.add_to_used([0])
         self.post_run = True
         self.used_list.Disable()
         self.unused_list.Disable()
@@ -447,7 +450,7 @@ class ScenarioSelectPanel(wx.Panel):
         if(len(self.unused) > 0):
             self.unused_list.AppendItems(self.unused)
         self.pc_obj.reset(True)
-        Te_indices = np.zeros((len(self.plasma_dict["Te"]), len(self.plasma_dict["Te"][0])), dtype=np.bool)
+        Te_indices = np.zeros((len(self.plasma_dict["Te"]), len(self.plasma_dict["Te"][0])), dtype=bool)
         IDA_labels = []
         rhop_range = [0.2, 0.95]
         for index in range(len(self.plasma_dict["time"])):
@@ -456,7 +459,7 @@ class ScenarioSelectPanel(wx.Panel):
                 if(index == 0):
                     IDA_labels.append(r"$T_" + globalsettings.mathrm + r"{e}$" + r"({0:1.2f})".format(self.plasma_dict[self.plasma_dict["prof_reference"]][index][np.argmin(np.abs(self.plasma_dict[self.plasma_dict["prof_reference"]][index] - rhop))]))
         if(len(self.plasma_dict["ECE_rhop"]) > 0):
-            ECE_indices = np.zeros((len(self.plasma_dict["ECE_rhop"]), len(self.plasma_dict["ECE_rhop"][0])), dtype=np.bool)
+            ECE_indices = np.zeros((len(self.plasma_dict["ECE_rhop"]), len(self.plasma_dict["ECE_rhop"][0])), dtype=bool)
             ECE_labels = []
             ECRad_labels = []
             ECE_reduced_data = np.average(self.plasma_dict["ECE_dat"].reshape((len(self.plasma_dict["time"]), \
@@ -487,8 +490,8 @@ class ScenarioSelectPanel(wx.Panel):
                             print(diag_time.shape , diag_data.shape)
                             print("All time points beyond the last index of the signal are omitted")
                         diag_time = diag_time[:len(diag_data[0])]
-                        shown_ch = np.zeros(len(diag_data), dtype=np.bool)
-                        shown_ch_nr = np.array(range(len(shown_ch)), np.int)
+                        shown_ch = np.zeros(len(diag_data), dtype=bool)
+                        shown_ch_nr = np.array(range(len(shown_ch)), bool)
                         diag_labels = []
                         n = int(np.ceil(float(len(shown_ch)) / 2.0))
                         if(diag_obj.name == "CTA"):
@@ -531,7 +534,7 @@ class ScenarioSelectPanel(wx.Panel):
             print("Could not get divertor currents")
             div_cur = None
         if(diag_time is not None):
-            diag_indices = np.zeros(len(diag_time), dtype=np.bool)
+            diag_indices = np.zeros(len(diag_time), dtype=bool)
             diag_indices[:] = False
             if(diag_obj.name == "CTA"):
                 self.FilterCTA(diag_obj)
@@ -623,7 +626,7 @@ class ScenarioSelectPanel(wx.Panel):
             self.unused_list.AppendItems(self.unused)
         if(self.plasma_dict["Te"][0].ndim == 1):
             self.pc_obj.reset(True)
-            Te_indices = np.zeros((len(self.plasma_dict["Te"]), len(self.plasma_dict["Te"][0])), dtype=np.bool)
+            Te_indices = np.zeros((len(self.plasma_dict["Te"]), len(self.plasma_dict["Te"][0])), dtype=bool)
             IDA_labels = []
             rhop_range = [0.2, 0.95]
             for index in range(len(self.plasma_dict["time"])):
@@ -659,12 +662,6 @@ class ScenarioSelectPanel(wx.Panel):
             print("Failed to parse Configuration")
             print("Reason: " + e)
             return
-#         try:
-#             Scenario = self.Parent.Parent.launch_panel.UpdateScenario(self.Scenario)
-#         except ValueError as e:
-#             print("Failed to parse Configuration")
-#             print("Reason: " + e)
-#             return
         self.OnUnlockSelection(None)
         self.unused = []
         self.used = []
@@ -693,6 +690,12 @@ class ScenarioSelectPanel(wx.Panel):
         
     def OnLoadOMAS(self, evt):
         try:
+            from omas.omas_machine import machine_to_omas
+            from omas import ODS
+        except ImportError:
+            print("Failed to import OMAS. OMAS is an optional dependency and needs to be installed manually.")
+            return
+        try:
             self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
             self.Parent.Parent.config_panel.DisableExtRays()
         except ValueError as e:
@@ -710,36 +713,73 @@ class ScenarioSelectPanel(wx.Panel):
         self.used = []
         self.used_list.Clear()
         self.unused_list.Clear()
-        dlg = wx.FileDialog(self, message="Choose a .pkl or .nc file for input", \
+        omas_db_dlg = OMASdbSelectDialog(self)
+        if(omas_db_dlg.ShowModal() != wx.ID_OK):
+            omas_db_dlg.Destroy()
+            return
+        state = omas_db_dlg.state
+        omas_db_dlg.Destroy()
+        if state[0]:
+            file_dlg = wx.FileDialog(self, message="Choose a .pkl or .nc file for input", \
                             defaultDir=self.Config["Execution"]["working_dir"], \
                             wildcard=("Matlab and Netcdf4 files (*.pkl;*.nc)|*.pkl;*.nc"),
                             style=wx.FD_OPEN)
-        if(dlg.ShowModal() != wx.ID_OK):
-            dlg.Destroy()
-            return
-        try:
-            from omas import ODS
-            ods = ODS()
-            ods.load(filename=dlg.GetPath())
-            time_base_dlg = OMASTimeBaseSelectDlg(self)
-            if(time_base_dlg.ShowModal() != wx.ID_OK):
-                time_base_dlg.Destroy()
+            if(file_dlg.ShowModal() != wx.ID_OK):
+                file_dlg.Destroy()
                 return
-            time_base_source = time_base_dlg.choice
-            time_base_dlg.Destroy()
-            times = ods[time_base_source]['time']
-            NewScenario = ECRadScenario(True)
-            NewScenario.set_up_profiles_from_ods(ods,times)
-            NewScenario.set_up_equilibrium_from_ods(ods,times)
-            self.SetFromNewScenario(NewScenario, dlg.GetPath())
-            dlg.Destroy()
-        except Exception as e:
-            print(e)
-            print("ERROR: Failed to load Scenario -- does the selected file contain a Scenario?")
-            print("I fthis file only contains profiles and equilibria try load from .mat instead.")
-            dlg.Destroy()
+            path = file_dlg.Path
+            file_dlg.Destroy()
+            WorkerThread(self.load_omas_from_file, [path])
+        else:
+            WorkerThread(self.load_omas_from_db, [state])
+
+    def load_omas_from_file(self, args):
+        from omas import ODS
+        ods = ODS()
+        file_path = args[0]
+        ods.load(file_path, consistency_check="warn")
+        evt_out = GenerticEvt(Unbound_OMAS_LOAD_FINISHED, self.GetId())
+        evt_out.insertData([ods, file_path, None])
+        wx.PostEvent(self, evt_out)
+
+    def load_omas_from_db(self, args):
+        from omas.omas_machine import machine_to_omas
+        from omas import ODS
+        ods = ODS()
+        state = args[0]
+        if state[1] != "d3d":
+            print("Only DIII-D machine mappings supported at the moment")
             return
-        
+        run_id = f"{state[1]}_#{state[2]}"
+        try:
+            efit_run_id = int(state[3])
+            machine_to_omas(ods, state[1], efit_run_id, "equilibrium", 
+                            options={'EFIT_tree': "EFIT"})
+        except ValueError:
+            machine_to_omas(ods, state[1], state[2], "equilibrium", 
+                            options={'EFIT_tree': state[3]})
+        machine_to_omas(ods, state[1], state[4], "core_profiles", 
+                        options={'PROFILES_tree':"OMFIT_PROFS"})
+        evt_out = GenerticEvt(Unbound_OMAS_LOAD_FINISHED, self.GetId())
+        evt_out.insertData([ods, None, run_id])
+        wx.PostEvent(self, evt_out)
+
+    def OnOmasLoaded(self, evt):
+        ods, data_path, run_id = evt.Data
+        time_base_dlg = IMASTimeBaseSelectDlg(self)
+        if(time_base_dlg.ShowModal() != wx.ID_OK):
+            time_base_dlg.Destroy()
+            return
+        time_base_source = time_base_dlg.choice
+        time_base_dlg.Destroy()
+        times = ods[time_base_source]['time']
+        NewScenario = ECRadScenario(True)
+        NewScenario["time"] = times
+        NewScenario.set_up_profiles_from_omas(ods,times)
+        NewScenario.set_up_equilibrium_from_omas(ods,times)
+        self.SetFromNewScenario(NewScenario, data_path, id=run_id)
+        time_base_dlg.Destroy()
+
     def OnLoadIMAS(self, evt):
         import imas
         try:
@@ -804,7 +844,7 @@ class ScenarioSelectPanel(wx.Panel):
                 return
         dlg.Destroy()
 
-    def SetFromNewScenario(self, NewScenario, path, draw=True):
+    def SetFromNewScenario(self, NewScenario, path, draw=True, id=None):
         self.UpdateContent(NewScenario, diag_name=NewScenario.default_diag)
         self.plasma_dict = deepcopy(NewScenario["plasma"])
         self.plasma_dict["time"] = np.copy(NewScenario["time"])
@@ -828,7 +868,7 @@ class ScenarioSelectPanel(wx.Panel):
             self.plasma_dict["EQ_ed"] = NewScenario["AUG"]["EQ_ed"]
         if(not self.plasma_dict["2D_prof"] and draw):
             self.pc_obj.reset(True)
-            Te_indices = np.zeros(self.plasma_dict["Te"].shape, dtype=np.bool)
+            Te_indices = np.zeros(self.plasma_dict["Te"].shape, dtype=bool)
             IDA_labels = []
             rhop_range = [0.2, 0.95]
             for index in range(len(self.plasma_dict["time"])):
@@ -850,7 +890,12 @@ class ScenarioSelectPanel(wx.Panel):
             print("Sorry no plots for 2D ne/Te")
         self.loaded = True
         self.new_data_available = True
-        self.data_source = "file:" + path
+        if path is not None:
+            self.data_source = "file:" + path
+        elif id is not None:
+            self.data_source = id
+        else:
+            raise ValueError("Either `path` or `id` must be not None.")
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('Data loaded successfully!')
         print("Scaling factors of rhop, Te and ne are ignored in this plot!")
@@ -1157,7 +1202,7 @@ class ScenarioSelectPanel(wx.Panel):
 
     def GetUsedIDAIndices(self):
         used_timepoints = np.array(self.used, dtype=np.double)
-        IDA_timepoint_used = np.zeros(len(self.plasma_dict["time"]), dtype=np.bool)
+        IDA_timepoint_used = np.zeros(len(self.plasma_dict["time"]), dtype=bool)
         for t in used_timepoints:
             if(np.min(np.abs(t - self.plasma_dict["time"])) > self.delta_t):
                 print("Error: Somehow a time point got into the used pile, without having a corresponding IDA time point")
@@ -1258,9 +1303,16 @@ class ScenarioSelectPanel(wx.Panel):
                 self.unused_list.AppendItems(self.unused)
             self.new_data_available = True
 
-    def add_to_used(self, i_select):
-        string = self.unused_list.GetString(i_select)
-        self.used.append(self.unused.pop(self.unused.index(string)))
+    def get_selected_items(self, sel, list_object):
+        to_move = []
+        for i_sel in sel:
+            to_move.append(list_object.GetString(i_sel))
+        return to_move
+
+    def add_to_used(self, sel):
+        to_move = self.get_selected_items(sel, self.unused_list)
+        for item in to_move:
+            self.used.append(self.unused.pop(self.unused.index(item)))
         self.used = list(set(self.used))
         self.used.sort()
         self.unused = list(set(self.unused))
@@ -1273,9 +1325,10 @@ class ScenarioSelectPanel(wx.Panel):
             self.unused_list.AppendItems(self.unused)
         self.new_data_available = True
 
-    def add_to_unused(self, i_select):
-        string = self.used_list.GetString(i_select)
-        self.unused.append(self.used.pop(self.used.index(string)))
+    def add_to_unused(self, sel):
+        to_move = self.get_selected_items(sel, self.used_list)
+        for item in to_move:
+            self.unused.append(self.used.pop(self.used.index(item)))
         self.used = list(set(self.used))
         self.used.sort()
         self.unused = list(set(self.unused))
@@ -1290,8 +1343,7 @@ class ScenarioSelectPanel(wx.Panel):
 
     def OnAddSelection(self, evt):
         sel = self.unused_list.GetSelections()
-        for i_sel in sel:
-            self.add_to_used(i_sel)
+        self.add_to_used(sel)
 
     def OnUnlockSelection(self, evt):
         self.post_run = False
@@ -1307,8 +1359,7 @@ class ScenarioSelectPanel(wx.Panel):
 
     def OnRemoveSelection(self, evt):
         sel = self.used_list.GetSelections()
-        for i_sel in sel:
-            self.add_to_unused(i_sel)
+        self.add_to_unused(sel)
 
 
     def ChangeCursor(self, event):

@@ -162,7 +162,72 @@ class IMASSelectDialog(wx.Dialog):
             print("Failed to load IMAS entry")
             print(e)
             self.EndModal(wx.ID_ABORT)
-        
+
+class OMASdbSelectDialog(wx.Dialog):
+    def __init__(self, parent, minimal=False):
+        wx.Dialog.__init__(self, parent, wx.ID_ANY)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.rb_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.from_file_rb = wx.RadioButton(self, wx.ID_ANY, label="Load from file")
+        self.from_file_rb.Bind(wx.EVT_RADIOBUTTON, self.On_from_rb_db)
+        self.rb_sizer.Add(self.from_file_rb, 0, wx.ALL | 
+                          wx.ALIGN_CENTER_VERTICAL, 5)
+        self.from_db_rb = wx.RadioButton(self, wx.ID_ANY, label="From machine database")
+        self.rb_sizer.Add(self.from_db_rb, 0, wx.ALL | 
+                          wx.ALIGN_CENTER_VERTICAL, 5)
+        self.from_db_rb.Bind(wx.EVT_RADIOBUTTON, self.On_from_rb_db)
+        self.sizer.Add(self.rb_sizer)
+        self.widgets = []
+        self.run_id_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.widgets.append(simple_label_tc(self, "Machine", "d3d"))
+        self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
+                              wx.ALIGN_CENTER_VERTICAL, 5)
+        self.widgets.append(simple_label_tc(self, "shot", 193754))
+        self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
+                              wx.ALIGN_CENTER_VERTICAL, 5)
+        if not minimal:
+            self.widgets.append(simple_label_tc(self, "Run ID equilibrium", "19375402"))
+            self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
+                                wx.ALIGN_CENTER_VERTICAL, 5)
+            self.widgets.append(simple_label_tc(self, "Run ID Profiles", 193754001))
+            self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
+                                wx.ALIGN_CENTER_VERTICAL, 5)
+        self.On_from_rb_db(None)
+        self.sizer.Add(self.run_id_sizer)
+        self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.LoadButton = wx.Button(self, wx.ID_ANY, 'Load')
+        self.Bind(wx.EVT_BUTTON, self.On_Load, self.LoadButton)
+        self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
+        self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
+        self.ButtonSizer.Add(self.LoadButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
+                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.SetSizer(self.sizer)
+        self.SetClientSize(self.GetEffectiveMinSize())
+
+    def EvtClose(self, Event):
+        self.EndModal(wx.ID_ABORT)
+    
+    def On_from_rb_db(self, evt):
+        state = self.from_db_rb.GetValue()
+        for widget in self.widgets:
+            if state:
+                widget.Enable()
+            else:
+                widget.Disable()
+        # Always disable the first box because only DIII-D is supported
+        self.widgets[0].Disable()
+
+    def On_Load(self, evt):
+        if self.from_file_rb.GetValue():
+           self.state = [True]
+        else:
+            self.state= [False]
+            for widget in self.widgets:
+                self.state.append(widget.GetValue())
+        self.EndModal(wx.ID_OK)
+
 class OMASLoadECEDataDialog(wx.Dialog):
     def __init__(self, parent, times):
         wx.Dialog.__init__(self, parent, wx.ID_ANY)

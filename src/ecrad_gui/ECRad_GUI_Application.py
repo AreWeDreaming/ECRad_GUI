@@ -11,8 +11,8 @@ if(globalsettings.AUG):
         globalsettings.AUG = False
         print("Failed to load AUG libraries continuing in non-AUG mode.")
 import wx.lib.scrolledpanel as scrolled
-from ecrad_gui.ECRad_GUI_LaunchPanel import LaunchPanel
-from ecrad_gui.ECRad_GUI_ScenarioPanel import ScenarioSelectPanel
+from ECRad_GUI.src.ecrad_gui.ECRad_GUI_Launch_Panel import LaunchPanel
+from ecrad_gui.ECRad_GUI_Scenario_Panel import ScenarioSelectPanel
 from ecrad_gui.ECRad_GUI_Config_Panel import ConfigPanel
 from ecrad_gui.ECRad_GUI_Calibration_Suite import CalibPanel, CalibEvolutionPanel
 from ecrad_gui.ECRad_GUI_Dialogs import Select_GENE_timepoints_dlg
@@ -34,7 +34,7 @@ from ecrad_pylib.WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unboun
 from ecrad_gui.ECRad_GUI_Shell import Redirect_Text
 from ecrad_pylib.ECRad_Results import ECRadResults
 from ecrad_pylib.Parallel_Utils import WorkerThread
-from multiprocessing import Process, Queue, Pipe
+from multiprocessing import Process, Queue
 from ecrad_pylib.ECRad_Execution import SetupECRadBatch
 import queue
 from ecrad_pylib.ECRad_F2PY_Interface import ECRadF2PYInterface
@@ -84,17 +84,9 @@ class ECRad_GUI_MainFrame(wx.Frame):
         self.sizer.Add(self.Panel, 1, wx.EXPAND)
         self.OldSize = self.GetSize()
         self.ConfigLoaded = False
-
-        # if(ECRad_Model):
-        #    self.ECRad_Ext_window = ECRad_Ext.ECRad_GUI_ECRad_Ext_Frame(self)
-        #    self.ECRad_Ext_window.Show()
-        #    self.ECRad_Ext_window.Raise()
-        #    self.ECRad_Ext_window.Center()
         self.SetSizer(self.sizer)
-#        self.SetClientSize(self.Panel.sizer.GetMinSize())
-#        self.PlotWindow = PlotFrame(self)
-        width = min(wx.GetDisplaySize()[0] * 0.8, 1680)
-        height = min(wx.GetDisplaySize()[1] * 0.8, 960)
+        width = int(min(wx.GetDisplaySize()[0] * 0.8, 1680))
+        height = int(min(wx.GetDisplaySize()[1] * 0.8, 960))
         self.SetClientSize((width, height))
         self.Center()
 
@@ -167,6 +159,8 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.ECRad_runner_process = ECRad_runner_process
         self.ECRad_input_queue = ECRad_input_queue
         self.ECRad_output_queue = ECRad_output_queue
+        self.timer = wx.Timer(self, wx.ID_ANY)
+        self.Bind(wx.EVT_TIMER, self.OnTimer)
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.Results = ECRadResults(lastused=True)
         self.Bind(EVT_MAKE_ECRAD, self.OnProcessTimeStep)
@@ -174,7 +168,6 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.Bind(EVT_NEXT_TIME_STEP, self.OnNextTimeStep)
         self.Bind(EVT_UPDATE_DATA, self.OnUpdate)
         self.Bind(EVT_LOCK_EXPORT, self.OnLockExport)
-        self.Bind(wx.EVT_IDLE, self.OnIdle)
         self.Bind(EVT_GENE_DATA_LOADED, self.OnGeneLoaded)
         self.Bind(EVT_ECRAD_RESULT_LOADED, self.OnResultsImported)
         self.Bind(EVT_LOAD_OLD_RESULT, self.OnImport)
@@ -399,7 +392,6 @@ class Main_Panel(scrolled.ScrolledPanel):
             evt.set_state(-1)
         wx.PostEvent(self, evt)
      
-     
     def OnGeneLoaded(self, evt):
         if(evt.state == 0):
             gene_dlg = Select_GENE_timepoints_dlg(self, self.Results.Scenario["GENE_obj"].time)
@@ -446,6 +438,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
         evt.SetStatus('ECRad is running - please wait.')
         wx.PostEvent(self, evt)
+        self.timer.Start(1000)
         self.Progress_label.SetLabel("ECRad running - ({0:d}/{1:d})".format(self.index + 1,len(self.Results.Scenario["time"])))
         self.ProgressBar.SetValue(self.index)
         self.ExportButton.Disable()
@@ -530,6 +523,8 @@ class Main_Panel(scrolled.ScrolledPanel):
                 self.Results.Scenario.drop_time_point(self.index)
                 self.ProgressBar.SetRange(self.Results.Scenario["dimensions"]["N_time"])
         if(self.index < len(self.Results.Scenario["time"]) and not self.stop_current_evaluation):
+            self.ProgressBar.SetValue(self.index)
+            self.Progress_label.SetLabel("ECRad running - ({0:d}/{1:d})".format(self.index + 1,len(self.Results.Scenario["time"])))
             evt = NewStatusEvt(Unbound_EVT_NEXT_TIME_STEP, self.GetId())
             wx.PostEvent(self, evt)
         else:
@@ -543,6 +538,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             self.FinishUpECRad()
             
     def FinishUpECRad(self):
+        self.timer.Stop()
         if(self.Results.Scenario["dimensions"]["N_time"] == 0):
             # Unsuccessful termination
             print("None of the ECRad runs were completed succesfully - sorry")
@@ -596,7 +592,6 @@ class Main_Panel(scrolled.ScrolledPanel):
         evt.SetStatus('Termination scheduled - please wait!')
         self.GetEventHandler().ProcessEvent(evt)
         self.KillECRadButton.Disable()
-    
 
     def OnUpdate(self, evt):
         self.Results = evt.Results
@@ -677,7 +672,7 @@ class Main_Panel(scrolled.ScrolledPanel):
         self.ExportButton.Disable()
         self.NameButton.Disable()
 
-    def OnIdle(self, evt):
+    def OnTimer(self, evt):
         if(self.ECRad_running):
             try:
                 success, self.Results = self.ECRad_output_queue.get(block=False)
@@ -696,20 +691,6 @@ class Main_Panel(scrolled.ScrolledPanel):
                 evt = ProccessFinishedEvt(Unbound_EVT_ECRAD_FINISHED, self.GetId())
                 evt.SetSuccess(success)
                 wx.PostEvent(self, evt)
-
-#         if(self.ECRad_process is not None):
-#             stream = self.ECRad_process.GetInputStream()
-#             if stream is not None:
-#                 if stream.CanRead():
-#                     text = stream.read()
-#                     self.Log_Box.AppendText(text)
-#             evt.RequestMore()
-#         elif(self.ECRad_running):
-#             print("ECRad seems to have crashed without the corresponding event chain firing")
-#             print("This might cause some weird stuff from here on out")
-#             print("Trying to fix it...")
-#             self.ECRad_running = False
-#             self.OnProcessEnded(None) 
 
         
     def OnName(self, evt):
