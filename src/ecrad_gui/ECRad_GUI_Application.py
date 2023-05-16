@@ -11,7 +11,7 @@ if(globalsettings.AUG):
         globalsettings.AUG = False
         print("Failed to load AUG libraries continuing in non-AUG mode.")
 import wx.lib.scrolledpanel as scrolled
-from ECRad_GUI.src.ecrad_gui.ECRad_GUI_Launch_Panel import LaunchPanel
+from ecrad_gui.ECRad_GUI_Launch_Panel import LaunchPanel
 from ecrad_gui.ECRad_GUI_Scenario_Panel import ScenarioSelectPanel
 from ecrad_gui.ECRad_GUI_Config_Panel import ConfigPanel
 from ecrad_gui.ECRad_GUI_Calibration_Suite import CalibPanel, CalibEvolutionPanel
