@@ -11,15 +11,10 @@ import numpy as np
 from scipy.io import savemat
 import scipy.constants as cnst
 from ecrad_pylib.Distribution_Classes import Distribution
-if(not found_lib):
-    print("Could not find pylib")
-    print("Important: ECRad_GUI must be launched with its home directory as the current working directory")
-    print("Additionally, the ECRad_Pylib must be in the parent directory of the GUI and must contain one of ECRad, ecrad and Pylib or pylib")
-    exit(-1)
 from ecrad_pylib.Global_Settings import globalsettings
 from ecrad_pylib.ECRad_Scenario import ECRadScenario
 from ecrad_pylib.Equilibrium_Utils import EQDataExt, EQDataSlice
-from plasma_math_tools.data_fitting import get_theta_pol_phi_tor_from_two_points
+from plasma_math_tools.geometry_utils import get_theta_pol_phi_tor_from_two_points
 from ecrad_pylib.TB_Communication import make_mdict_from_TB_files
 
 from scipy.interpolate import griddata, RectBivariateSpline, InterpolatedUnivariateSpline
@@ -125,6 +120,7 @@ def make_netcdf_launch(filename, launch):
             var = rootgrp["Diagnostic"].createVariable("diagnostic_" +  sub_key, "f8", \
                                                        ("N_time","N_ch"))
             var[:] = launch[sub_key]
+    rootgrp.close()
 
 def make_plasma_from_variables(filename, shot, times, rhop_profiles, Te, 
             ne, R, z, Br, Bt, Bz, rhop, vessel_data=None, vessel_bd_file=None):
@@ -199,8 +195,6 @@ def make_plasma_mat_from_variables(mat_out_name, shot, time, rhop_profiles, Te, 
     else:
         raise ValueError("vessel_data and vessel_bd_file cannot both be None")
     make_plasma_mat(mat_out_name, plasma_dict)
-
-
 
 def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     plasma_dict = {}
@@ -290,10 +284,27 @@ def make_Plasma_for_SPARC(times, filename, Te_files, ne_files, eqdsk_files):
                 quants["Bz"], quants["RHOpRZ"],
                 vessel_data=np.array([omfit_eq["RLIM"], omfit_eq["ZLIM"]]))
 
-def make_Launch_from_freq_and_points(filename, input_file):
-    launch_data = np.loadtxt(input_file)
-    f = launch_data.T[0]
-    df = f * 0.1
+def create_launch_data_manually():
+    f = np.array([90.5,89.9,89.3,88.7,88.1,87.5,86.9,86.3])*1.e9
+    z = np.array([-0.158, -0.14136842, -0.12473684, -0.10810526, -0.09147368, -0.07484211,
+                 -0.05821053, -0.04157895, -0.02494737, -0.00831579,  0.00831579,  0.02494737,
+                 0.04157895,  0.05821053,  0.07484211,  0.09147368,  0.10810526,  0.12473684,
+                 0.14136842,  0.158])
+    f_mesh, z_mesh = np.meshgrid(f,z, indexing="ij")
+    launch_data = np.zeros((f_mesh.size,7))
+    launch_data.T[0] = f_mesh.flatten()
+    launch_data.T[1] = 2.5
+    launch_data.T[2] = 270
+    launch_data.T[3] = z_mesh.flatten()
+    launch_data.T[4] = 0.9
+    launch_data.T[5] = 270
+    launch_data.T[6] = z_mesh.flatten()
+    return launch_data
+
+def make_Launch_from_freq_and_points(filename, launch_data=None, input_file=None):
+    if input_file is not None:
+        launch_data = np.loadtxt(input_file)
+    launch = {}
     x1 = np.array(launch_data.T[1:4])
     x2 = np.array(launch_data.T[4:])
     x1_vec = np.array([
@@ -304,11 +315,23 @@ def make_Launch_from_freq_and_points(filename, input_file):
             x2[0] * np.cos(np.deg2rad(x2[1])),
             x2[0] * np.sin(np.deg2rad(x2[1])), 
             x2[2]])
+    launch["f"] = [launch_data.T[0]]
+    launch["df"] = [launch_data.T[0] * 0.1]
+    launch["R"] = [launch_data.T[1]]
+    launch["phi"] = [launch_data.T[2]]
+    launch["z"] = [launch_data.T[3]]
     theta_pol, phi_tor = get_theta_pol_phi_tor_from_two_points(x1_vec, x2_vec)
-    # Phi is defined as the angle between the k_1 = -r_1 and k_2 = r_2 - r_1
-    make_launch_mat_single_timepoint(filename, f, df, x1[0], x1[1], x1[2], theta_pol, phi_tor, 
-            np.ones(f.shape), np.ones(f.shape) * 0.02, -np.ones(f.shape))
+    launch["theta_pol"] = [theta_pol]
+    launch["phi_tor"] = [phi_tor]
+    launch["dist_focus"] = np.ones((1,len(launch["f"]))) * 99.0
+    launch["width"] = np.ones((1,len(launch["f"]))) * 0.1
+    launch["pol_coeff_X"] = np.ones((1,len(launch["f"]))) * -1
+    launch["diag_name"] = np.zeros((1,len(launch["f"])), dtype="|S3")
+    launch["diag_name"][0,:]= "EXT"
     
+    # Phi is defined as the angle between the k_1 = -r_1 and k_2 = r_2 - r_1
+    make_netcdf_launch(filename, launch)
+
 def set_launch_in_Scenario(scenario_file_in, scenario_file_out, launch_dict):
     Scenario = ECRadScenario(noLoad=True)
     Scenario.load(scenario_file_in)
@@ -474,7 +497,7 @@ def make_plasma_mat(filename, plasma_dict):
     mdict["Bt"] = np.array(mdict["Bt"])
     mdict["Bz"] = np.array(mdict["Bz"])
     savemat(filename, mdict, appendmat=False)
-    
+
 def make_launch_mat_single_timepoint(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X):
     # 1D
     # arrays, with length number of channels
@@ -585,4 +608,6 @@ def make_test_launch(filename):
     make_launch_mat_single_timepoint(filename, f, df, R, phi, z, theta_pol, phi_tor, dist_focus, width, pol_coeff_X)
     
 if (__name__ == "__main__"):
+    launch_data = create_launch_data_manually()
+    make_Launch_from_freq_and_points("/home/denks/ECRad/ECEI_geo.nc", launch_data=launch_data)
     pass

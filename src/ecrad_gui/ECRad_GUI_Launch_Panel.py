@@ -3,16 +3,19 @@ Created on Mar 21, 2019
 
 @author: Severin Denk
 '''
-from ecrad_pylib.WX_Events import NewStatusEvt, Unbound_EVT_NEW_STATUS, EVT_UPDATE_DATA
 import wx
-from ecrad_gui.ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row, simple_label_choice
 from collections import OrderedDict as od
 import numpy as np
-from ecrad_pylib.ECRad_Interface import get_diag_launch
 import os
+from ecrad_pylib.WX_Events import NewStatusEvt, Unbound_EVT_NEW_STATUS, EVT_UPDATE_DATA, \
+                                  GenerticEvt, Unbound_OMAS_LOAD_FINISHED, OMAS_LOAD_FINISHED
+from ecrad_pylib.Parallel_Utils import WorkerThread
+from ecrad_pylib.ECRad_Interface import get_diag_launch
 from ecrad_pylib.Diag_Types import  EXT_diag, CECE_diag
 from ecrad_pylib.ECRad_Scenario import ECRadScenario
-from ecrad_gui.ECRad_GUI_Dialogs import IMASSelectDialog
+from ecrad_pylib.ECRad_Config import ECRadConfig
+from ecrad_gui.ECRad_GUI_Widgets import simple_label_tc, simple_label_cb, max_var_in_row, simple_label_choice
+from ecrad_gui.ECRad_GUI_Dialogs import IMASSelectDialog, OMASdbSelectDialog
 
 class LaunchPanel(wx.Panel):
     def __init__(self, parent, Scenario, working_dir):
@@ -26,6 +29,7 @@ class LaunchPanel(wx.Panel):
         self.diag_select_panel.sizer.Add(self.diag_select_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
         self.grid = wx.GridSizer(0, 10, 0, 0)
         self.diag_cb_dict = od()
+        self.Bind(OMAS_LOAD_FINISHED, self.OnOmasLoaded)
         self.working_dir = working_dir
         for Diagkey in Scenario["avail_diags_dict"]:
             self.diag_cb_dict.update({Diagkey :simple_label_cb(self.diag_select_panel, Diagkey, False)})
@@ -45,14 +49,14 @@ class LaunchPanel(wx.Panel):
         self.gen_ext_from_raylaunch_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Import launch from launch file")
         self.gen_ext_from_raylaunch_button.Bind(wx.EVT_BUTTON, self.GenExtFromRaylaunch)
         self.load_launch_panel.sizer.Add(self.gen_ext_from_raylaunch_button, 1, wx.ALL | wx.EXPAND, 5)
-        self.load_from_omas_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from OMAS file")
-        self.load_from_omas_button.Bind(wx.EVT_BUTTON, self.LoadFromOMAS)
+        self.load_from_omas_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from OMAS")
+        self.load_from_omas_button.Bind(wx.EVT_BUTTON, self.OnLoadOMAS)
         self.load_launch_panel.sizer.Add(self.load_from_omas_button, 1, wx.ALL | wx.EXPAND, 5)
         self.load_from_imas_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from IMAS")
-        self.load_from_imas_button.Bind(wx.EVT_BUTTON, self.LoadFromIMAS)
+        self.load_from_imas_button.Bind(wx.EVT_BUTTON, self.OnLoadFromIMAS)
         self.load_launch_panel.sizer.Add(self.load_from_imas_button, 1, wx.ALL | wx.EXPAND, 5)
         self.gen_ext_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Generate Ext launch from ECRad result")
-        self.gen_ext_from_old_button.Bind(wx.EVT_BUTTON, self.GenExtFromOld)
+        self.gen_ext_from_old_button.Bind(wx.EVT_BUTTON, self.OnGenExtFromOld)
         self.load_launch_panel.sizer.Add(self.gen_ext_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
         self.diag_config_sizer.Add(self.diag_select_panel, 0, wx.ALL | wx.EXPAND, 5)
         self.load_launch_panel.SetSizer(self.load_launch_panel.sizer)
@@ -151,41 +155,94 @@ class LaunchPanel(wx.Panel):
             NewScenario.load(filename=path)
             self.SetScenario(NewScenario, os.path.dirname(path))
 
-    def LoadFromOMAS(self, evt):
-        dlg = wx.FileDialog(\
-            self, message="Choose an OMAS file", \
-            defaultDir=self.working_dir, \
-            wildcard=("Pickle and Netcdf4 files (*.pkl;*.nc)|*.pkl;*.nc"),
-            style=wx.FD_OPEN)
-        if(dlg.ShowModal() == wx.ID_OK):
-            path = dlg.GetPath()
-            NewSceario = ECRadScenario(noLoad=True)
-            try:
-                from omas import ODS
-                ods = ODS()
-                ods.load(path)
-                NewSceario.set_up_launch_from_imas(ods)
-                newExtDiag = EXT_diag("EXT")
-                if(len( ods['ece']['channel']['time']) == 1):
-                    itime = 0
-                else:
-                    timepoint_dlg = Select_Raylaunch_timepoint(self, ods['ece']['channel']['time'])
-                    if(not (timepoint_dlg.ShowModal() == wx.ID_OK)):
-                        print("Aborted")
-                        return
-                    itime = timepoint_dlg.itime
-            except Exception as e:
-                print("ERROR: Failed to load launch from OMAS")
-                print(e)
-                return
-            newExtDiag.set_from_scenario_diagnostic(NewSceario["diagnostic"], itime, set_only_EXT=False)
-            NewSceario.avail_diags_dict.update({"EXT": newExtDiag})
-            curScenario = self.GetCurScenario()
-            curScenario["avail_diags_dict"].update({"EXT": newExtDiag})
-            curScenario["used_diags_dict"].update({"EXT": newExtDiag})
-            self.SetScenario(curScenario, self.working_dir)
 
-    def LoadFromIMAS(self, evt):
+    def OnLoadOMAS(self, evt):
+        try:
+            from omas.omas_machine import machine_to_omas
+            from omas import ODS
+        except ImportError:
+            print("Failed to import OMAS. OMAS is an optional dependency and needs to be installed manually.")
+            return
+        try:
+            self.Config = self.Parent.Parent.config_panel.UpdateConfig(ECRadConfig())
+            self.Parent.Parent.config_panel.DisableExtRays()
+        except ValueError as e:
+            print("Failed to parse Configuration")
+            print("Reason: " + e)
+            return
+#         try:
+#             Scenario = self.Parent.Parent.launch_panel.UpdateScenario(self.Scenario)
+#         except ValueError as e:
+#             print("Failed to parse Configuration")
+#             print("Reason: " + e)
+#             return
+        omas_db_dlg = OMASdbSelectDialog(self, minimal=True)
+        if(omas_db_dlg.ShowModal() != wx.ID_OK):
+            omas_db_dlg.Destroy()
+            return
+        state = omas_db_dlg.state
+        omas_db_dlg.Destroy()
+        if state[0]:
+            file_dlg = wx.FileDialog(self, message="Choose a .pkl or .nc file for input", \
+                                     defaultDir=self.Config["Execution"]["working_dir"], \
+                                     wildcard=("Matlab and Netcdf4 files (*.pkl;*.nc)|*.pkl;*.nc"),
+                                     style=wx.FD_OPEN)
+            if(file_dlg.ShowModal() != wx.ID_OK):
+                file_dlg.Destroy()
+                return
+            path = file_dlg.Path
+            file_dlg.Destroy()
+            WorkerThread(self.load_omas_from_file, [path])
+        else:
+            WorkerThread(self.load_omas_from_db, [state])
+
+    def load_omas_from_file(self, args):
+        from omas import ODS
+        ods = ODS()
+        file_path = args[0]
+        ods.load(file_path, consistency_check="warn")
+        evt_out = GenerticEvt(Unbound_OMAS_LOAD_FINISHED, self.GetId())
+        evt_out.insertData(ods)
+        wx.PostEvent(self, evt_out)
+
+    def load_omas_from_db(self, args):
+        from omas.omas_machine import machine_to_omas
+        from omas import ODS
+        ods = ODS()
+        state = args[0]
+        if state[1] != "d3d":
+            print("Only DIII-D machine mappings supported at the moment")
+            return
+        machine_to_omas(ods, state[1], state[2], "ece")
+        evt_out = GenerticEvt(Unbound_OMAS_LOAD_FINISHED, self.GetId())
+        evt_out.insertData(ods)
+        wx.PostEvent(self, evt_out)
+
+    def OnOmasLoaded(self, evt):
+        ods = evt.Data
+        NewSceario = ECRadScenario(noLoad=True)
+        NewSceario.set_up_launch_from_omas(ods)
+        newExtDiag = EXT_diag("EXT")
+        try:
+            if(len( ods['ece.channel.0.time']) == 1):
+                itime = 0
+            else:
+                timepoint_dlg = Select_Raylaunch_timepoint(self, ods['ece.channel.0.time'])
+                if(not (timepoint_dlg.ShowModal() == wx.ID_OK)):
+                    print("Aborted")
+                    return
+                itime = timepoint_dlg.itime
+        except Exception as e:
+            print("ERROR: Failed to load launch from OMAS")
+            print(e)
+            return
+        newExtDiag.set_from_scenario_diagnostic(NewSceario["diagnostic"], itime, set_only_EXT=False)
+        curScenario = self.GetCurScenario()
+        curScenario["avail_diags_dict"].update({"EXT": newExtDiag})
+        curScenario["used_diags_dict"].update({"EXT": newExtDiag})
+        self.SetScenario(curScenario, self.working_dir)
+
+    def OnLoadFromIMAS(self, evt):
         dlg = IMASSelectDialog(self, 'ITER_MD')
         if(dlg.ShowModal() == wx.ID_OK):
             ids = dlg.ids
@@ -224,7 +281,7 @@ class LaunchPanel(wx.Panel):
             self.SetScenario(curScenario, self.working_dir)
         dlg.Destroy()
 
-    def GenExtFromOld(self, evt):
+    def OnGenExtFromOld(self, evt):
         dlg = wx.FileDialog(\
             self, message="Choose a preexisting calculation", \
             defaultDir=self.working_dir, \
@@ -644,11 +701,10 @@ class Select_Raylaunch_timepoint(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.EvtAccept, self.FinishButton)
         self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
         self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
-        self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.ButtonSizer.Add(self.FinishButton, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        self.ButtonSizer.Add(self.FinishButton, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         self.sizer.Add(self.time_ctrl, 1, wx.ALL | wx.EXPAND, 5)
-        self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
-                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.sizer.Add(self.ButtonSizer)
 
     def EvtClose(self, Event):
         self.EndModal(wx.ID_ABORT)

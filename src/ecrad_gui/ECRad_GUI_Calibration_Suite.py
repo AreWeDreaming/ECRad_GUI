@@ -298,7 +298,7 @@ class CalibPanel(wx.Panel):
             del(self.Results.rel_dev[self.cur_diag.name])
             del(self.Results.sys_dev[self.cur_diag.name])
             del(self.Results.masked_time_points[self.cur_diag.name])
-        masked_timepoints = np.zeros(len(self.Results.time), np.bool)
+        masked_timepoints = np.zeros(len(self.Results.time), bool)
         masked_timepoints[:] = True
         self.delta_t = 0.5 * np.mean(self.Results.time[1:len(self.Results.time)] - \
                                      self.Results.time[0:len(self.Results.time) - 1])
