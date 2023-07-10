@@ -30,7 +30,7 @@ from ecrad_pylib.WX_Events import EVT_NEW_STATUS, EVT_RESIZE, LoadMatEvt, Unboun
                       EVT_ECRAD_FINISHED, \
                       Unbound_EVT_LOAD_ECRAD_RESULT,EVT_LOAD_ECRAD_RESULT, \
                       Unbound_EVT_ECRAD_RESULT_LOADED, EVT_ECRAD_RESULT_LOADED,\
-    ThreadFinishedEvt
+                      ThreadFinishedEvt
 from ecrad_gui.ECRad_GUI_Shell import Redirect_Text
 from ecrad_pylib.ECRad_Results import ECRadResults
 from ecrad_pylib.Parallel_Utils import WorkerThread
