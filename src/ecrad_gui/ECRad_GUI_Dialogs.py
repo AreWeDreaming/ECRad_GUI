@@ -196,7 +196,7 @@ class OMASdbSelectDialog(wx.Dialog):
             self.widgets.append(simple_label_tc(self, "Profile Tree", "OMFIT_PROFS"))
             self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
                                   wx.ALIGN_CENTER_VERTICAL, 5)
-            self.widgets.append(simple_label_tc(self, "Run ID Profiles", "02"))
+            self.widgets.append(simple_label_tc(self, "Run ID Profiles", "002"))
             self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
                                   wx.ALIGN_CENTER_VERTICAL, 5)
         self.On_from_rb_db(None)
