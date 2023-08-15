@@ -23,8 +23,8 @@ from ecrad_pylib.ECRad_Interface import load_plasma_from_mat
 from netCDF4 import Dataset
 
 if(globalsettings.AUG):
-    from Equilibrium_Utils_AUG import EQData
-    from Shotfile_Handling_AUG import load_IDA_data
+    from ecrad_pylib.Equilibrium_Utils_AUG import EQData
+    from ecrad_pylib.Shotfile_Handling_AUG import load_IDA_data
     
 def make_netcdf_plasma(filename, plasma):
     rootgrp = Dataset(filename, "w", format="NETCDF4")
