@@ -7,6 +7,7 @@ import wx
 import numpy as np
 from ecrad_gui.ECRad_GUI_Widgets import simple_label_cb, simple_label_tc
 import os
+from uncertainties import unumpy
 # Only contains the GENE time select window for now
 class Select_GENE_timepoints_dlg(wx.Dialog):
     def __init__(self, parent, time_points):
@@ -271,16 +272,21 @@ class OMASLoadECEDataDialog(wx.Dialog):
             ods = omas.ODS()
             ods.open(self.device_tc.GetValue(), self.shot_tc.GetValue())
             self.Trad = []
-            self.res = [] 
+            self.f = []
+            self.LOS= [[ods['ece']["line_of_sight"]["first_point"]["r"],
+                        ods['ece']["line_of_sight"]["first_point"]["z"]],
+                       [ods['ece']["line_of_sight"]["second_point"]["r"],
+                        ods['ece']["line_of_sight"]["second_point"]["z"]]]
             for time in self.times:
                 self.Trad.append([])
-                self.res.append([])
+                self.f.append([])
                 for ch in ods['ece']['channel'].values():
-                    itime = np.argmin(np.abs(self.time_tc.GetValue() - ch['time']))
-                    self.Trad[-1].append(ch['t_e.data'][itime])
-                    self.res[-1].append(ch['position.r'][itime], ch['position.z'][itime])
+                    itime = np.argmin(np.abs(time - ch['time']))
+                    self.Trad[-1].append(unumpy.uarray(ch['t_e.data'][itime],
+                                                       ch['t_e.data_error_upper'][itime]))
+                    self.f[-1].append(ch["frequency.data"][itime])
             self.Trad = np.array(self.Trad)
-            self.res = np.array(self.res)
+            self.f = np.array(self.f)
             name_first = ods['ece']['channel[0].name']
             name_last = ods['ece']['channel[{0:d}].name'.format(len(self.Trad) - 1)]
             i = 0
@@ -292,7 +298,7 @@ class OMASLoadECEDataDialog(wx.Dialog):
             self.diag_name = name_first[:i]
             self.EndModal(wx.ID_OK)
         except Exception as e:
-            print("Failed to load IMAS entry")
+            print("Failed to load OMAS entry")
             print(e)
             self.EndModal(wx.ID_ABORT)
 

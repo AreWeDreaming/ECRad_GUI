@@ -4,7 +4,7 @@ Created on Apr 3, 2019
 @author: Severin Denk
 '''
 
-from scipy.interpolate.fitpack2 import RectBivariateSpline
+from scipy.interpolate.fitpack2 import RectBivariateSpline, InterpolatedUnivariateSpline
 from ecrad_pylib.Global_Settings import globalsettings
 import wx
 import os
@@ -23,6 +23,9 @@ from ecrad_pylib.WX_Events import EVT_UPDATE_DATA, EVT_THREAD_FINISHED, EVT_DIAG
                       Unbound_EVT_DIAGNOSTICS_LOADED, GenerticEvt, \
                       EVT_DONE_PLOTTING, Unbound_EVT_OTHER_RESULTS_LOADED, \
                       Unbound_EVT_RESIZE,UpdatePlotEvent, Unbound_EVT_DONE_PLOTTING
+import scipy.constants as cnst
+from uncertainties import unumpy
+
 
 class PlotPanel(wx.Panel):
     def __init__(self, parent):
@@ -147,6 +150,7 @@ class PlotPanel(wx.Panel):
             self.ece_data_res_cb = simple_label_cb(self, "Use ECRad resonances", True)
             self.ece_data_sizer.Add(self.ece_data_res_cb, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 10)
             self.aux_data_box_sizer.Add(self.ece_data_sizer, 0, wx.ALL | wx.EXPAND, 5)
+            self.ece_data = {}
         self.sizer.Add(self.controlplotsizer, 1, wx.ALL | wx.EXPAND, 10)
         self.sizer.Add(self.aux_data_box_sizer, 0, wx.ALL | wx.TOP, 10)
         self.FigureControlPanel.Show(True)
@@ -544,6 +548,26 @@ class PlotPanel(wx.Panel):
                             marker_type_list.append("contour")
                         else:
                             marker_type_list.append("contourf")
+        for selection_index in self.ece_data_box.GetSelections():
+            selected_ece_diag = self.ece_data_box.GetString(selection_index)
+            for itime in selections["time"]:
+                try:
+                    if(selections["x_quant"].startswith("rhop") and 
+                       primary_unit == self.Results.Scenario.units["Te"]):
+                        Trad = self.ece_data[selected_ece_diag]["Trad"][itime]
+                        if self.ece_data_res_cb.GetValue():
+                            if Trad.shape != y_list[0].shape:
+                                raise ValueError(f"Warning cannot use ECRad resonances for {selected_ece_diag} due to shape mismatch")
+                            x_list.append(x_list[0])
+                        else:
+                            x_list.append(self.ece_data[selected_ece_diag]["rhop_res"][itime])
+                        y_list.append(Trad)
+                        label_list.append(r"$T_\mathrm{rad}$ " + selected_ece_diag)
+                        axis_ref_list.append(0)
+                        marker_type_list.append("error")
+                        z_list.append(None)
+                except ValueError as e:
+                    print(e)
         y_axis_labels[0] += " " + primary_unit
         if(secondary_unit is not None):
             y_axis_labels[1] += " " + secondary_unit
@@ -586,20 +610,33 @@ class PlotPanel(wx.Panel):
                 self.load_other_results_button.Disable()
 
     def OnLoadECEData(self, evt):
+        print("If you manipulate B_t the resonances will be wrong in for the raw data")
         if(self.Results is None):
             print("You first need to generate/load some ECRad results")
             return
         data_load_dlg = OMASLoadECEDataDialog(self, self.Results.Scenario["time"])
-        if(data_load_dlg.ShowModal() == wx.ID_OK):
+        dlg_result = data_load_dlg.ShowModal()
+        if(dlg_result == wx.ID_OK):
             self.ece_data[data_load_dlg.diag_name] = {}
-            self.ece_data[data_load_dlg.diag_name]["Trad"] = data_load_dlg.Trad
+            self.ece_data[data_load_dlg.diag_name]["Trad"] = data_load_dlg.Trad / 1.e3 # eV -> keV
             self.ece_data[data_load_dlg.diag_name]["rhop_res"] = []
             for itime, time in enumerate(self.Results.Scenario["time"]):
                 slice = self.Results.Scenario["plasma"]["eq_data_2D"].GetSlice(time)
                 rhop_spl = RectBivariateSpline(slice.R, slice.z, slice.rhop)
-                self.ece_data[data_load_dlg.diag_name]["rhop_res"].append(
-                        rhop_spl(data_load_dlg.res[itime,:,0],
-                                 data_load_dlg.res[itime,:,1], grid=False))
+                B_tot = np.sqrt(slice.Br**2 + slice.Bt**2 + slice.Bz**2)
+                B_tot_spl = RectBivariateSpline(slice.R, slice.z, B_tot)
+                R = np.linspace(data_load_dlg.LOS[1][0], data_load_dlg.LOS[0][0], 200)
+                z = np.linspace(data_load_dlg.LOS[1][1], data_load_dlg.LOS[0][1], 200)
+                z_spline = InterpolatedUnivariateSpline(R,z)
+                for ich in range(len(data_load_dlg.Trad[itime])):
+                    f_c = B_tot_spl(R,z, grid=False) * cnst.e / (2 * np.pi* cnst.m_e)
+                    res_spline  = InterpolatedUnivariateSpline(R, 2 * f_c - data_load_dlg.f[itime,ich])
+                    try:
+                        R_res = np.max(res_spline.roots())
+                        self.ece_data[data_load_dlg.diag_name]["rhop_res"].append(
+                            rhop_spl(R_res, z_spline(R_res), grid=False))
+                    except ValueError:
+                        self.ece_data[data_load_dlg.diag_name]["rhop_res"].append(-1)
             self.ece_data[data_load_dlg.diag_name]["rhop_res"] = np.array(
                     self.ece_data[data_load_dlg.diag_name]["rhop_res"])
             self.ece_data_box.Append(data_load_dlg.diag_name)
@@ -788,6 +825,14 @@ class PlotContainer(wx.Panel):
                 cont = self.axlist[0].contourf(x, y, z.T, cmap=plt.get_cmap("plasma"))
                 cbar = self.fig.colorbar(cont, ax=self.axlist[0])
                 cbar.ax.set_ylabel(label)
+            elif(marker == "error"):
+                self.axlist[i_ax].errorbar(x, unumpy.nominal_values(y), unumpy.std_devs(y),
+                                           label=label, color=next(colors), \
+                                           linestyle="none", marker=self.markers[i_marker])
+                if(i_marker + 1 < len(self.markers)):
+                    i_marker += 1
+                else:
+                    i_marker = 0
             else:# contour of rhop
                 cont = self.axlist[0].contour(x, y, z.T, levels=np.linspace(0.1, 1.2, 12), \
                                               linewidths=1, colors="k", linestyles="--")
