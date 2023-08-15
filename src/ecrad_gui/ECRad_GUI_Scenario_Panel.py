@@ -747,21 +747,19 @@ class ScenarioSelectPanel(wx.Panel):
         from omas import ODS
         ods = ODS()
         state = args[0]
-        if state[1] != "d3d":
+        if state[0] != "d3d":
             print("Only DIII-D machine mappings supported at the moment")
             return
-        run_id = f"{state[1]}_#{state[2]}"
-        try:
-            efit_run_id = int(state[3])
-            machine_to_omas(ods, state[1], efit_run_id, "equilibrium", 
-                            options={'EFIT_tree': "EFIT"})
-        except ValueError:
-            machine_to_omas(ods, state[1], state[2], "equilibrium", 
-                            options={'EFIT_tree': state[3]})
-        machine_to_omas(ods, state[1], state[4], "core_profiles", 
-                        options={'PROFILES_tree':"OMFIT_PROFS"})
+        options = {'EFIT_tree':  state[2], "EFIT_run_id": state[3],  
+                   "PROFILES_tree": state[4], "PROFILES_run_id": state[5]}
+        machine_to_omas(ods, state[1], state[1], "equilibrium.time_slice.*", 
+                        options=options)
+        machine_to_omas(ods, state[1], state[4], "core_profiles.profiles_1d.*", 
+                        options=options)
         evt_out = GenerticEvt(Unbound_OMAS_LOAD_FINISHED, self.GetId())
-        evt_out.insertData([ods, None, run_id])
+        options["device"] = state[0] 
+        options["shot"] = state[1] 
+        evt_out.insertData([ods, None, str(options)])
         wx.PostEvent(self, evt_out)
 
     def OnOmasLoaded(self, evt):
