@@ -742,7 +742,7 @@ class ScenarioSelectPanel(wx.Panel):
         file_path = args[0]
         ods.load(file_path, consistency_check="warn")
         evt_out = GenerticEvt(Unbound_OMAS_LOAD_FINISHED, self.GetId())
-        evt_out.insertData([ods, file_path, None])
+        evt_out.insertData([ods, file_path, None, None])
         wx.PostEvent(self, evt_out)
 
     def load_omas_from_db(self, args):
