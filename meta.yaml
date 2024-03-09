@@ -1,9 +1,9 @@
 package: 
   name: ecrad_gui
-  version: 1.0.16
+  version: 1.0.20
 
 source:
-  git_rev: 1.0.16
+  git_rev: 1.0.20
   git_url: https://github.com/AreWeDreaming/ECRad_GUI
 
 build:
@@ -12,13 +12,13 @@ build:
 
 requirements:
     build:
-      - python >=3.7
+      - python
       - numpy >=1.21
       - pip >=21.0
       - setuptools >=57.4
       - build >=0.7
     run:
-      - python >=3.7
+      - python
       - numpy >=1.21
       - scipy >=1.7.3
       - matplotlib

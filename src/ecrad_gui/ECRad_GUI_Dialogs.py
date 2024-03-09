@@ -7,6 +7,7 @@ import wx
 import numpy as np
 from ecrad_gui.ECRad_GUI_Widgets import simple_label_cb, simple_label_tc
 import os
+from uncertainties import unumpy
 # Only contains the GENE time select window for now
 class Select_GENE_timepoints_dlg(wx.Dialog):
     def __init__(self, parent, time_points):
@@ -115,26 +116,44 @@ class TextEntryDialog(wx.Dialog):
         self.EndModal(wx.ID_OK)
 
 class IMASSelectDialog(wx.Dialog):
-    def __init__(self, parent, database = "ITER"):
+    def __init__(self, parent, description, user="public", database="ITER", shot=150601, run=1):
         wx.Dialog.__init__(self, parent, wx.ID_ANY)
-        self.sizer = wx.BoxSizer(wx.VERTICAL)        
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.description_label = wx.StaticText(self, wx.ID_ANY, description, \
+                                   style=wx.ALIGN_CENTER_HORIZONTAL)
+        self.sizer.Add(self.description_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.description_separator = wx.StaticLine(self, wx.ID_ANY)
+        self.sizer.Add(self.description_separator, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
         self.tc_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.user_dir_tc = simple_label_tc(self, "Stored under", "public", "string")
+        self.user_dir_tc = simple_label_tc(self, "Stored under", user, "string")
         self.tc_sizer.Add(self.user_dir_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
         self.database_tc = simple_label_tc(self, "Database", database, "string")
         self.tc_sizer.Add(self.database_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.shot_tc = simple_label_tc(self, "shot", 150601, "integer") #100003
+        self.shot_tc = simple_label_tc(self, "shot", shot, "integer") #100003
         self.tc_sizer.Add(self.shot_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.run_tc = simple_label_tc(self, "run", 1, "integer")
+        self.run_tc = simple_label_tc(self, "run", run, "integer")
         self.tc_sizer.Add(self.run_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.ids_meta_separator = wx.StaticLine(self, wx.ID_ANY)
+        self.sizer.Add(self.tc_sizer, 0, wx.ALL | \
+                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.sizer.Add(self.ids_meta_separator, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.backend_label = wx.StaticText(self, wx.ID_ANY, "Backend", \
+                                   style=wx.ALIGN_CENTER_HORIZONTAL)
+        self.sizer.Add(self.backend_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.backend_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.MDS_rb = wx.RadioButton(self, wx.ID_ANY, label="MDSplus")
+        self.MDS_rb.SetValue(True)
+        self.HFD5_rb = wx.RadioButton(self, wx.ID_ANY, label="HDF5")
+        self.backend_sizer.Add(self.MDS_rb, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.backend_sizer.Add(self.HFD5_rb, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
         self.LoadButton = wx.Button(self, wx.ID_ANY, 'Load')
         self.Bind(wx.EVT_BUTTON, self.OnLoad, self.LoadButton)
         self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
         self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
         self.ButtonSizer.Add(self.LoadButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
         self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.sizer.Add(self.tc_sizer, 0, wx.ALL | \
+        self.sizer.Add(self.backend_sizer, 0, wx.ALL | \
                                     wx.ALIGN_CENTER_HORIZONTAL, 5)
         self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
                                     wx.ALIGN_CENTER_HORIZONTAL, 5)
@@ -151,8 +170,12 @@ class IMASSelectDialog(wx.Dialog):
             print("IMAS not accessible!")
             return
         try:
-            self.ids = imas.DBEntry(
-                    imas.imasdef.MDSPLUS_BACKEND,
+            if self.MDS_rb.GetValue():
+                backend = imas.imasdef.MDSPLUS_BACKEND
+            else:
+                backend = imas.imasdef.HDF5_BACKEND
+            self.db = imas.DBEntry(
+                    backend,
                     self.database_tc.GetValue(),
                     self.shot_tc.GetValue(),
                     self.run_tc.GetValue(),
@@ -182,16 +205,22 @@ class OMASdbSelectDialog(wx.Dialog):
         self.widgets.append(simple_label_tc(self, "Machine", "d3d"))
         self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
                               wx.ALIGN_CENTER_VERTICAL, 5)
-        self.widgets.append(simple_label_tc(self, "shot", 193754))
+        self.widgets.append(simple_label_tc(self, "shot", 194935))
         self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
                               wx.ALIGN_CENTER_VERTICAL, 5)
         if not minimal:
-            self.widgets.append(simple_label_tc(self, "Run ID equilibrium", "19375402"))
+            self.widgets.append(simple_label_tc(self, "EFIT Tree", "EFIT"))
             self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
-                                wx.ALIGN_CENTER_VERTICAL, 5)
-            self.widgets.append(simple_label_tc(self, "Run ID Profiles", 193754001))
+                                  wx.ALIGN_CENTER_VERTICAL, 5)
+            self.widgets.append(simple_label_tc(self, "Run ID equilibrium", "03"))
             self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
-                                wx.ALIGN_CENTER_VERTICAL, 5)
+                                  wx.ALIGN_CENTER_VERTICAL, 5)
+            self.widgets.append(simple_label_tc(self, "Profile Tree", "OMFIT_PROFS"))
+            self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
+                                  wx.ALIGN_CENTER_VERTICAL, 5)
+            self.widgets.append(simple_label_tc(self, "Run ID Profiles", "002"))
+            self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
+                                  wx.ALIGN_CENTER_VERTICAL, 5)
         self.On_from_rb_db(None)
         self.sizer.Add(self.run_id_sizer)
         self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -265,16 +294,21 @@ class OMASLoadECEDataDialog(wx.Dialog):
             ods = omas.ODS()
             ods.open(self.device_tc.GetValue(), self.shot_tc.GetValue())
             self.Trad = []
-            self.res = [] 
+            self.f = []
+            self.LOS= [[ods['ece']["line_of_sight"]["first_point"]["r"],
+                        ods['ece']["line_of_sight"]["first_point"]["z"]],
+                       [ods['ece']["line_of_sight"]["second_point"]["r"],
+                        ods['ece']["line_of_sight"]["second_point"]["z"]]]
             for time in self.times:
                 self.Trad.append([])
-                self.res.append([])
+                self.f.append([])
                 for ch in ods['ece']['channel'].values():
-                    itime = np.argmin(np.abs(self.time_tc.GetValue() - ch['time']))
-                    self.Trad[-1].append(ch['t_e.data'][itime])
-                    self.res[-1].append(ch['position.r'][itime], ch['position.z'][itime])
+                    itime = np.argmin(np.abs(time - ch['time']))
+                    self.Trad[-1].append(unumpy.uarray(ch['t_e.data'][itime],
+                                                       ch['t_e.data_error_upper'][itime]))
+                    self.f[-1].append(ch["frequency.data"][itime])
             self.Trad = np.array(self.Trad)
-            self.res = np.array(self.res)
+            self.f = np.array(self.f)
             name_first = ods['ece']['channel[0].name']
             name_last = ods['ece']['channel[{0:d}].name'.format(len(self.Trad) - 1)]
             i = 0
@@ -286,7 +320,7 @@ class OMASLoadECEDataDialog(wx.Dialog):
             self.diag_name = name_first[:i]
             self.EndModal(wx.ID_OK)
         except Exception as e:
-            print("Failed to load IMAS entry")
+            print("Failed to load OMAS entry")
             print(e)
             self.EndModal(wx.ID_ABORT)
 

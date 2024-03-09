@@ -564,6 +564,13 @@ class ScenarioSelectPanel(wx.Panel):
         print("Scaling factors of rhop, Te and ne are ignored in this plot!")
         self.GetEventHandler().ProcessEvent(evt)
 
+    def SetPlotClickDelta(self, time):
+        if(len(time) > 1):
+            self.delta_t = 0.5 * np.mean(time[1:len(time)] - \
+                                         time[0:len(time) - 1])
+        else:
+            self.delta_t =  10.0 # Used for click adding time points -> one time point click anywhere
+
     def OnLoadfromFile(self, evt):
         try:
             self.Config = self.Parent.Parent.config_panel.UpdateConfig(self.Config)
@@ -613,11 +620,7 @@ class ScenarioSelectPanel(wx.Panel):
             self.EQ_diag_tc.Disable()
             self.EQ_ed_tc.SetValue(-1)
             self.EQ_ed_tc.Disable()
-        if(len(self.plasma_dict["time"]) > 1):
-            self.delta_t = 0.5 * np.mean(self.plasma_dict["time"][1:len(self.plasma_dict["time"])] - \
-                                         self.plasma_dict["time"][0:len(self.plasma_dict["time"]) - 1])
-        else:
-            self.delta_t =  10.0 # Used for click adding time points -> one time point click anywhere
+        self.SetPlotClickDelta(self.plasma_dict["time"])
         for t in self.plasma_dict["time"]:
             self.unused.append("{0:2.5f}".format(t))
         self.unused = list(set(self.unused))
@@ -739,33 +742,42 @@ class ScenarioSelectPanel(wx.Panel):
         file_path = args[0]
         ods.load(file_path, consistency_check="warn")
         evt_out = GenerticEvt(Unbound_OMAS_LOAD_FINISHED, self.GetId())
-        evt_out.insertData([ods, file_path, None])
+        evt_out.insertData([ods, file_path, None, None])
         wx.PostEvent(self, evt_out)
 
     def load_omas_from_db(self, args):
         from omas.omas_machine import machine_to_omas
         from omas import ODS
+        from omas.omas_physics import derive_equilibrium_profiles_2d_quantity
         ods = ODS()
         state = args[0]
         if state[1] != "d3d":
             print("Only DIII-D machine mappings supported at the moment")
             return
-        run_id = f"{state[1]}_#{state[2]}"
-        try:
-            efit_run_id = int(state[3])
-            machine_to_omas(ods, state[1], efit_run_id, "equilibrium", 
-                            options={'EFIT_tree': "EFIT"})
-        except ValueError:
-            machine_to_omas(ods, state[1], state[2], "equilibrium", 
-                            options={'EFIT_tree': state[3]})
-        machine_to_omas(ods, state[1], state[4], "core_profiles", 
-                        options={'PROFILES_tree':"OMFIT_PROFS"})
+        options = {'EFIT_tree':  state[3], "EFIT_run_id": state[4],  
+                   "PROFILES_tree": state[5], "PROFILES_run_id": state[6]}
+        machine_to_omas(ods, state[1], state[2], "equilibrium.time", 
+                        options=options)
+        machine_to_omas(ods, state[1], state[2], "equilibrium.time_slice.*", 
+                        options=options)
+        machine_to_omas(ods, state[1], state[2], "core_profiles.time", 
+                        options=options)
+        machine_to_omas(ods, state[1], state[2], "core_profiles.profiles_1d.*", 
+                        options=options)
+        machine_to_omas(ods, state[1], state[2], "wall.*", 
+                        options=options)
+        for time_index, time in enumerate(ods["equilibrium.time"]):
+            for B_label in ["b_field_r", "b_field_tor", "b_field_z"]:
+                ods = derive_equilibrium_profiles_2d_quantity(ods, time_index, 0, B_label)
         evt_out = GenerticEvt(Unbound_OMAS_LOAD_FINISHED, self.GetId())
-        evt_out.insertData([ods, None, run_id])
+        options["device"] = state[1] 
+        options["shot"] = state[2] 
+        evt_out.insertData([ods, None, state[2], str(options)])
         wx.PostEvent(self, evt_out)
 
     def OnOmasLoaded(self, evt):
-        ods, data_path, run_id = evt.Data
+        ods, data_path, shot, run_id = evt.Data
+        self.shot_tc.SetValue(shot)
         time_base_dlg = IMASTimeBaseSelectDlg(self)
         if(time_base_dlg.ShowModal() != wx.ID_OK):
             time_base_dlg.Destroy()
@@ -775,6 +787,7 @@ class ScenarioSelectPanel(wx.Panel):
         times = ods[time_base_source]['time']
         NewScenario = ECRadScenario(True)
         NewScenario["time"] = times
+        NewScenario["shot"] = shot
         NewScenario.set_up_profiles_from_omas(ods,times)
         NewScenario.set_up_equilibrium_from_omas(ods,times)
         self.SetFromNewScenario(NewScenario, data_path, id=run_id)
@@ -795,31 +808,37 @@ class ScenarioSelectPanel(wx.Panel):
 #             print("Failed to parse Configuration")
 #             print("Reason: " + e)
 #             return
-        dlg = IMASSelectDialog(self)
+        dlg = IMASSelectDialog(self, description="equilibrium and core_profiles ids",
+                               shot=104103, run=13)
         if(dlg.ShowModal() == wx.ID_OK):
             try:
-                ids = dlg.ids
-                check=ids.open()
+                db = dlg.db
+                check=db.open()
                 if check[0]!=0:
                     print('ERROR: Could not open the IMAS file with plasma')
                     return
                 try:
-                    eq_ids = ids.get('equilibrium')
+                    eq_ids = db.get('equilibrium')
                 except Exception as e:
                     print(e)
                     print("ERROR: Cannot access equilibrium in IDS")
                     return
                 try:    
-                    prof_ids = ids.get('core_profiles')
+                    prof_ids = db.get('core_profiles')
                 except Exception as e:
                     print(e)
                     print("ERROR: Cannot access profiles in IDS")
                     return
                 try:    
-                    ids_wall = imas.DBEntry(imas.imasdef.MDSPLUS_BACKEND,'ITER_MD',1180,17,'public')
-                    ids_wall.open()
-                    wall_ids = ids_wall.get_slice('wall', 0, 1)  
-                    ids_wall.close()                
+                    wall_dlg = IMASSelectDialog(self, description="wall ids", database="ITER_MD",
+                                                shot=116000, run=3)
+                    if(wall_dlg.ShowModal() == wx.ID_OK):
+                        wall_dlg.db.open()
+                        wall_ids = wall_dlg.db.get_slice('wall', 0, 1)  
+                        wall_dlg.db.close()
+                    else:
+                        print("Cancelled loading ids")
+                        dlg.Destroy()
                 except Exception as e:
                     print(e)
                     print("ERROR: Cannot access wall in IDS")
@@ -830,7 +849,7 @@ class ScenarioSelectPanel(wx.Panel):
                     return
                 time_base_source = time_base_dlg.choice
                 time_base_dlg.Destroy()
-                times = ids.partial_get(ids_name=time_base_source,data_path='time')
+                times = db.partial_get(ids_name=time_base_source,data_path='time')
                 NewScenario = ECRadScenario(True)
                 NewScenario["time"]=times
                 NewScenario["shot"]= dlg.shot_tc.GetValue()
@@ -853,6 +872,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.unused = []
         self.used = []
         self.used_list.Clear()
+        self.SetPlotClickDelta(self.plasma_dict["time"])
         for t in self.plasma_dict["time"]:
             self.unused.append("{0:2.5f}".format(t))
         self.unused = list(set(self.unused))

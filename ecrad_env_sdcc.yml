@@ -1,0 +1,18 @@
+name: ecrad_env
+
+channels:
+  - conda-forge
+  - arewedreaming
+
+dependencies:
+  - python[version='=3.8']
+  - numpy[version='>=1.16.1']
+  - pip
+  - setuptools
+  - build
+  - hdf5
+  - h5py
+  - netcdf4
+  - wxpython[version='=4']
+  - f90nml
+  - conda-build

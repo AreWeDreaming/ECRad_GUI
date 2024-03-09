@@ -243,15 +243,15 @@ class LaunchPanel(wx.Panel):
         self.SetScenario(curScenario, self.working_dir)
 
     def OnLoadFromIMAS(self, evt):
-        dlg = IMASSelectDialog(self, 'ITER_MD')
+        dlg = IMASSelectDialog(self, "ECE IDS source", database='ITER_MD', shot=150601, run=11)
         if(dlg.ShowModal() == wx.ID_OK):
-            ids = dlg.ids
-            check = ids.open()
+            db = dlg.db
+            check = db.open()
             if check[0] != 0:
                 print('ERROR: Could not open the IMAS file with plasma')
                 return
             try:
-                ece_ids = ids.get('ece')
+                ece_ids = db.get('ece')
             except Exception as e:
                 print(e)
                 print("ERROR: Cannot access ECE in IDS")
