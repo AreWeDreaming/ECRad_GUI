@@ -3,13 +3,6 @@ import os
 import wx
 import sys
 from ecrad_pylib.Global_Settings import globalsettings
-globalsettings.ECRadGUIRoot = os.getcwd()
-if(globalsettings.AUG):
-    try:
-        import Equilibrium_Utils_AUG
-    except (OSError,ModuleNotFoundError):
-        globalsettings.AUG = False
-        print("Failed to load AUG libraries continuing in non-AUG mode.")
 import wx.lib.scrolledpanel as scrolled
 from ecrad_gui.ECRad_GUI_Launch_Panel import LaunchPanel
 from ecrad_gui.ECRad_GUI_Scenario_Panel import ScenarioSelectPanel

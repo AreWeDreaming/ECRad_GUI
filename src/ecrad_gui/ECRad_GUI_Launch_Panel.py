@@ -183,9 +183,9 @@ class LaunchPanel(wx.Panel):
         state = omas_db_dlg.state
         omas_db_dlg.Destroy()
         if state[0]:
-            file_dlg = wx.FileDialog(self, message="Choose a .pkl or .nc file for input", \
+            file_dlg = wx.FileDialog(self, message="Choose a .pkl, .nc or h5 file for input", \
                                      defaultDir=self.Config["Execution"]["working_dir"], \
-                                     wildcard=("Matlab and Netcdf4 files (*.pkl;*.nc)|*.pkl;*.nc"),
+                                     wildcard=("Pickle, Netcdf4 and HDF5 files (*.pkl;*.nc;*.h5)|*.pkl;*.nc;*.h5"),
                                      style=wx.FD_OPEN)
             if(file_dlg.ShowModal() != wx.ID_OK):
                 file_dlg.Destroy()
@@ -224,10 +224,10 @@ class LaunchPanel(wx.Panel):
         NewSceario.set_up_launch_from_omas(ods)
         newExtDiag = EXT_diag("EXT")
         try:
-            if(len( ods['ece.channel.0.time']) == 1):
+            if(len( ods['ece.time']) == 1):
                 itime = 0
             else:
-                timepoint_dlg = Select_Raylaunch_timepoint(self, ods['ece.channel.0.time'])
+                timepoint_dlg = Select_Raylaunch_timepoint(self, ods['ece.time'])
                 if(not (timepoint_dlg.ShowModal() == wx.ID_OK)):
                     print("Aborted")
                     return
