@@ -810,31 +810,37 @@ class ScenarioSelectPanel(wx.Panel):
 #             print("Failed to parse Configuration")
 #             print("Reason: " + e)
 #             return
-        dlg = IMASSelectDialog(self)
+        dlg = IMASSelectDialog(self, description="equilibrium and core_profiles ids",
+                               shot=104103, run=13)
         if(dlg.ShowModal() == wx.ID_OK):
             try:
-                ids = dlg.ids
-                check=ids.open()
+                db = dlg.db
+                check=db.open()
                 if check[0]!=0:
                     print('ERROR: Could not open the IMAS file with plasma')
                     return
                 try:
-                    eq_ids = ids.get('equilibrium')
+                    eq_ids = db.get('equilibrium')
                 except Exception as e:
                     print(e)
                     print("ERROR: Cannot access equilibrium in IDS")
                     return
                 try:    
-                    prof_ids = ids.get('core_profiles')
+                    prof_ids = db.get('core_profiles')
                 except Exception as e:
                     print(e)
                     print("ERROR: Cannot access profiles in IDS")
                     return
                 try:    
-                    ids_wall = imas.DBEntry(imas.imasdef.MDSPLUS_BACKEND,'ITER_MD',1180,17,'public')
-                    ids_wall.open()
-                    wall_ids = ids_wall.get_slice('wall', 0, 1)  
-                    ids_wall.close()                
+                    wall_dlg = IMASSelectDialog(self, description="wall ids", database="ITER_MD",
+                                                shot=116000, run=3)
+                    if(wall_dlg.ShowModal() == wx.ID_OK):
+                        wall_dlg.db.open()
+                        wall_ids = wall_dlg.db.get_slice('wall', 0, 1)  
+                        wall_dlg.db.close()
+                    else:
+                        print("Cancelled loading ids")
+                        dlg.Destroy()
                 except Exception as e:
                     print(e)
                     print("ERROR: Cannot access wall in IDS")
@@ -845,7 +851,7 @@ class ScenarioSelectPanel(wx.Panel):
                     return
                 time_base_source = time_base_dlg.choice
                 time_base_dlg.Destroy()
-                times = ids.partial_get(ids_name=time_base_source,data_path='time')
+                times = db.partial_get(ids_name=time_base_source,data_path='time')
                 NewScenario = ECRadScenario(True)
                 NewScenario["time"]=times
                 NewScenario["shot"]= dlg.shot_tc.GetValue()

@@ -292,13 +292,13 @@ def create_launch_data_manually():
                  0.14136842,  0.158])
     f_mesh, z_mesh = np.meshgrid(f,z, indexing="ij")
     launch_data = np.zeros((f_mesh.size,7))
-    launch_data.T[0] = f_mesh.flatten()
-    launch_data.T[1] = 2.5
-    launch_data.T[2] = 270
-    launch_data.T[3] = z_mesh.flatten()
-    launch_data.T[4] = 0.9
-    launch_data.T[5] = 270
-    launch_data.T[6] = z_mesh.flatten()
+    launch_data.T[0] = f_mesh.flatten() # f [Hz]
+    launch_data.T[1][:] = 2.5 # R first_point [m]
+    launch_data.T[2][:] = 270 # Phi first_point [deg,]
+    launch_data.T[3] = z_mesh.flatten() # z [m]
+    launch_data.T[4][:] = 0.9 # R second_point
+    launch_data.T[5][:] = 270 # phi second_point
+    launch_data.T[6] = z_mesh.flatten() # z second point
     return launch_data
 
 def make_Launch_from_freq_and_points(filename, launch_data=None, input_file=None):

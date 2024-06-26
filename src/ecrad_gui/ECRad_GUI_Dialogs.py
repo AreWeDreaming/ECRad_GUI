@@ -116,26 +116,44 @@ class TextEntryDialog(wx.Dialog):
         self.EndModal(wx.ID_OK)
 
 class IMASSelectDialog(wx.Dialog):
-    def __init__(self, parent, database = "ITER"):
+    def __init__(self, parent, description, user="public", database="ITER", shot=150601, run=1):
         wx.Dialog.__init__(self, parent, wx.ID_ANY)
-        self.sizer = wx.BoxSizer(wx.VERTICAL)        
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.description_label = wx.StaticText(self, wx.ID_ANY, description, \
+                                   style=wx.ALIGN_CENTER_HORIZONTAL)
+        self.sizer.Add(self.description_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.description_separator = wx.StaticLine(self, wx.ID_ANY)
+        self.sizer.Add(self.description_separator, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
         self.tc_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.ButtonSizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.user_dir_tc = simple_label_tc(self, "Stored under", "public", "string")
+        self.user_dir_tc = simple_label_tc(self, "Stored under", user, "string")
         self.tc_sizer.Add(self.user_dir_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
         self.database_tc = simple_label_tc(self, "Database", database, "string")
         self.tc_sizer.Add(self.database_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.shot_tc = simple_label_tc(self, "shot", 150601, "integer") #100003
+        self.shot_tc = simple_label_tc(self, "shot", shot, "integer") #100003
         self.tc_sizer.Add(self.shot_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.run_tc = simple_label_tc(self, "run", 1, "integer")
+        self.run_tc = simple_label_tc(self, "run", run, "integer")
         self.tc_sizer.Add(self.run_tc, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.ids_meta_separator = wx.StaticLine(self, wx.ID_ANY)
+        self.sizer.Add(self.tc_sizer, 0, wx.ALL | \
+                                    wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.sizer.Add(self.ids_meta_separator, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.backend_label = wx.StaticText(self, wx.ID_ANY, "Backend", \
+                                   style=wx.ALIGN_CENTER_HORIZONTAL)
+        self.sizer.Add(self.backend_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.backend_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.MDS_rb = wx.RadioButton(self, wx.ID_ANY, label="MDSplus")
+        self.MDS_rb.SetValue(True)
+        self.HFD5_rb = wx.RadioButton(self, wx.ID_ANY, label="HDF5")
+        self.backend_sizer.Add(self.MDS_rb, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
+        self.backend_sizer.Add(self.HFD5_rb, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
         self.LoadButton = wx.Button(self, wx.ID_ANY, 'Load')
         self.Bind(wx.EVT_BUTTON, self.OnLoad, self.LoadButton)
         self.DiscardButton = wx.Button(self, wx.ID_ANY, 'Discard')
         self.Bind(wx.EVT_BUTTON, self.EvtClose, self.DiscardButton)
         self.ButtonSizer.Add(self.LoadButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
         self.ButtonSizer.Add(self.DiscardButton, 0, wx.ALL | wx.ALIGN_BOTTOM, 5)
-        self.sizer.Add(self.tc_sizer, 0, wx.ALL | \
+        self.sizer.Add(self.backend_sizer, 0, wx.ALL | \
                                     wx.ALIGN_CENTER_HORIZONTAL, 5)
         self.sizer.Add(self.ButtonSizer, 0, wx.ALL | \
                                     wx.ALIGN_CENTER_HORIZONTAL, 5)
@@ -152,8 +170,12 @@ class IMASSelectDialog(wx.Dialog):
             print("IMAS not accessible!")
             return
         try:
-            self.ids = imas.DBEntry(
-                    imas.imasdef.MDSPLUS_BACKEND,
+            if self.MDS_rb.GetValue():
+                backend = imas.imasdef.MDSPLUS_BACKEND
+            else:
+                backend = imas.imasdef.HDF5_BACKEND
+            self.db = imas.DBEntry(
+                    backend,
                     self.database_tc.GetValue(),
                     self.shot_tc.GetValue(),
                     self.run_tc.GetValue(),
