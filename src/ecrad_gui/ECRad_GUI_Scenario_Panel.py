@@ -777,7 +777,7 @@ class ScenarioSelectPanel(wx.Panel):
 
     def OnOmasLoaded(self, evt):
         ods, data_path, shot, run_id = evt.Data
-        if shot is None:
+        if data_path is not None: # Loaded from file
             shot = -1
         self.shot_tc.SetValue(shot)
         time_base_dlg = IMASTimeBaseSelectDlg(self)
@@ -790,10 +790,27 @@ class ScenarioSelectPanel(wx.Panel):
         NewScenario = ECRadScenario(True)
         NewScenario["time"] = times
         NewScenario["shot"] = shot
+        if data_path is not None:
+            
+            try:    
+                file_dlg = wx.FileDialog(self, message="Choose a .pkl, .nc or h5 file for wall info", \
+                                     defaultDir=self.Config["Execution"]["working_dir"], \
+                                     wildcard=("Pickle, Netcdf4 and HDF5 files (*.pkl;*.nc;*.h5)|*.pkl;*.nc;*.h5"),
+                                     style=wx.FD_OPEN)
+                if(file_dlg.ShowModal() != wx.ID_OK):
+                    file_dlg.Destroy()
+                    return
+                from omas import ODS
+                wall_ods = ODS()
+                wall_ods.load(file_dlg.Path, consistency_check="warn")
+                ods["wall"] = wall_ods["wall"]
+            except Exception as e:
+                print(e)
+                print("ERROR: Cannot access wall in IDS")
+                return
         NewScenario.set_up_profiles_from_omas(ods,times)
         NewScenario.set_up_equilibrium_from_omas(ods,times)
         self.SetFromNewScenario(NewScenario, data_path, id=run_id)
-        time_base_dlg.Destroy()
 
     def OnLoadIMAS(self, evt):
         import imas
