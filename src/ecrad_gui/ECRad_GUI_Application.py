@@ -717,5 +717,10 @@ def main():
     ECRad_GUI()
 
 if __name__ == '__main__':
+    if "debug=True" in sys.argv:
+        import debugpy
+        debugpy.listen(5678)
+        print("Waiting for debugger attach")
+        debugpy.wait_for_client()
     Main_ECRad = ECRad_GUI()
 

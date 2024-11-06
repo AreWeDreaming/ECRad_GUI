@@ -725,7 +725,7 @@ class ScenarioSelectPanel(wx.Panel):
         if state[0]:
             file_dlg = wx.FileDialog(self, message="Choose a .pkl or .nc file for input", \
                             defaultDir=self.Config["Execution"]["working_dir"], \
-                            wildcard=("Matlab and Netcdf4 files (*.pkl;*.nc)|*.pkl;*.nc"),
+                            wildcard=("Matlab and Netcdf4 files (*.pkl;*.nc;*.h5)|*.pkl;*.nc;*.h5"),
                             style=wx.FD_OPEN)
             if(file_dlg.ShowModal() != wx.ID_OK):
                 file_dlg.Destroy()
@@ -742,7 +742,7 @@ class ScenarioSelectPanel(wx.Panel):
         file_path = args[0]
         ods.load(file_path, consistency_check="warn")
         evt_out = GenerticEvt(Unbound_OMAS_LOAD_FINISHED, self.GetId())
-        evt_out.insertData([ods, file_path, None, None])
+        evt_out.insertData([ods, file_path, -1, -1])
         wx.PostEvent(self, evt_out)
 
     def load_omas_from_db(self, args):
@@ -785,6 +785,7 @@ class ScenarioSelectPanel(wx.Panel):
         time_base_source = time_base_dlg.choice
         time_base_dlg.Destroy()
         times = ods[time_base_source]['time']
+        print(f"Loading times: {times}")
         NewScenario = ECRadScenario(True)
         NewScenario["time"] = times
         NewScenario["shot"] = shot
