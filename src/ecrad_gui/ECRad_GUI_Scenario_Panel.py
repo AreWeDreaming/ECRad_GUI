@@ -1015,7 +1015,7 @@ class ScenarioSelectPanel(wx.Panel):
                Scenario["AUG"]["EQ_diag"] == self.EQ_diag_tc.GetValue() and \
                Scenario["AUG"]["EQ_ed"] == self.EQ_ed_tc.GetValue()):
                 old_time_list = np.copy(Scenario["time"])
-                old_eq = EQDataExt(Scenario["shot"], Ext_data=True)
+                old_eq = EQDataExt(Ext_data=True)
                 for time in old_time_list:
                     old_eq.insert_slices_from_ext(
                             [time], [Scenario["plasma"]["eq_data_2D"].GetSlice(time)])
