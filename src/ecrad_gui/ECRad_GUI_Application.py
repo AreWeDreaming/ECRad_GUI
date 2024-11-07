@@ -478,13 +478,15 @@ class Main_Panel(scrolled.ScrolledPanel):
                     if(globalsettings.batch_submission_cmd == "bash"):
                         os.chdir(globalsettings.ECRadGUIRoot)
                     try:
-                        filename, ed = Results.get_default_filename_and_edition(True, id=run_id)
+                        filename, ed = Results.get_default_filename_and_edition(True, ed=run_id)
                         NewResults = ECRadResults(False)
+                        print(f"ECRad has finished. Now trying to load results from: {filename}")
                         NewResults.from_netcdf(filename)
                         output_queue.put([True, NewResults])
                         NewResults.to_netcdf()
-                    except:
+                    except Exception as e:
                         print("Failed to run remotely. Please check .stdout and .stderr files at")
+                        print(f"Exception was {e}")
                         print(scratch_dir)
                         output_queue.put([False, Results])
                 else:
