@@ -141,7 +141,7 @@ def make_plasma_from_variables(filename, shot, times, rhop_profiles, Te,
         plasma_dict["rhop_prof"] = None
     plasma_dict["ne"] = ne
     plasma_dict["Te"] = Te
-    EQObj = EQDataExt(shot, Ext_data=True)
+    EQObj = EQDataExt(Ext_data=True)
     slices = []
     for index, time in enumerate(times):
         slices.append(EQDataSlice(time, R[index], z[index], rhop[index]**2, Br[index], Bt[index], Bz[index], \
@@ -164,7 +164,7 @@ def make_plasma_mat_for_testing(filename, shot, times, eq_exp, eq_diag, eq_ed, \
                                 IDA_exp="AUGD", IDA_ed=0):
     plasma_dict = load_IDA_data(shot, timepoints=times, exp=IDA_exp, ed=IDA_ed)
     EQ_obj = EQData(shot, EQ_exp=eq_exp, EQ_diag=eq_diag, EQ_ed=eq_ed)
-    plasma_dict["eq_data_2D"] = EQDataExt(shot, Ext_data=True)
+    plasma_dict["eq_data_2D"] = EQDataExt(Ext_data=True)
     for time in times:
         plasma_dict["eq_data_2D"].insert_slices_from_ext([time] , [EQ_obj.GetSlice(time)])
     make_plasma_mat(filename, plasma_dict)
@@ -179,7 +179,7 @@ def make_plasma_mat_from_variables(mat_out_name, shot, time, rhop_profiles, Te, 
     plasma_dict["rhop_prof"] = rhop_profiles
     plasma_dict["ne"] = ne
     plasma_dict["Te"] = Te
-    EQObj = EQDataExt(shot, Ext_data=True)
+    EQObj = EQDataExt(Ext_data=True)
     EQObj.insert_slices_from_ext(np.array([time]), \
                                  [EQDataSlice(time, R, z, rhop**2, Br, Bt, Bz, \
                                               Psi_ax=0.0, Psi_sep=01.0, rhop=rhop)], False)
@@ -201,7 +201,7 @@ def make_ECRadScenario_from_TB_input(shot, time, path, mat_out_name):
     plasma_dict["shot"] = shot
     plasma_dict["time"] = np.array([time])
     topfile_dict = make_mdict_from_TB_files(os.path.join(path, "topfile"), True)
-    EQObj = EQDataExt(shot)
+    EQObj = EQDataExt()
     EQObj.load_slices_from_mat(plasma_dict["time"], topfile_dict, eq_prefix=False)
     vessel_bd = np.loadtxt(os.path.join(path, "vessel_bd"), skiprows=1)
     plasma_dict["vessel_bd"] = []

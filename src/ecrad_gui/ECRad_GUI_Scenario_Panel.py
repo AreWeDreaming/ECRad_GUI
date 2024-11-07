@@ -394,7 +394,7 @@ class ScenarioSelectPanel(wx.Panel):
         self.plasma_dict["shot"] = self.shot_tc.GetValue()                   
         self.plasma_dict["IDA_exp"] = self.IDA_exp_tc.GetValue()
         self.plasma_dict["IDA_ed"] = self.IDA_ed_tc.GetValue()
-        self.plasma_dict["vessel_bd"] = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
+        self.plasma_dict["vessel_bd"] = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, "src", "ecrad_pylib", vessel_bd_file), skiprows=1)
         self.plasma_dict["prof_reference"] = "rhop_prof"
         # Set to None now, load later with user updates on shotfile info
         self.plasma_dict["eq_data_2D"] = None
@@ -723,10 +723,11 @@ class ScenarioSelectPanel(wx.Panel):
         state = omas_db_dlg.state
         omas_db_dlg.Destroy()
         if state[0]:
-            file_dlg = wx.FileDialog(self, message="Choose a .pkl or .nc file for input", \
-                            defaultDir=self.Config["Execution"]["working_dir"], \
-                            wildcard=("Matlab and Netcdf4 files (*.pkl;*.nc;*.h5)|*.pkl;*.nc;*.h5"),
-                            style=wx.FD_OPEN)
+            file_dlg = wx.FileDialog(self, message="Choose a .pkl, .nc or h5 file for input", \
+                                     defaultDir=self.Config["Execution"]["working_dir"], \
+                                     wildcard=("Pickle, Netcdf4 and HDF5 files (*.pkl;*.nc;*.h5)|*.pkl;*.nc;*.h5"),
+                                     style=wx.FD_OPEN)
+
             if(file_dlg.ShowModal() != wx.ID_OK):
                 file_dlg.Destroy()
                 return
@@ -777,6 +778,8 @@ class ScenarioSelectPanel(wx.Panel):
 
     def OnOmasLoaded(self, evt):
         ods, data_path, shot, run_id = evt.Data
+        if data_path is not None: # Loaded from file
+            shot = -1
         self.shot_tc.SetValue(shot)
         time_base_dlg = IMASTimeBaseSelectDlg(self)
         if(time_base_dlg.ShowModal() != wx.ID_OK):
@@ -789,10 +792,27 @@ class ScenarioSelectPanel(wx.Panel):
         NewScenario = ECRadScenario(True)
         NewScenario["time"] = times
         NewScenario["shot"] = shot
+        if data_path is not None:
+            
+            try:    
+                file_dlg = wx.FileDialog(self, message="Choose a .pkl, .nc or h5 file for wall info", \
+                                     defaultDir=self.Config["Execution"]["working_dir"], \
+                                     wildcard=("Pickle, Netcdf4 and HDF5 files (*.pkl;*.nc;*.h5)|*.pkl;*.nc;*.h5"),
+                                     style=wx.FD_OPEN)
+                if(file_dlg.ShowModal() != wx.ID_OK):
+                    file_dlg.Destroy()
+                    return
+                from omas import ODS
+                wall_ods = ODS()
+                wall_ods.load(file_dlg.Path, consistency_check="warn")
+                ods["wall"] = wall_ods["wall"]
+            except Exception as e:
+                print(e)
+                print("ERROR: Cannot access wall in IDS")
+                return
         NewScenario.set_up_profiles_from_omas(ods,times)
         NewScenario.set_up_equilibrium_from_omas(ods,times)
         self.SetFromNewScenario(NewScenario, data_path, id=run_id)
-        time_base_dlg.Destroy()
 
     def OnLoadIMAS(self, evt):
         import imas
@@ -997,7 +1017,7 @@ class ScenarioSelectPanel(wx.Panel):
                Scenario["AUG"]["EQ_diag"] == self.EQ_diag_tc.GetValue() and \
                Scenario["AUG"]["EQ_ed"] == self.EQ_ed_tc.GetValue()):
                 old_time_list = np.copy(Scenario["time"])
-                old_eq = EQDataExt(Scenario["shot"], Ext_data=True)
+                old_eq = EQDataExt(Ext_data=True)
                 for time in old_time_list:
                     old_eq.insert_slices_from_ext(
                             [time], [Scenario["plasma"]["eq_data_2D"].GetSlice(time)])
