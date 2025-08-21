@@ -727,6 +727,7 @@ class ScenarioSelectPanel(wx.Panel):
                                      defaultDir=self.Config["Execution"]["working_dir"], \
                                      wildcard=("Pickle, Netcdf4 and HDF5 files (*.pkl;*.nc;*.h5)|*.pkl;*.nc;*.h5"),
                                      style=wx.FD_OPEN)
+
             if(file_dlg.ShowModal() != wx.ID_OK):
                 file_dlg.Destroy()
                 return
@@ -742,7 +743,7 @@ class ScenarioSelectPanel(wx.Panel):
         file_path = args[0]
         ods.load(file_path, consistency_check="warn")
         evt_out = GenerticEvt(Unbound_OMAS_LOAD_FINISHED, self.GetId())
-        evt_out.insertData([ods, file_path, None, None])
+        evt_out.insertData([ods, file_path, -1, -1])
         wx.PostEvent(self, evt_out)
 
     def load_omas_from_db(self, args):
@@ -787,6 +788,7 @@ class ScenarioSelectPanel(wx.Panel):
         time_base_source = time_base_dlg.choice
         time_base_dlg.Destroy()
         times = ods[time_base_source]['time']
+        print(f"Loading times: {times}")
         NewScenario = ECRadScenario(True)
         NewScenario["time"] = times
         NewScenario["shot"] = shot
@@ -1015,7 +1017,7 @@ class ScenarioSelectPanel(wx.Panel):
                Scenario["AUG"]["EQ_diag"] == self.EQ_diag_tc.GetValue() and \
                Scenario["AUG"]["EQ_ed"] == self.EQ_ed_tc.GetValue()):
                 old_time_list = np.copy(Scenario["time"])
-                old_eq = EQDataExt(Scenario["shot"], Ext_data=True)
+                old_eq = EQDataExt(Ext_data=True)
                 for time in old_time_list:
                     old_eq.insert_slices_from_ext(
                             [time], [Scenario["plasma"]["eq_data_2D"].GetSlice(time)])

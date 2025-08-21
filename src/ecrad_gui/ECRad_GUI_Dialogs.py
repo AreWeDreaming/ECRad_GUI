@@ -205,20 +205,20 @@ class OMASdbSelectDialog(wx.Dialog):
         self.widgets.append(simple_label_tc(self, "Machine", "d3d"))
         self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
                               wx.ALIGN_CENTER_VERTICAL, 5)
-        self.widgets.append(simple_label_tc(self, "shot", 194935))
+        self.widgets.append(simple_label_tc(self, "shot", 200009))
         self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
                               wx.ALIGN_CENTER_VERTICAL, 5)
         if not minimal:
             self.widgets.append(simple_label_tc(self, "EFIT Tree", "EFIT"))
             self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
                                   wx.ALIGN_CENTER_VERTICAL, 5)
-            self.widgets.append(simple_label_tc(self, "Run ID equilibrium", "03"))
+            self.widgets.append(simple_label_tc(self, "Run ID equilibrium", "01"))
             self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
                                   wx.ALIGN_CENTER_VERTICAL, 5)
             self.widgets.append(simple_label_tc(self, "Profile Tree", "OMFIT_PROFS"))
             self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
                                   wx.ALIGN_CENTER_VERTICAL, 5)
-            self.widgets.append(simple_label_tc(self, "Run ID Profiles", "002"))
+            self.widgets.append(simple_label_tc(self, "Run ID Profiles", "001"))
             self.run_id_sizer.Add(self.widgets[-1], 0, wx.ALL | 
                                   wx.ALIGN_CENTER_VERTICAL, 5)
         self.On_from_rb_db(None)
