@@ -480,6 +480,7 @@ class Main_Panel(scrolled.ScrolledPanel):
                     try:
                         filename, ed = Results.get_default_filename_and_edition(True, id=run_id)
                         NewResults = ECRadResults(False)
+                        print(f"ECRad has finished. Now trying to load results from: {filename}")
                         NewResults.from_netcdf(filename)
                         output_queue.put([True, NewResults])
                         NewResults.to_netcdf()

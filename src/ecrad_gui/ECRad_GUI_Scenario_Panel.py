@@ -1252,7 +1252,7 @@ class ScenarioSelectPanel(wx.Panel):
     def OnFill(self, evt):
         time = np.linspace(self.t_start_tc.GetValue(), self.t_end_tc.GetValue(), self.steps_tc.GetValue())
         if(len(self.unused) == 0):
-            print("No IDA time points available - load data first")
+            print("No scenario time points available - load data first")
             return
         warned = False
         IDA_timepoints = np.array(self.unused, dtype=np.double)
@@ -1287,7 +1287,7 @@ class ScenarioSelectPanel(wx.Panel):
     def OnAdd(self, evt):
         time = np.linspace(self.t_start_tc.GetValue(), self.t_end_tc.GetValue(), self.steps_tc.GetValue())
         if(len(self.unused) == 0):
-            print("No IDA time points available - load data first")
+            print("No scenario time points available - load data first")
             return
         warned = False
         Add_delta_t = np.mean(time[1:len(time)] - time[0:len(time) - 1])
@@ -1328,7 +1328,7 @@ class ScenarioSelectPanel(wx.Panel):
             elif(np.min(np.abs(used_timepoints - t)) <= self.delta_t):
                 self.unused.append(self.used.pop(np.argmin(np.abs(used_timepoints - t))))
             else:
-                print("No IDA data for t = {0:1.4f} ".format(t))
+                print("No scenario data for t = {0:1.4f} ".format(t))
                 return
             self.used = list(set(self.used))
             self.used.sort()
