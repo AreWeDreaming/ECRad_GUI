@@ -641,7 +641,7 @@ class CalibEvolutionPanel(wx.Panel):
             print("Error!!: No channel selected")
             return
         if(globalsettings.AUG):
-            from Shotfile_Handling_AUG import get_shot_heating
+            from ecrad_pylib.Shotfile_Handling_AUG import get_shot_heating
             heating_array = get_shot_heating(self.selected_result.Scenario.shot)
             for heating in heating_array:
                 heating_mask = np.logical_and(heating[0] >= np.min(self.selected_result.time[self.selected_result.masked_time_points[self.selected_diag]]), \
