@@ -33,6 +33,7 @@ import queue
 from ecrad_pylib.ECRad_F2PY_Interface import ECRadF2PYInterface
 from ecrad_gui.ECRad_GUI_PlotPanel import PlotPanel
 from subprocess import Popen
+import traceback
 ECRad_Model = False
 # Events
 
@@ -292,6 +293,7 @@ class Main_Panel(scrolled.ScrolledPanel):
             except ValueError as e:
                 print("Failed to load Scenario")
                 print("Reason: ", e)
+                raise e
                 evt = NewStatusEvt(Unbound_EVT_NEW_STATUS, self.GetId())
                 evt.SetStatus('')
                 self.GetEventHandler().ProcessEvent(evt)
@@ -494,6 +496,7 @@ class Main_Panel(scrolled.ScrolledPanel):
                     output_queue.put([True, Results])
             except Exception as e:
                 print(e)
+                print(traceback.format_exc())
                 output_queue.put([False, Results])
     
     ECRadRunner = classmethod(ECRadRunner)

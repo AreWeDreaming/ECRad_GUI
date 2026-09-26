@@ -41,29 +41,53 @@ class LaunchPanel(wx.Panel):
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.diag_config_sizer = wx.BoxSizer(wx.VERTICAL)
         self.diag_select_panel.sizer.Add(self.grid, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.diag_config_sizer.Add(self.diag_select_panel, 0, wx.ALL | wx.EXPAND, 5)
+
+        self.load_files_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Load complete launch from file
         self.load_launch_panel = wx.Panel(self, wx.ID_ANY, style=wx.SUNKEN_BORDER)
         self.load_launch_panel.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.load_launch_panel_label = wx.StaticText(self.load_launch_panel, wx.ID_ANY, "Load full diagnostics configuration")
+        self.load_launch_panel_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        self.load_launch_panel.sizer.Add(self.load_launch_panel_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
         self.load_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from ECRad result/scenario")
         self.load_from_old_button.Bind(wx.EVT_BUTTON, self.LoadLaunch)
         self.load_launch_panel.sizer.Add(self.load_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
         self.gen_ext_from_raylaunch_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Import launch from launch file")
-        self.gen_ext_from_raylaunch_button.Bind(wx.EVT_BUTTON, self.GenExtFromRaylaunch)
         self.load_launch_panel.sizer.Add(self.gen_ext_from_raylaunch_button, 1, wx.ALL | wx.EXPAND, 5)
-        self.load_from_omas_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from OMAS")
-        self.load_from_omas_button.Bind(wx.EVT_BUTTON, self.OnLoadOMAS)
-        self.load_launch_panel.sizer.Add(self.load_from_omas_button, 1, wx.ALL | wx.EXPAND, 5)
-        self.load_from_imas_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Load launch from IMAS")
-        self.load_from_imas_button.Bind(wx.EVT_BUTTON, self.OnLoadFromIMAS)
-        self.load_launch_panel.sizer.Add(self.load_from_imas_button, 1, wx.ALL | wx.EXPAND, 5)
-        self.gen_ext_from_old_button =  wx.Button(self.load_launch_panel, wx.ID_ANY, "Generate Ext launch from ECRad result")
-        self.gen_ext_from_old_button.Bind(wx.EVT_BUTTON, self.OnGenExtFromOld)
-        self.load_launch_panel.sizer.Add(self.gen_ext_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
-        self.diag_config_sizer.Add(self.diag_select_panel, 0, wx.ALL | wx.EXPAND, 5)
+        self.gen_ext_from_raylaunch_button.Bind(wx.EVT_BUTTON, self.GenExtFromRaylaunch)
         self.load_launch_panel.SetSizer(self.load_launch_panel.sizer)
+        self.load_files_sizer.Add(self.load_launch_panel, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+
+        # Load only EXT diag from file
+        self.load_ext_panel = wx.Panel(self, wx.ID_ANY, style=wx.SUNKEN_BORDER)
+        self.load_ext_panel.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.load_ext_panel_label = wx.StaticText(self.load_ext_panel, wx.ID_ANY, "Load EXT diagnostics configuration")
+        self.load_ext_panel_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        self.load_ext_panel.sizer.Add(self.load_ext_panel_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.load_from_omas_button =  wx.Button(self.load_ext_panel, wx.ID_ANY, "Load launch from OMAS")
+        self.load_from_omas_button.Bind(wx.EVT_BUTTON, self.OnLoadOMAS)
+        self.load_ext_panel.sizer.Add(self.load_from_omas_button, 1, wx.ALL | wx.EXPAND, 5)
+        self.load_from_imas_button =  wx.Button(self.load_ext_panel, wx.ID_ANY, "Load launch from IMAS")
+        self.load_from_imas_button.Bind(wx.EVT_BUTTON, self.OnLoadFromIMAS)
+        self.load_ext_panel.sizer.Add(self.load_from_imas_button, 1, wx.ALL | wx.EXPAND, 5)
+        self.gen_ext_from_old_button =  wx.Button(self.load_ext_panel, wx.ID_ANY, "Generate Ext launch from ECRad result")
+        self.gen_ext_from_old_button.Bind(wx.EVT_BUTTON, self.OnGenExtFromOld)
+        self.load_ext_panel.sizer.Add(self.gen_ext_from_old_button, 1, wx.ALL | wx.EXPAND, 5)
+        self.gen_ext_from_csv_button =  wx.Button(self.load_ext_panel, wx.ID_ANY, "Load Ext launch from file")
+        self.gen_ext_from_csv_button.Bind(wx.EVT_BUTTON, self.OnGenExtFromCsv)
+        self.load_ext_panel.sizer.Add(self.gen_ext_from_csv_button, 1, wx.ALL | wx.EXPAND, 5)
+        self.gen_ext_from_csv_label = wx.StaticText(self.load_ext_panel, wx.ID_ANY, " Any .csv, .tsv or .txt file works,\nprovided it have the following columns:\nch (or channel or chan or ID), freq (or f),\nR1, z1, R2, z2")
+        self.load_ext_panel.sizer.Add(self.gen_ext_from_csv_label, 1, wx.ALL | wx.EXPAND, 5)
+        self.load_ext_panel.SetSizer(self.load_ext_panel.sizer)
+        self.load_files_sizer.Add(self.load_ext_panel, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+
+
         self.Notebook.Spawn_Pages(Scenario["avail_diags_dict"])
         self.diag_config_sizer.Add(self.Notebook, 0, wx.ALL | wx.LEFT, 5)
         self.sizer.Add(self.diag_config_sizer,0, wx.EXPAND | wx.ALL,5)
-        self.sizer.Add(self.load_launch_panel,1, wx.TOP | wx.ALL,5)
+        self.sizer.Add(self.load_files_sizer,1, wx.TOP | wx.ALL,5)
         self.SetSizer(self.sizer)
         self.new_data_available = False
 
@@ -114,7 +138,7 @@ class LaunchPanel(wx.Panel):
                     return Scenario
                 del(Get_ECRH_Config) # Need to destroy this here otherwise we cause an incompatability with libece
             elif(diag_key in ["ECN", "ECO", "ECI"]):
-                from Shotfile_Handling_AUG import get_ECI_launch
+                from ecrad_pylib.Shotfile_Handling_AUG import get_ECI_launch
                 ECI_dict = get_ECI_launch(Scenario["used_diags_dict"][diag_key], Scenario["shot"])
         # Prepare the launches for each time point
         # Some diagnostics have steerable LOS, hence each time point has an individual launch
@@ -302,6 +326,21 @@ class LaunchPanel(wx.Panel):
                 itime = timepoint_dlg.itime
             newExtDiag.set_from_scenario_diagnostic(NewSceario["diagnostic"], itime, set_only_EXT=False)
             NewSceario["avail_diags_dict"].update({"EXT":  newExtDiag})
+            curScenario = self.GetCurScenario()
+            curScenario["avail_diags_dict"].update({"EXT":  newExtDiag})
+            curScenario["used_diags_dict"].update({"EXT":  newExtDiag})
+            self.SetScenario(curScenario, self.working_dir) 
+
+    def OnGenExtFromCsv(self, evt):
+        dlg = wx.FileDialog(\
+            self, message="Choose a file with channels geometry", \
+            defaultDir=self.working_dir, \
+            wildcard=("All supported files (*.csv;*.tsv;*.txt)|*.csv;*.tsv;*.txt"),
+            style=wx.FD_OPEN)
+        if(dlg.ShowModal() == wx.ID_OK):
+            path = dlg.GetPath()
+            newExtDiag = EXT_diag("EXT")
+            newExtDiag.set_from_csv(path)
             curScenario = self.GetCurScenario()
             curScenario["avail_diags_dict"].update({"EXT":  newExtDiag})
             curScenario["used_diags_dict"].update({"EXT":  newExtDiag})

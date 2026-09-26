@@ -389,12 +389,12 @@ class ScenarioSelectPanel(wx.Panel):
             self.plasma_dict = load_IDA_data(self.shot_tc.GetValue(), None, self.IDA_exp_tc.GetValue(), \
                                              self.IDA_ed_tc.GetValue())
         except AttributeError as e:
-            print("ERROR:: No access to AUG shotfile system")
+            print("ERROR:: No access to AUG shotfile system, " + e.with_traceback())
             return
         self.plasma_dict["shot"] = self.shot_tc.GetValue()                   
         self.plasma_dict["IDA_exp"] = self.IDA_exp_tc.GetValue()
         self.plasma_dict["IDA_ed"] = self.IDA_ed_tc.GetValue()
-        self.plasma_dict["vessel_bd"] = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, "src", "ecrad_pylib", vessel_bd_file), skiprows=1)
+        self.plasma_dict["vessel_bd"] = np.loadtxt(os.path.join(globalsettings.ECRadPylibRoot, vessel_bd_file), skiprows=1)
         self.plasma_dict["prof_reference"] = "rhop_prof"
         # Set to None now, load later with user updates on shotfile info
         self.plasma_dict["eq_data_2D"] = None
